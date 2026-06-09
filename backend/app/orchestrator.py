@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from .avatar import AvatarCue, emotion_to_avatar
 from .config import Settings
 from .db import Database
 from .domain import EmotionState, MemoryType, Message, Persona, Relationship
@@ -11,7 +12,9 @@ from .emotion import EmotionEngine
 from .llm import LLMProvider
 from .memory import MemoryStore
 from .persona import build_system_prompt, default_persona
-from .safety import check_safety
+from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .voice import TTSProvider
+from .voice.base import TTSResult
 
 
 @dataclass
@@ -19,9 +22,12 @@ class ChatResult:
     reply: str
     emotion: EmotionState
     relationship: Relationship
+    avatar: AvatarCue
     retrieved_memories: list[str]
     is_crisis: bool
     llm: str
+    safety_category: str | None = None
+    tts: TTSResult | None = None
 
 
 class Orchestrator:
@@ -33,6 +39,7 @@ class Orchestrator:
         llm: LLMProvider,
         settings: Settings,
         persona: Persona | None = None,
+        tts: TTSProvider | None = None,
     ) -> None:
         self._db = db
         self._memory = memory
@@ -40,6 +47,7 @@ class Orchestrator:
         self._llm = llm
         self._s = settings
         self._persona = persona or default_persona()
+        self._tts = tts
 
     @property
     def persona(self) -> Persona:
@@ -63,21 +71,26 @@ class Orchestrator:
             Message(session_id=session_id, role="user", content=user_text, created_at=now)
         )
 
-        # [2] 安全前置：危机检测优先于一切
-        safety = check_safety(user_text)
-        if safety.is_crisis:
+        # [2] 安全前置：危机/未成年人内容分级/隐私防诱导，优先于一切
+        safety = check_safety(user_text, audience=self._s.audience)
+        if safety.is_blocked:
             reply = safety.safe_response or ""
             self._db.add_message(
                 Message(session_id=session_id, role="assistant", content=reply, created_at=time.time())
             )
-            # 危机事件作为高重要度记忆留存
-            self._memory.add(
-                user_id, f"ta 表达了强烈的负面/危机情绪：{user_text}",
-                mem_type=MemoryType.EPISODIC, importance=10.0,
-            )
+            if safety.is_crisis:
+                # 危机事件作为高重要度记忆留存
+                self._memory.add(
+                    user_id, f"ta 表达了强烈的负面/危机情绪：{user_text}",
+                    mem_type=MemoryType.EPISODIC, importance=10.0,
+                )
+            avatar = emotion_to_avatar(emotion, is_crisis=safety.is_crisis)
             return ChatResult(
                 reply=reply, emotion=emotion, relationship=relationship,
-                retrieved_memories=[], is_crisis=True, llm="safety",
+                avatar=avatar, retrieved_memories=[], is_crisis=safety.is_crisis,
+                llm="safety",
+                safety_category=safety.category.value if safety.category else None,
+                tts=self._maybe_tts(reply),
             )
 
         # [3] 记忆检索
@@ -87,8 +100,11 @@ class Orchestrator:
         emotion, sentiment_for_log = self._emotion_engine.appraise(emotion, user_text)
         relationship = self._emotion_engine.update_relationship(relationship, sentiment_for_log)
 
-        # [5] 构建提示并生成
-        system_prompt = build_system_prompt(self._persona, emotion, relationship, retrieved)
+        # [5] 构建提示并生成（未成年人受众注入守护守则）
+        guard = minor_guard_prompt() if self._s.audience == "minor" else ""
+        system_prompt = build_system_prompt(
+            self._persona, emotion, relationship, retrieved, guard_prompt=guard
+        )
         history = [
             {"role": m.role, "content": m.content}
             for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
@@ -106,11 +122,21 @@ class Orchestrator:
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         self._maybe_reflect(user_id)
 
+        # [7] 数字人表情 + 可选 TTS
+        avatar = emotion_to_avatar(emotion, is_crisis=False)
+
         return ChatResult(
             reply=reply, emotion=emotion, relationship=relationship,
-            retrieved_memories=[m.content for m in retrieved],
-            is_crisis=False, llm=self._llm.name,
+            avatar=avatar, retrieved_memories=[m.content for m in retrieved],
+            is_crisis=False, llm=self._llm.name, safety_category=None,
+            tts=self._maybe_tts(reply),
         )
+
+    def _maybe_tts(self, text: str) -> TTSResult | None:
+        """按配置在 chat 响应内联 TTS（嵌入游戏时通常关闭，改用 /api/tts 按需取）。"""
+        if self._tts is None or not self._s.chat_include_tts:
+            return None
+        return self._tts.synthesize(text)
 
     @staticmethod
     def _estimate_importance(text: str, sentiment: float) -> float:

@@ -78,6 +78,16 @@
       </div>
     </div>
     <div class="panel">
+      <h3>数字人</h3>
+      <div style="text-align:center; margin-bottom:18px;">
+        <div id="face" style="width:96px;height:96px;border-radius:50%;margin:0 auto;
+             background:linear-gradient(135deg,#b07cc6,#e0a8d8);display:flex;align-items:center;
+             justify-content:center;font-size:48px;transition:transform .3s;">🙂</div>
+        <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:8px;">平静 · idle</div>
+        <label style="font-size:12px;color:#8a7d96;display:block;margin-top:10px;cursor:pointer;">
+          <input type="checkbox" id="voiceToggle" /> 语音朗读 (TTS)
+        </label>
+      </div>
       <h3>内在状态</h3>
       <div class="stat">
         <div class="k">当前情绪</div>
@@ -114,6 +124,10 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    const EXPR_EMOJI = {
+      "微笑": "😊", "大笑": "😄", "难过": "😢", "担心": "😟", "惊讶": "😮", "平静": "🙂"
+    };
+
     function updatePanel(data) {
       document.getElementById("emotionLabel").textContent = data.emotion.label;
       document.getElementById("pleasureBar").style.width = ((data.emotion.pleasure + 1) / 2 * 100) + "%";
@@ -126,6 +140,27 @@
       } else {
         memList.innerHTML = '<li style="color:#aaa;">暂无</li>';
       }
+      // 数字人表情随情绪变化
+      if (data.avatar) {
+        const face = document.getElementById("face");
+        face.textContent = EXPR_EMOJI[data.avatar.expression] || "🙂";
+        face.style.transform = "scale(" + (1 + (data.avatar.intensity || 0) * 0.25) + ")";
+        document.getElementById("faceExpr").textContent =
+          data.avatar.expression + " · " + data.avatar.animation;
+      }
+    }
+
+    async function maybeSpeak(text) {
+      if (!document.getElementById("voiceToggle").checked) return;
+      try {
+        const r = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+        const data = await r.json();
+        const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
+        audio.play().catch(() => {});
+      } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
     }
 
     async function loadPersona() {
@@ -154,6 +189,7 @@
         const data = await r.json();
         addMessage(data.reply, "npc", data.is_crisis);
         updatePanel(data);
+        maybeSpeak(data.reply);
       } catch (e) {
         addMessage("（网络出错了…）", "npc");
       } finally {

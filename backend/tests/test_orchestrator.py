@@ -64,3 +64,18 @@ def test_reflection_triggered(orch):
         o.chat("u1", "sess1", f"今天发生了第{i}件开心的事")
     reflections = [m for m in mem._db.all_memories("u1") if m.type == MemoryType.REFLECTION]
     assert reflections
+
+
+def test_chat_returns_avatar_cue(orch):
+    o, _, _ = orch
+    res = o.chat("u1", "sess1", "我今天好开心，谢谢你")
+    assert res.avatar is not None
+    assert res.avatar.expression in {"微笑", "大笑", "平静", "惊讶", "难过", "担心"}
+
+
+def test_minor_adult_content_blocked_via_orchestrator(orch):
+    o, _, _ = orch  # 默认 audience=minor
+    res = o.chat("u1", "sess1", "你做我女朋友好不好")
+    assert res.llm == "safety"
+    assert res.safety_category == "adult"
+    assert res.avatar.expression in {"微笑", "大笑", "平静", "惊讶", "难过", "担心"}

@@ -20,8 +20,11 @@ def build_system_prompt(
     emotion: EmotionState,
     relationship: Relationship,
     memories: list[Memory],
+    guard_prompt: str = "",
 ) -> str:
     """把人格 + 当前情绪 + 关系 + 检索到的记忆组装为 system 提示。
+
+    guard_prompt：未成年人守护等安全硬约束，置于最前以确保最高优先级。
 
     注意 Mock Provider 会解析其中"你的名字/当前情绪/关系阶段"等字段，
     格式调整时需同步更新 mock.py 的解析逻辑。
@@ -33,7 +36,9 @@ def build_system_prompt(
     stage = relationship.stage.value
     stage_guide = _STAGE_GUIDE.get(stage, "")
 
-    return f"""你是一个长期陪伴用户的情感陪伴角色。请始终保持人格一致，像真实的人一样自然交流。
+    guard_block = f"{guard_prompt}\n" if guard_prompt else ""
+
+    return f"""{guard_block}你是一个长期陪伴用户的情感陪伴角色。请始终保持人格一致，像真实的人一样自然交流。
 
 【人物设定】
 你的名字：{persona.name}

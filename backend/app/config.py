@@ -25,6 +25,23 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 256
 
+    # 语音 provider：mock | openai_compatible（base_url 可指向自托管语音服务）
+    tts_provider: str = "mock"
+    stt_provider: str = "mock"
+    voice_base_url: str = "https://api.openai.com/v1"
+    voice_api_key: str = ""
+    tts_model: str = "tts-1"
+    tts_voice: str = "alloy"
+    stt_model: str = "whisper-1"
+    # 是否在 /api/chat 响应中内联 TTS 音频（嵌入游戏时可关以省带宽，改用 /api/tts 按需取）
+    chat_include_tts: bool = False
+
+    # 受众：minor（未成年人，默认强化安全）| general
+    audience: str = "minor"
+
+    # 部署模式：standalone（自带 Web UI）| embedded（仅 API，供游戏调用）
+    deployment_mode: str = "standalone"
+
     # 持久化：SQLite 文件路径
     db_path: str = "agirl.db"
 

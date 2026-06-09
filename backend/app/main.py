@@ -14,6 +14,7 @@ from .llm import build_llm_provider
 from .memory import MemoryStore, build_embedding_provider
 from .orchestrator import Orchestrator
 from .schemas import (
+    AvatarOut,
     ChatRequest,
     ChatResponse,
     EmotionOut,
@@ -21,7 +22,12 @@ from .schemas import (
     PersonaOut,
     RelationshipOut,
     StateResponse,
+    SttRequest,
+    SttResponse,
+    TtsOut,
+    TtsRequest,
 )
+from .voice import build_stt_provider, build_tts_provider
 
 settings = get_settings()
 _db = Database(settings.db_path)
@@ -29,9 +35,11 @@ _embedder = build_embedding_provider(settings)
 _memory = MemoryStore(_db, _embedder, settings)
 _emotion_engine = EmotionEngine()
 _llm = build_llm_provider(settings)
-_orchestrator = Orchestrator(_db, _memory, _emotion_engine, _llm, settings)
+_tts = build_tts_provider(settings)
+_stt = build_stt_provider(settings)
+_orchestrator = Orchestrator(_db, _memory, _emotion_engine, _llm, settings, tts=_tts)
 
-app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.1.0")
+app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.2.0")
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -44,9 +52,26 @@ def _relationship_out(r) -> RelationshipOut:
     return RelationshipOut(affinity=r.affinity, stage=r.stage.value)
 
 
+def _avatar_out(a) -> AvatarOut:
+    return AvatarOut(expression=a.expression, intensity=a.intensity, animation=a.animation)
+
+
+def _tts_out(t) -> TtsOut | None:
+    if t is None:
+        return None
+    return TtsOut(
+        audio_base64=t.audio_base64, format=t.format,
+        duration_ms=t.duration_ms, provider=t.provider,
+    )
+
+
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "llm": _llm.name, "embedding": settings.embedding_provider}
+    return {
+        "status": "ok", "llm": _llm.name, "embedding": settings.embedding_provider,
+        "tts": _tts.name, "stt": _stt.name,
+        "audience": settings.audience, "deployment_mode": settings.deployment_mode,
+    }
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -57,10 +82,25 @@ def chat(req: ChatRequest) -> ChatResponse:
         reply=result.reply,
         emotion=_emotion_out(result.emotion),
         relationship=_relationship_out(result.relationship),
+        avatar=_avatar_out(result.avatar),
         retrieved_memories=result.retrieved_memories,
         is_crisis=result.is_crisis,
+        safety_category=result.safety_category,
         llm=result.llm,
+        tts=_tts_out(result.tts),
     )
+
+
+@app.post("/api/tts", response_model=TtsOut)
+def tts(req: TtsRequest) -> TtsOut:
+    result = _tts.synthesize(req.text, voice=req.voice)
+    return _tts_out(result)
+
+
+@app.post("/api/stt", response_model=SttResponse)
+def stt(req: SttRequest) -> SttResponse:
+    text = _stt.transcribe(req.audio_base64, fmt=req.format)
+    return SttResponse(text=text, provider=_stt.name)
 
 
 @app.get("/api/state/{user_id}", response_model=StateResponse)

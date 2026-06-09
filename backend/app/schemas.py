@@ -22,13 +22,44 @@ class RelationshipOut(BaseModel):
     stage: str
 
 
+class AvatarOut(BaseModel):
+    expression: str
+    intensity: float
+    animation: str
+
+
+class TtsOut(BaseModel):
+    audio_base64: str
+    format: str
+    duration_ms: int
+    provider: str
+
+
 class ChatResponse(BaseModel):
     reply: str
     emotion: EmotionOut
     relationship: RelationshipOut
+    avatar: AvatarOut
     retrieved_memories: list[str]
     is_crisis: bool
+    safety_category: str | None = None
     llm: str
+    tts: TtsOut | None = None
+
+
+class TtsRequest(BaseModel):
+    text: str = Field(..., min_length=1)
+    voice: str | None = None
+
+
+class SttRequest(BaseModel):
+    audio_base64: str = Field(..., description="base64 编码的音频")
+    format: str = Field("wav", description="音频格式")
+
+
+class SttResponse(BaseModel):
+    text: str
+    provider: str
 
 
 class StateResponse(BaseModel):
