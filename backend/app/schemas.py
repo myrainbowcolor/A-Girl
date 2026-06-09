@@ -26,6 +26,7 @@ class AvatarOut(BaseModel):
     expression: str
     intensity: float
     animation: str
+    live2d_params: dict[str, float] = {}
 
 
 class TtsOut(BaseModel):
@@ -33,6 +34,7 @@ class TtsOut(BaseModel):
     format: str
     duration_ms: int
     provider: str
+    lipsync: list[dict] = []
 
 
 class ChatResponse(BaseModel):
@@ -60,6 +62,15 @@ class SttRequest(BaseModel):
 class SttResponse(BaseModel):
     text: str
     provider: str
+
+
+class ProactiveResponse(BaseModel):
+    should_reach_out: bool
+    trigger: str | None = None
+    reason: str | None = None
+    message: str | None = None
+    avatar: AvatarOut | None = None
+    tts: TtsOut | None = None
 
 
 class StateResponse(BaseModel):

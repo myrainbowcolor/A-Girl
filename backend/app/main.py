@@ -20,6 +20,7 @@ from .schemas import (
     EmotionOut,
     MemoryOut,
     PersonaOut,
+    ProactiveResponse,
     RelationshipOut,
     StateResponse,
     SttRequest,
@@ -27,6 +28,7 @@ from .schemas import (
     TtsOut,
     TtsRequest,
 )
+from .scheduler import ProactiveScheduler
 from .voice import build_stt_provider, build_tts_provider
 
 settings = get_settings()
@@ -53,7 +55,10 @@ def _relationship_out(r) -> RelationshipOut:
 
 
 def _avatar_out(a) -> AvatarOut:
-    return AvatarOut(expression=a.expression, intensity=a.intensity, animation=a.animation)
+    return AvatarOut(
+        expression=a.expression, intensity=a.intensity, animation=a.animation,
+        live2d_params=a.live2d_params(),
+    )
 
 
 def _tts_out(t) -> TtsOut | None:
@@ -61,7 +66,7 @@ def _tts_out(t) -> TtsOut | None:
         return None
     return TtsOut(
         audio_base64=t.audio_base64, format=t.format,
-        duration_ms=t.duration_ms, provider=t.provider,
+        duration_ms=t.duration_ms, provider=t.provider, lipsync=t.lipsync,
     )
 
 
@@ -101,6 +106,42 @@ def tts(req: TtsRequest) -> TtsOut:
 def stt(req: SttRequest) -> SttResponse:
     text = _stt.transcribe(req.audio_base64, fmt=req.format)
     return SttResponse(text=text, provider=_stt.name)
+
+
+@app.get("/api/proactive/{user_id}", response_model=ProactiveResponse)
+def proactive(user_id: str) -> ProactiveResponse:
+    """评估是否该主动关心；若是则投递（标记事件已触发、刷新互动时间）。"""
+    result, avatar = _orchestrator.deliver_proactive(user_id)
+    if not result.should_reach_out:
+        return ProactiveResponse(should_reach_out=False)
+    tts = _tts.synthesize(result.message) if settings.chat_include_tts and result.message else None
+    return ProactiveResponse(
+        should_reach_out=True,
+        trigger=result.trigger,
+        reason=result.reason,
+        message=result.message,
+        avatar=_avatar_out(avatar) if avatar else None,
+        tts=_tts_out(tts),
+    )
+
+
+_scheduler = ProactiveScheduler(_db, _orchestrator, settings)
+
+
+@app.on_event("startup")
+def _on_startup() -> None:
+    _scheduler.start()
+
+
+@app.on_event("shutdown")
+def _on_shutdown() -> None:
+    _scheduler.stop()
+
+
+@app.get("/api/proactive/outbox/{user_id}")
+def proactive_outbox(user_id: str) -> list[dict]:
+    """读取后台调度器投递到内存收件箱的主动消息（嵌入游戏可轮询）。"""
+    return _scheduler.drain(user_id)
 
 
 @app.get("/api/state/{user_id}", response_model=StateResponse)

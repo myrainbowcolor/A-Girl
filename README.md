@@ -31,29 +31,57 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8011
 
 无需任何 API Key 即可运行（默认 mock LLM + 哈希 embedding）。
 
-### 接入真实大模型
+### 接入真实大模型 / 语音（OpenAI 或自托管）
 
-设置环境变量（支持 OpenAI / DeepSeek / 通义千问兼容模式 / 智谱等）：
+填环境变量即切换，`base_url` 可指向自托管服务（vLLM/Ollama/TGI 等）：
 
 ```bash
+# LLM
 export AGIRL_LLM_PROVIDER=openai_compatible
-export AGIRL_LLM_BASE_URL=https://api.deepseek.com/v1
+export AGIRL_LLM_BASE_URL=https://api.openai.com/v1     # 自托管改为你的地址
 export AGIRL_LLM_API_KEY=sk-xxx
-export AGIRL_LLM_MODEL=deepseek-chat
+export AGIRL_LLM_MODEL=gpt-4o-mini
+# 语音 TTS/STT
+export AGIRL_TTS_PROVIDER=openai_compatible
+export AGIRL_STT_PROVIDER=openai_compatible
+export AGIRL_VOICE_BASE_URL=https://api.openai.com/v1
+export AGIRL_VOICE_API_KEY=sk-xxx
 ```
+
+无 Key 时本地验证可用桩服务：`python -m uvicorn examples.openai_stub_server:app --port 9000`，再把上面 `*_BASE_URL` 指向 `http://127.0.0.1:9000/v1`。
+
+### 主动关心
+
+NPC 会在事件到点（生日/面试/考试）、上次情绪低落、长时间未互动时主动发起。客户端轮询：
+
+```bash
+curl http://127.0.0.1:8011/api/proactive/<user_id>
+```
+
+后台调度器（可选）：`export AGIRL_PROACTIVE_SCHEDULER_ENABLED=true`，再轮询 `/api/proactive/outbox/<user_id>`。
+
+### 数字人与口型同步
+
+`/api/chat` 响应含 `avatar`（表情/动作 + Live2D 参数）；`/api/tts` 返回 `lipsync` 口型轨迹。独立前端用 SVG 数字人演示口型同步，嵌入游戏用 Live2D 参数 + lipsync 驱动。
 
 ## 测试
 
 ```bash
 cd backend
 python -m pytest
+# 数字人口型同步的无头浏览器确定性验证（需先启动服务）
+pip install -r requirements-dev.txt && python -m playwright install chromium
+python scripts/verify_lipsync.py
 ```
 
 ## API
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/chat` | 发送消息，返回回复 + 情绪/关系/回忆 |
+| POST | `/api/chat` | 发送消息，返回回复 + 情绪/关系/回忆 + 数字人表情 |
+| POST | `/api/tts` | 文本转语音（含口型轨迹 lipsync） |
+| POST | `/api/stt` | 语音转文本 |
+| GET | `/api/proactive/{user_id}` | 主动关心检查/投递 |
 | GET | `/api/state/{user_id}` | 查询情绪与关系状态 |
 | GET | `/api/memory/{user_id}` | 查询记忆列表 |
 | GET | `/api/persona` | 查询当前人设 |

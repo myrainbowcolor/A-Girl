@@ -12,6 +12,7 @@ import io
 import struct
 
 from .base import STTProvider, TTSProvider, TTSResult
+from .lipsync import generate_lipsync
 
 _SAMPLE_RATE = 16000
 _MS_PER_CHAR = 140  # 估算每字朗读时长
@@ -45,6 +46,7 @@ class MockTTSProvider(TTSProvider):
             format="wav",
             duration_ms=duration_ms,
             provider=self.name,
+            lipsync=generate_lipsync(text, duration_ms),
         )
 
 

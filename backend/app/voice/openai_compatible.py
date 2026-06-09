@@ -10,6 +10,7 @@ import base64
 import httpx
 
 from .base import STTProvider, TTSProvider, TTSResult
+from .lipsync import generate_lipsync
 
 _MS_PER_CHAR = 140
 
@@ -38,11 +39,13 @@ class OpenAICompatibleTTSProvider(TTSProvider):
             resp = client.post(f"{self._base_url}/audio/speech", json=payload, headers=headers)
             resp.raise_for_status()
             audio = resp.content
+        duration_ms = max(300, len(text) * _MS_PER_CHAR)
         return TTSResult(
             audio_base64=base64.b64encode(audio).decode("ascii"),
             format="wav",
-            duration_ms=max(300, len(text) * _MS_PER_CHAR),
+            duration_ms=duration_ms,
             provider=self.name,
+            lipsync=generate_lipsync(text, duration_ms),
         )
 
 

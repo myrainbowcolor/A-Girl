@@ -80,12 +80,21 @@
     <div class="panel">
       <h3>数字人</h3>
       <div style="text-align:center; margin-bottom:18px;">
-        <div id="face" style="width:96px;height:96px;border-radius:50%;margin:0 auto;
-             background:linear-gradient(135deg,#b07cc6,#e0a8d8);display:flex;align-items:center;
-             justify-content:center;font-size:48px;transition:transform .3s;">🙂</div>
-        <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:8px;">平静 · idle</div>
-        <label style="font-size:12px;color:#8a7d96;display:block;margin-top:10px;cursor:pointer;">
-          <input type="checkbox" id="voiceToggle" /> 语音朗读 (TTS)
+        <svg id="face" width="140" height="150" viewBox="0 0 200 210" style="display:block;margin:0 auto;">
+          <ellipse cx="100" cy="105" rx="78" ry="88" fill="#fde6f3" stroke="#e0a8d8" stroke-width="3"/>
+          <path d="M40 70 Q60 40 92 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
+          <path d="M160 70 Q140 40 108 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
+          <g id="browL"><line x1="58" y1="74" x2="86" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
+          <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
+          <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <ellipse cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <ellipse cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <path id="mouth" d="" fill="#c0506e"/>
+        </svg>
+        <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
+        <label style="font-size:12px;color:#8a7d96;display:block;margin-top:8px;cursor:pointer;">
+          <input type="checkbox" id="voiceToggle" checked /> 语音朗读 + 口型同步
         </label>
       </div>
       <h3>内在状态</h3>
@@ -124,9 +133,61 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    const EXPR_EMOJI = {
-      "微笑": "😊", "大笑": "😄", "难过": "😢", "担心": "😟", "惊讶": "😮", "平静": "🙂"
+    // expression -> 数字人面部参数（与后端 Live2D 预设对应）
+    const EXPR_FACE = {
+      "微笑": { form: 0.8, brow: 0.2, eye: 1.0 },
+      "大笑": { form: 1.0, brow: 0.4, eye: 0.7 },
+      "难过": { form: -0.7, brow: -0.5, eye: 0.65 },
+      "担心": { form: -0.35, brow: -0.7, eye: 1.0 },
+      "惊讶": { form: 0.0, brow: 0.7, eye: 1.15 },
+      "平静": { form: 0.15, brow: 0.0, eye: 1.0 }
     };
+    let currentExpr = "平静";
+
+    function setFace(expr, mouthOpen) {
+      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      mouthOpen = mouthOpen || 0;
+      // 眼睛开合
+      const ry = 12 * f.eye;
+      document.getElementById("eyeL").setAttribute("ry", ry);
+      document.getElementById("eyeR").setAttribute("ry", ry);
+      // 眉毛升降
+      const browDy = -f.brow * 6;
+      document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
+      document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
+      // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
+      const cx = 100, w = 30, midY = 148;
+      const cornerY = midY - f.form * 10;       // 嘴角相对中点上扬(笑)或下撇
+      const upperMidY = midY - mouthOpen * 28;   // 上唇中点
+      const lowerMidY = midY + mouthOpen * 28;   // 下唇中点
+      const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
+              + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
+      const mouth = document.getElementById("mouth");
+      mouth.setAttribute("d", d);
+      // 张口露出口腔深色，闭口为唇色
+      mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
+    }
+    setFace("平静", 0);
+
+    let lipsyncRAF = null;
+    function playLipsync(track) {
+      if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
+      if (!track || !track.length) { setFace(currentExpr, 0); return; }
+      const start = performance.now();
+      function step(nowT) {
+        const t = nowT - start;
+        // 找到当前时间对应的关键帧（线性查找，轨迹很短）
+        let v = 0;
+        for (let i = 0; i < track.length; i++) {
+          if (track[i].t <= t) v = track[i].v; else break;
+        }
+        const last = track[track.length - 1].t;
+        setFace(currentExpr, v);
+        if (t < last) lipsyncRAF = requestAnimationFrame(step);
+        else setFace(currentExpr, 0);
+      }
+      lipsyncRAF = requestAnimationFrame(step);
+    }
 
     function updatePanel(data) {
       document.getElementById("emotionLabel").textContent = data.emotion.label;
@@ -142,9 +203,8 @@
       }
       // 数字人表情随情绪变化
       if (data.avatar) {
-        const face = document.getElementById("face");
-        face.textContent = EXPR_EMOJI[data.avatar.expression] || "🙂";
-        face.style.transform = "scale(" + (1 + (data.avatar.intensity || 0) * 0.25) + ")";
+        currentExpr = data.avatar.expression;
+        setFace(currentExpr, 0);
         document.getElementById("faceExpr").textContent =
           data.avatar.expression + " · " + data.avatar.animation;
       }
@@ -160,6 +220,7 @@
         const data = await r.json();
         const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
         audio.play().catch(() => {});
+        playLipsync(data.lipsync);   // 口型同步动画
       } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
     }
 

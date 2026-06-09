@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # 部署模式：standalone（自带 Web UI）| embedded（仅 API，供游戏调用）
     deployment_mode: str = "standalone"
 
+    # 主动关心调度
+    proactive_idle_seconds: int = 6 * 3600        # 闲置多久后主动问候
+    proactive_event_window_seconds: int = 86400   # 事件到点前后多久内触发
+    proactive_scheduler_enabled: bool = False     # 是否启用后台轮询调度
+    proactive_scheduler_interval_seconds: int = 60
+
     # 持久化：SQLite 文件路径
     db_path: str = "agirl.db"
 

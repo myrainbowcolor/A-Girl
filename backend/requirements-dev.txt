@@ -1,0 +1,5 @@
+# 开发/验证用依赖（非运行时必需）
+-r requirements.txt
+# 用于 scripts/verify_lipsync.py 对数字人口型同步做无头浏览器确定性验证：
+#   pip install -r requirements-dev.txt && python -m playwright install chromium
+playwright==1.60.0

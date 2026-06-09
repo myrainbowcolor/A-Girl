@@ -98,3 +98,23 @@ class Message:
     sentiment: float = 0.0  # -1~1
     created_at: float = 0.0
     id: Optional[int] = None
+
+
+@dataclass
+class UserMeta:
+    """用于主动关心的轻量元信息。"""
+    user_id: str
+    last_interaction_at: float = 0.0
+    last_sentiment: float = 0.0
+
+
+@dataclass
+class Event:
+    """重要事件（用于事件触发的主动关心），如生日/面试/考试。"""
+    user_id: str
+    kind: str          # birthday | interview | exam | other
+    label: str         # 原始描述
+    trigger_at: float  # 触发时间戳
+    created_at: float = 0.0
+    fired: bool = False
+    id: Optional[int] = None

@@ -7,11 +7,12 @@ from dataclasses import dataclass
 from .avatar import AvatarCue, emotion_to_avatar
 from .config import Settings
 from .db import Database
-from .domain import EmotionState, MemoryType, Message, Persona, Relationship
+from .domain import EmotionState, MemoryType, Message, Persona, Relationship, UserMeta
 from .emotion import EmotionEngine
 from .llm import LLMProvider
 from .memory import MemoryStore
 from .persona import build_system_prompt, default_persona
+from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
 from .voice import TTSProvider
 from .voice.base import TTSResult
@@ -48,10 +49,16 @@ class Orchestrator:
         self._s = settings
         self._persona = persona or default_persona()
         self._tts = tts
+        self._proactivity = ProactivityEngine(db, settings, self._persona)
 
     @property
     def persona(self) -> Persona:
         return self._persona
+
+    def _record_interaction(self, user_id: str, now: float, sentiment: float) -> None:
+        self._db.save_user_meta(
+            UserMeta(user_id=user_id, last_interaction_at=now, last_sentiment=sentiment)
+        )
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
         emotion = self._db.get_emotion(user_id) or EmotionState()
@@ -84,6 +91,10 @@ class Orchestrator:
                     user_id, f"ta 表达了强烈的负面/危机情绪：{user_text}",
                     mem_type=MemoryType.EPISODIC, importance=10.0,
                 )
+            # 危机记为极低情绪以便后续主动关心；其他拦截记中性
+            self._record_interaction(
+                user_id, time.time(), -1.0 if safety.is_crisis else 0.0
+            )
             avatar = emotion_to_avatar(emotion, is_crisis=safety.is_crisis)
             return ChatResult(
                 reply=reply, emotion=emotion, relationship=relationship,
@@ -122,6 +133,12 @@ class Orchestrator:
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         self._maybe_reflect(user_id)
 
+        # 记录互动元信息 + 抽取重要事件（供主动关心）
+        self._record_interaction(user_id, time.time(), sentiment_for_log)
+        for ev in extract_events(user_text, time.time()):
+            ev.user_id = user_id
+            self._db.add_event(ev)
+
         # [7] 数字人表情 + 可选 TTS
         avatar = emotion_to_avatar(emotion, is_crisis=False)
 
@@ -137,6 +154,37 @@ class Orchestrator:
         if self._tts is None or not self._s.chat_include_tts:
             return None
         return self._tts.synthesize(text)
+
+    # ---------- 主动关心 ----------
+    def check_proactive(self, user_id: str, now: float | None = None) -> ProactiveResult:
+        return self._proactivity.check(user_id, now)
+
+    def deliver_proactive(self, user_id: str, now: float | None = None):
+        """评估并"投递"一条主动消息：标记事件已触发、刷新互动时间，返回结果与表情。
+
+        返回 (ProactiveResult, AvatarCue|None)。should_reach_out=False 时 avatar 为 None。
+        """
+        result = self._proactivity.check(user_id, now)
+        if not result.should_reach_out:
+            return result, None
+
+        # 主动消息也记入对话历史，并刷新互动时间，避免反复触发
+        ts = now or time.time()
+        session_id = f"sess-{user_id}"
+        self._db.add_message(
+            Message(session_id=session_id, role="assistant", content=result.message or "", created_at=ts)
+        )
+        if result.event_id is not None:
+            self._db.mark_event_fired(result.event_id)
+        meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
+        self._db.save_user_meta(
+            UserMeta(user_id=user_id, last_interaction_at=ts, last_sentiment=meta.last_sentiment)
+        )
+
+        emotion, _ = self._load_state(user_id)
+        expr_map = {"event": False, "idle": False, "emotion": True}
+        avatar = emotion_to_avatar(emotion, is_crisis=expr_map.get(result.trigger, False))
+        return result, avatar
 
     @staticmethod
     def _estimate_importance(text: str, sentiment: float) -> float:
