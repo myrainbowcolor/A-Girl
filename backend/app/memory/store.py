@@ -62,7 +62,13 @@ class MemoryStore:
             scored.append((score, m))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        top = [m for _, m in scored[:top_k]]
+        filtered: list[tuple[float, Memory]] = []
+        for score, m in scored:
+            relevance = cosine_similarity(query_vec, m.embedding)
+            if relevance < self._s.memory_min_relevance:
+                continue
+            filtered.append((score, m))
+        top = [m for _, m in filtered[:top_k]]
         for m in top:
             if m.id is not None:
                 self._db.touch_memory(m.id, now)

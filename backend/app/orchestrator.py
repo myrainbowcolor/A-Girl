@@ -11,6 +11,7 @@ from .domain import EmotionState, MemoryType, Message, Persona, Relationship, Us
 from .emotion import EmotionEngine
 from .llm import LLMProvider
 from .memory import MemoryStore
+from .memory_honesty import enforce_memory_honesty
 from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
@@ -127,6 +128,8 @@ class Orchestrator:
             for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
         ]
         reply = self._llm.generate(system_prompt, history)
+        user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
+        reply = enforce_memory_honesty(reply, retrieved, user_texts)
 
         # [6] 状态后处理：持久化情绪/关系、记录回复、沉淀记忆、触发反思
         self._db.save_emotion(user_id, emotion, time.time())

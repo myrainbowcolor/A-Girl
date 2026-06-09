@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # 反思触发：每累计 N 条新记忆触发一次反思
     reflection_every_n_memories: int = 8
 
+    # 记忆检索：最低相关度（哈希 embedding 下过滤弱相关，减少误召回）
+    memory_min_relevance: float = 0.12
+
     # 近期对话注入轮数
     recent_messages_window: int = 8
 

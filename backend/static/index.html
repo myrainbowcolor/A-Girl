@@ -140,7 +140,14 @@
   </div>
 
   <script>
-    const userId = "demo-user";
+    const userId = (() => {
+      let id = localStorage.getItem("agirl-user-id");
+      if (!id) {
+        id = "user-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now());
+        localStorage.setItem("agirl-user-id", id);
+      }
+      return id;
+    })();
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("send");
