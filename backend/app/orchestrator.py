@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import Any
 
 from .avatar import AvatarCue, emotion_to_avatar
 from .config import Settings
@@ -159,6 +161,146 @@ class Orchestrator:
             is_crisis=False, llm=self._llm.name, safety_category=None,
             tts=self._maybe_tts(reply, emotion, is_crisis=False),
         )
+
+    def chat_stream(
+        self, user_id: str, session_id: str, user_text: str
+    ) -> Iterator[dict[str, Any]]:
+        """流式对话：yield meta → token* → done（含最终校正后全文）。"""
+        now = time.time()
+        emotion, relationship = self._load_state(user_id)
+        self._db.add_message(
+            Message(session_id=session_id, role="user", content=user_text, created_at=now)
+        )
+
+        safety = check_safety(user_text, audience=self._s.audience)
+        if safety.is_blocked:
+            if self._audit and safety.category:
+                self._audit.log_safety_event(user_id, safety.category.value, user_text)
+            reply = safety.safe_response or ""
+            self._db.add_message(
+                Message(session_id=session_id, role="assistant", content=reply, created_at=time.time())
+            )
+            if safety.is_crisis:
+                self._memory.add(
+                    user_id, f"ta 表达了强烈的负面/危机情绪：{user_text}",
+                    mem_type=MemoryType.EPISODIC, importance=10.0,
+                )
+            self._record_interaction(user_id, time.time(), -1.0 if safety.is_crisis else 0.0)
+            avatar = emotion_to_avatar(emotion, is_crisis=safety.is_crisis)
+            yield self._stream_meta(emotion, relationship, avatar, [], safety.is_crisis)
+            yield {"type": "token", "text": reply}
+            yield self._stream_done(
+                reply, emotion, relationship, avatar, [], safety.is_crisis, "safety", None
+            )
+            return
+
+        retrieved = self._memory.retrieve(user_id, user_text)
+        emotion, sentiment_for_log = self._emotion_engine.appraise(emotion, user_text)
+        relationship = self._emotion_engine.update_relationship(relationship, sentiment_for_log)
+
+        guard = minor_guard_prompt() if self._s.audience == "minor" else ""
+        system_prompt = build_system_prompt(
+            self._persona, emotion, relationship, retrieved, guard_prompt=guard
+        )
+        history = [
+            {"role": m.role, "content": m.content}
+            for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
+        ]
+        user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
+        avatar = emotion_to_avatar(
+            emotion, is_crisis=False, user_sentiment=sentiment_for_log
+        )
+
+        yield self._stream_meta(
+            emotion,
+            relationship,
+            avatar,
+            [m.content for m in retrieved],
+            False,
+        )
+
+        parts: list[str] = []
+        for piece in self._llm.generate_stream(system_prompt, history):
+            parts.append(piece)
+            yield {"type": "token", "text": piece}
+
+        reply = enforce_memory_honesty("".join(parts), retrieved, user_texts)
+
+        self._db.save_emotion(user_id, emotion, time.time())
+        self._db.save_relationship(user_id, relationship, time.time())
+        self._db.add_message(
+            Message(session_id=session_id, role="assistant", content=reply, created_at=time.time())
+        )
+        importance = self._estimate_importance(user_text, sentiment_for_log)
+        self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
+        self._maybe_reflect(user_id)
+        self._record_interaction(user_id, time.time(), sentiment_for_log)
+        for ev in extract_events(user_text, time.time()):
+            ev.user_id = user_id
+            self._db.add_event(ev)
+
+        yield self._stream_done(
+            reply, emotion, relationship, avatar,
+            [m.content for m in retrieved], False, self._llm.name, None,
+        )
+
+    @staticmethod
+    def _stream_meta(
+        emotion: EmotionState,
+        relationship: Relationship,
+        avatar: AvatarCue,
+        memories: list[str],
+        is_crisis: bool,
+    ) -> dict[str, Any]:
+        return {
+            "type": "meta",
+            "emotion": {
+                "pleasure": emotion.pleasure,
+                "arousal": emotion.arousal,
+                "dominance": emotion.dominance,
+                "label": emotion.label(),
+            },
+            "relationship": {"affinity": relationship.affinity, "stage": relationship.stage.value},
+            "avatar": {
+                "expression": avatar.expression,
+                "intensity": avatar.intensity,
+                "animation": avatar.animation,
+            },
+            "retrieved_memories": memories,
+            "is_crisis": is_crisis,
+        }
+
+    @staticmethod
+    def _stream_done(
+        reply: str,
+        emotion: EmotionState,
+        relationship: Relationship,
+        avatar: AvatarCue,
+        memories: list[str],
+        is_crisis: bool,
+        llm: str,
+        safety_category: str | None,
+    ) -> dict[str, Any]:
+        return {
+            "type": "done",
+            "reply": reply,
+            "emotion": {
+                "pleasure": emotion.pleasure,
+                "arousal": emotion.arousal,
+                "dominance": emotion.dominance,
+                "label": emotion.label(),
+            },
+            "relationship": {"affinity": relationship.affinity, "stage": relationship.stage.value},
+            "avatar": {
+                "expression": avatar.expression,
+                "intensity": avatar.intensity,
+                "animation": avatar.animation,
+            },
+            "retrieved_memories": memories,
+            "is_crisis": is_crisis,
+            "llm": llm,
+            "safety_category": safety_category,
+        }
 
     def _maybe_tts(
         self, text: str, emotion: EmotionState, is_crisis: bool = False

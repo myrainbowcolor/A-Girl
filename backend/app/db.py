@@ -118,6 +118,13 @@ class Database:
             for r in rows
         ]
 
+    def has_chat_history(self, user_id: str) -> bool:
+        cur = self._conn.execute(
+            "SELECT 1 FROM messages WHERE session_id=? LIMIT 1",
+            (f"sess-{user_id}",),
+        )
+        return cur.fetchone() is not None
+
     # ---------- memories ----------
     def add_memory(self, mem: Memory) -> Memory:
         with self._lock:

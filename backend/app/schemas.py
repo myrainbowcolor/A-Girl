@@ -85,6 +85,8 @@ class ProactiveResponse(BaseModel):
     reason: str | None = None
     message: str | None = None
     avatar: AvatarOut | None = None
+    emotion: EmotionOut | None = None
+    relationship: RelationshipOut | None = None
     tts: TtsOut | None = None
 
 

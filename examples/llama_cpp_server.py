@@ -1,24 +1,12 @@
-"""本机 Llama3 OpenAI 兼容服务（Cloud Agent / 无 Ollama 时用 llama-cpp-python）。
-
-Ollama 在部分容器环境会 segfault，此服务直接加载 GGUF 推理。
-
-运行：
-    pip install llama-cpp-python
-    export LLAMA_GGUF_PATH=/path/to/model.gguf
-    python -m uvicorn examples.llama_cpp_server:app --host 127.0.0.1 --port 11435
-
-A-Girl 配置（backend/.env）：
-    AGIRL_LLM_PROVIDER=openai_compatible
-    AGIRL_LLM_BASE_URL=http://127.0.0.1:11435/v1
-    AGIRL_LLM_API_KEY=local
-    AGIRL_LLM_MODEL=llama3
-"""
+"""本机 Llama3 OpenAI 兼容服务（Cloud Agent / 无 Ollama 时用 llama-cpp-python）。"""
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 
 app = FastAPI(title="Llama.cpp OpenAI Compatible Server")
 
@@ -35,9 +23,7 @@ def _llm():
     from llama_cpp import Llama
 
     if not os.path.isfile(_DEFAULT_GGUF):
-        raise FileNotFoundError(
-            f"GGUF 不存在: {_DEFAULT_GGUF}。请设置 LLAMA_GGUF_PATH 或 ollama pull llama3"
-        )
+        raise FileNotFoundError(f"GGUF 不存在: {_DEFAULT_GGUF}")
     return Llama(model_path=_DEFAULT_GGUF, n_ctx=_CTX, n_threads=_THREADS, verbose=False)
 
 
@@ -46,12 +32,45 @@ def health() -> dict:
     return {"status": "ok", "gguf": _DEFAULT_GGUF, "exists": os.path.isfile(_DEFAULT_GGUF)}
 
 
+def _chunk(content: str, model: str) -> str:
+    payload = {
+        "id": "llama-cpp-chunk",
+        "object": "chat.completion.chunk",
+        "model": model,
+        "choices": [{"index": 0, "delta": {"content": content}, "finish_reason": None}],
+    }
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
 @app.post("/v1/chat/completions")
-async def chat_completions(req: Request) -> dict:
+async def chat_completions(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
     temperature = float(body.get("temperature", 0.8))
+    model = body.get("model", "llama3")
+    stream = bool(body.get("stream"))
     llm = _llm()
+
+    if stream:
+
+        def gen():
+            for chunk in llm.create_chat_completion(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=int(body.get("max_tokens", 256)),
+                stream=True,
+            ):
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                piece = delta.get("content")
+                if piece:
+                    yield _chunk(piece, model)
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
     result = llm.create_chat_completion(
         messages=messages,
         temperature=temperature,
@@ -61,7 +80,7 @@ async def chat_completions(req: Request) -> dict:
     return {
         "id": "llama-cpp-1",
         "object": "chat.completion",
-        "model": body.get("model", "llama3"),
+        "model": model,
         "choices": [
             {
                 "index": 0,

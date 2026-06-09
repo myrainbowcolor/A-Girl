@@ -85,20 +85,30 @@ class ProactivityEngine:
                     True, "event", f"重要事件到点：{ev.label}", msg, event_id=ev.id
                 )
 
+        # 2) 首次来访：尚无对话记录 → 主动问候
+        if not self._db.has_chat_history(user_id):
+            name = self._persona.name
+            return ProactiveResult(
+                True,
+                "welcome",
+                "首次来访",
+                f"嗨，我是{name}~ 今天想聊点什么？我会慢慢听你说。",
+            )
+
         meta = self._db.get_user_meta(user_id)
         if not meta or meta.last_interaction_at <= 0:
             return ProactiveResult(False)
 
         idle = now - meta.last_interaction_at
 
-        # 2) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
+        # 3) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
                 "上次你好像有点不开心，我一直挂念着，现在感觉好点了吗？"
             )
 
-        # 3) 时间触发：长时间未互动
+        # 4) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
             return ProactiveResult(

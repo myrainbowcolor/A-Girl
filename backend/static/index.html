@@ -223,31 +223,59 @@
       removeTyping();
       isReplying = true;
       sendBtn.disabled = true;
-      showTyping("小语在想…");
+      const bubble = addMessage("", "npc");
       try {
-        const r = await fetch("/api/chat", {
+        const r = await fetch("/api/chat/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: userId, message: combined })
         });
-        removeTyping();
         if (r.status === 403) {
+          bubble.remove();
           showAgeGate();
           addMessage("（请先完成年龄确认，我才能陪你聊天~）", "npc");
           return;
         }
         if (!r.ok) {
+          bubble.remove();
           addMessage("（服务异常 HTTP " + r.status + "，请刷新后重试）", "npc");
           return;
         }
-        const data = await r.json();
-        addMessage(data.reply, "npc", data.is_crisis);
-        updatePanel(data);
-        maybeSpeak(data.reply);
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+          for (const block of blocks) {
+            for (const line of block.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "meta") {
+                updatePanel(ev);
+                if (ev.is_crisis) bubble.classList.add("crisis");
+              } else if (ev.type === "token") {
+                bubble.textContent += ev.text;
+                scrollToBottom();
+              } else if (ev.type === "done") {
+                bubble.textContent = ev.reply;
+                updatePanel(ev);
+                scrollToBottom();
+                maybeSpeak(ev.reply);
+              } else if (ev.type === "error") {
+                throw new Error(ev.message || "stream error");
+              }
+            }
+          }
+        }
+        if (!bubble.textContent) bubble.textContent = "…";
       } catch (e) {
-        removeTyping();
+        if (bubble.parentNode && !bubble.textContent) bubble.remove();
         setConnStatus(false, "无法连接后端");
-        addMessage("（无法连接后端 API。请确认地址是 http://127.0.0.1:8011/ 且端口已转发，或在本机启动服务后刷新）", "npc");
+        addMessage("（无法连接后端 API 或流式中断，请刷新后重试）", "npc");
       } finally {
         isReplying = false;
         sendBtn.disabled = false;
@@ -420,9 +448,39 @@
         document.getElementById("ageGate").style.display = "none";
         addMessage("（已完成年龄确认，我会用适合你的方式陪你聊天~）", "npc");
         subscribeProactive();
+        tryProactiveWelcome();
       } else {
         document.getElementById("ageErr").textContent = d.reason || "确认失败";
       }
+    }
+
+    async function streamNpcMessage(text, panelData) {
+      const bubble = addMessage("", "npc");
+      if (panelData && panelData.is_crisis) bubble.classList.add("crisis");
+      for (let i = 0; i < text.length; i += 1) {
+        bubble.textContent += text[i];
+        scrollToBottom();
+        await new Promise(res => setTimeout(res, 18));
+      }
+      if (panelData) updatePanel(panelData);
+      maybeSpeak(text);
+    }
+
+    async function tryProactiveWelcome() {
+      if (sessionStorage.getItem("agirl-welcomed-" + userId)) return;
+      try {
+        const r = await fetch("/api/proactive/" + encodeURIComponent(userId), { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.should_reach_out && d.message) {
+          sessionStorage.setItem("agirl-welcomed-" + userId, "1");
+          const panel = {
+            emotion: d.emotion, relationship: d.relationship,
+            avatar: d.avatar, retrieved_memories: []
+          };
+          await streamNpcMessage(d.message, panel);
+        }
+      } catch (_) {}
     }
 
     // ── 主动关心 SSE 订阅 ──
@@ -433,9 +491,9 @@
           try {
             const item = JSON.parse(ev.data);
             if (item && item.message) {
-              addMessage("💜 " + item.message, "npc");
-              if (item.avatar) { currentExpr = item.avatar.expression; setFace(currentExpr, 0, 0); }
-              maybeSpeak(item.message);
+              streamNpcMessage("💜 " + item.message, {
+                avatar: item.avatar, emotion: null, relationship: null
+              });
             }
           } catch (_) {}
         };
@@ -450,7 +508,10 @@
         if (!r.ok) throw new Error("consent " + r.status);
         const s = await r.json();
         if (s.required && !s.has_consent) showAgeGate();
-        else subscribeProactive();
+        else {
+          subscribeProactive();
+          await tryProactiveWelcome();
+        }
       } catch (e) {
         setConnStatus(false, "后端未连接");
         addMessage("（页面已打开，但未连上后端。Cursor 用户：检查 Ports 里 8011 是否 Forwarded；或在本机运行 uvicorn 后刷新）", "npc");
@@ -470,6 +531,7 @@
     document.getElementById("resetIdentity").addEventListener("click", () => {
       if (confirm("清除本地身份并重新开始？\n\n将分配新 ID，不再使用旧记忆（需重新确认年龄）。")) {
         localStorage.removeItem("agirl-user-id");
+        sessionStorage.removeItem("agirl-welcomed-" + userId);
         location.reload();
       }
     });

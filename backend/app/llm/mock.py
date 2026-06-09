@@ -126,3 +126,10 @@ class MockLLMProvider(LLMProvider):
             "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
         }
         return lines.get(stage, lines["陌生"])
+
+    def generate_stream(
+        self, system_prompt: str, messages: list[dict], temperature: float = 0.8
+    ):
+        text = self.generate(system_prompt, messages, temperature=temperature)
+        for i in range(0, len(text), 2):
+            yield text[i : i + 2]

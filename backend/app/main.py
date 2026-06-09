@@ -111,6 +111,28 @@ def chat(req: ChatRequest) -> ChatResponse:
     )
 
 
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatRequest) -> StreamingResponse:
+    """SSE 流式对话：event 顺序 meta → token* → done。"""
+    if not _age_gate.has_consent(req.user_id):
+        raise HTTPException(status_code=403, detail="age_gate_required")
+    session_id = req.session_id or f"sess-{req.user_id}"
+
+    def event_gen():
+        try:
+            for item in _orchestrator.chat_stream(req.user_id, session_id, req.message):
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            err = {"type": "error", "message": str(exc)}
+            yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/tts", response_model=TtsOut)
 def tts(req: TtsRequest) -> TtsOut:
     style = None
@@ -136,6 +158,7 @@ def proactive(user_id: str) -> ProactiveResponse:
     result, avatar = _orchestrator.deliver_proactive(user_id)
     if not result.should_reach_out:
         return ProactiveResponse(should_reach_out=False)
+    emotion, relationship = _orchestrator.get_state(user_id)
     tts = _tts.synthesize(result.message) if settings.chat_include_tts and result.message else None
     return ProactiveResponse(
         should_reach_out=True,
@@ -143,6 +166,8 @@ def proactive(user_id: str) -> ProactiveResponse:
         reason=result.reason,
         message=result.message,
         avatar=_avatar_out(avatar) if avatar else None,
+        emotion=_emotion_out(emotion),
+        relationship=_relationship_out(relationship),
         tts=_tts_out(tts),
     )
 
