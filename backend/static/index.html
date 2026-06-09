@@ -247,15 +247,27 @@
       } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
     }
 
+    function setConnStatus(ok, detail) {
+      const sub = document.getElementById("npcSub");
+      sub.textContent = ok ? detail : ("连接异常 · " + detail);
+      sub.style.color = ok ? "" : "#d05a6e";
+    }
+
+    async function checkBackend() {
+      const r = await fetch("/health", { cache: "no-store" });
+      if (!r.ok) throw new Error("health " + r.status);
+      return r.json();
+    }
+
     async function loadPersona() {
-      try {
-        const r = await fetch("/api/persona");
-        const p = await r.json();
-        document.getElementById("npcName").textContent = p.name;
-        document.getElementById("npcSub").textContent = p.backstory.slice(0, 18) + "…";
-        document.getElementById("avatar").textContent = p.name[0];
-        document.getElementById("npcName").dataset.name = p.name;
-      } catch (e) { document.getElementById("npcSub").textContent = "在线"; }
+      const r = await fetch("/api/persona", { cache: "no-store" });
+      if (!r.ok) throw new Error("persona " + r.status);
+      const p = await r.json();
+      document.getElementById("npcName").textContent = p.name;
+      document.getElementById("npcSub").textContent = p.backstory.slice(0, 18) + "…";
+      document.getElementById("avatar").textContent = p.name[0];
+      document.getElementById("npcName").dataset.name = p.name;
+      document.getElementById("npcSub").style.color = "";
     }
 
     async function send() {
@@ -270,13 +282,22 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: userId, message: text })
         });
-        if (r.status === 403) { showAgeGate(); sendBtn.disabled = false; return; }
+        if (r.status === 403) {
+          showAgeGate();
+          addMessage("（请先完成年龄确认，我才能陪你聊天~）", "npc");
+          return;
+        }
+        if (!r.ok) {
+          addMessage("（服务异常 HTTP " + r.status + "，请刷新后重试）", "npc");
+          return;
+        }
         const data = await r.json();
         addMessage(data.reply, "npc", data.is_crisis);
         updatePanel(data);
         maybeSpeak(data.reply);
       } catch (e) {
-        addMessage("（网络出错了…）", "npc");
+        setConnStatus(false, "无法连接后端");
+        addMessage("（无法连接后端 API。请确认地址是 http://127.0.0.1:8011/ 且端口已转发，或在本机启动服务后刷新）", "npc");
       } finally {
         sendBtn.disabled = false;
         inputEl.focus();
@@ -320,11 +341,18 @@
     }
 
     async function init() {
-      await loadPersona();
-      const r = await fetch("/api/consent/" + encodeURIComponent(userId));
-      const s = await r.json();
-      if (s.required && !s.has_consent) showAgeGate();
-      else subscribeProactive();
+      try {
+        await checkBackend();
+        await loadPersona();
+        const r = await fetch("/api/consent/" + encodeURIComponent(userId), { cache: "no-store" });
+        if (!r.ok) throw new Error("consent " + r.status);
+        const s = await r.json();
+        if (s.required && !s.has_consent) showAgeGate();
+        else subscribeProactive();
+      } catch (e) {
+        setConnStatus(false, "后端未连接");
+        addMessage("（页面已打开，但未连上后端。Cursor 用户：检查 Ports 里 8011 是否 Forwarded；或在本机运行 uvicorn 后刷新）", "npc");
+      }
     }
 
     sendBtn.addEventListener("click", send);
