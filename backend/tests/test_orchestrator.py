@@ -73,6 +73,14 @@ def test_chat_returns_avatar_cue(orch):
     assert res.avatar.expression in {"微笑", "大笑", "平静", "惊讶", "难过", "担心"}
 
 
+def test_empathetic_reply_when_user_frustrated(orch):
+    o, _, _ = orch
+    res = o.chat("u1", "sess1", "我很烦")
+    assert "我听到你说" not in res.reply
+    assert res.avatar.animation == "comfort"
+    assert res.avatar.expression == "担心"
+
+
 def test_minor_adult_content_blocked_via_orchestrator(orch):
     o, _, _ = orch  # 默认 audience=minor
     res = o.chat("u1", "sess1", "你做我女朋友好不好")

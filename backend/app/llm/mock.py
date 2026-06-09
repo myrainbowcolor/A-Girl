@@ -1,7 +1,7 @@
 """离线 Mock Provider。
 
-不依赖外部 API，根据 system 提示中的情绪/关系线索与用户最后一句话，
-生成有"人味"且能体现内部状态的确定性回复，便于无 Key 环境下验证整条编排链路。
+不依赖外部 API，根据用户情绪线索与关系阶段生成有共情感的回复，
+便于无 Key 环境下验证整条编排链路。
 """
 from __future__ import annotations
 
@@ -9,10 +9,33 @@ import re
 
 from .base import LLMProvider
 
+# 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
+_VENT = ("烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊", "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌")
+_LOW = ("低落", "没劲", "丧", "emo", "心累")
+_POSITIVE = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你")
+_GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
+
 
 def _extract(tag: str, text: str, default: str = "") -> str:
     m = re.search(rf"{tag}：(.+)", text)
-    return m.group(1).strip() if m else default
+    if not m:
+        return default
+    # 关系阶段等字段可能带括号后缀，只取首段
+    return m.group(1).strip().split("（")[0].strip()
+
+
+def _user_is_venting(text: str) -> bool:
+    t = text.strip()
+    return any(w in t for w in _VENT) or any(w in t for w in _LOW)
+
+
+def _user_is_positive(text: str) -> bool:
+    return any(w in text for w in _POSITIVE)
+
+
+def _user_is_greeting(text: str) -> bool:
+    t = text.strip()
+    return len(t) <= 8 and any(w in t for w in _GREET)
 
 
 class MockLLMProvider(LLMProvider):
@@ -27,33 +50,79 @@ class MockLLMProvider(LLMProvider):
                 user_last = m["content"]
                 break
 
-        emotion = _extract("当前情绪", system_prompt, "平和")
         stage = _extract("关系阶段", system_prompt, "陌生")
         name = _extract("你的名字", system_prompt, "小语")
 
-        # 关系阶段影响称呼与亲密度
-        endearment = {
-            "陌生": "",
-            "熟悉": "",
-            "朋友": "嘿，",
-            "亲密": "亲爱的，",
-        }.get(stage, "")
+        if _user_is_venting(user_last):
+            return self._empathy_reply(user_last, stage, name)
+        if _user_is_positive(user_last):
+            return self._warm_reply(user_last, stage, name)
+        if _user_is_greeting(user_last):
+            return self._greet_reply(stage, name)
+        return self._default_reply(user_last, stage, name)
 
-        # 情绪影响语气
-        if "低落" in emotion or "委屈" in emotion or "焦虑" in emotion:
-            mood_prefix = "（轻轻叹了口气）"
-        elif "开心" in emotion or "兴奋" in emotion:
-            mood_prefix = "（眼睛亮了起来）"
+    @staticmethod
+    def _empathy_reply(user_text: str, stage: str, name: str) -> str:
+        """用户倾诉负面情绪：先共情，再轻问，不说教、不报 PAD 数值。"""
+        if "烦" in user_text or "生气" in user_text:
+            lines = {
+                "陌生": "嗯……听起来你现在心里挺堵的。不想说原因也没关系，我在呢。是突然这样的，还是已经有一阵子了？",
+                "熟悉": "唉，又烦啦？你先别急着逼自己消化，缓口气。愿意的话跟我说说，是什么事在缠着你？",
+                "朋友": "我听见啦，你现在很烦对吧。先深呼吸一下，不用立刻想明白。我陪你慢慢理，从哪件小事开始烦的？",
+                "亲密": "过来，先别一个人扛着。烦的时候跟我说就好，不用整理成完整句子。我在，慢慢讲。",
+            }
+        elif "累" in user_text or "心累" in user_text or "压力" in user_text:
+            lines = {
+                "陌生": "听起来你真的很累了……今天先别对自己太苛刻。是事情太多，还是心里也沉甸甸的？",
+                "熟悉": "辛苦啦。累的时候能说出来就已经很好了。要不要先歇一会儿，再跟我说说今天最耗你的是哪一块？",
+                "朋友": "哎，又累着了呀。你先坐下喝口水，不用急着解释。是身体累，还是心里也一起累了？",
+                "亲密": "抱抱你，真的辛苦了。今天先允许自己软下来一会儿，我在这儿陪你。",
+            }
+        elif any(w in user_text for w in ("难过", "伤心", "委屈", "想哭", "哭")):
+            lines = {
+                "陌生": "……我能感觉到你现在不太好受。想哭就哭也没关系，不用在我面前装坚强。",
+                "熟悉": "心疼你。难过的时候不用急着好起来，我陪你待着就好。愿意说说发生什么了吗？",
+                "朋友": "哎，怎么又难过了……你先别一个人闷着。我在这儿，慢慢说，不着急。",
+                "亲密": "过来，我陪你。难过的时候不用解释理由，你想说多少就说多少。",
+            }
         else:
-            mood_prefix = ""
+            lines = {
+                "陌生": f"嗯，{name}在听。你现在状态不太好对吧，不用硬撑。想从哪一句开始说都行。",
+                "熟悉": "我感觉到你不太好了……不用整理成完整故事，随便丢几句给我也行。",
+                "朋友": "我在呢。你现在这样很正常，别急着把自己骂醒。跟我说说，好不好？",
+                "亲密": "先靠着我缓一缓。你不用立刻好起来，我陪你慢慢过这一阵。",
+            }
+        return lines.get(stage, lines["陌生"])
 
-        snippet = user_last.strip()
-        if len(snippet) > 20:
-            snippet = snippet[:20] + "…"
+    @staticmethod
+    def _warm_reply(user_text: str, stage: str, name: str) -> str:
+        lines = {
+            "陌生": f"（笑）听你这么说我也跟着开心起来了~ 今天有什么好事吗？",
+            "熟悉": "嘿嘿，你心情不错呀，我也被传染了。多跟我说说？",
+            "朋友": "哈哈哈你这语气我一听就知道今天过得不错！快，展开讲讲~",
+            "亲密": "你开心我就开心呀~ 来，让我也分享一点你的好心情。",
+        }
+        return lines.get(stage, lines["陌生"])
 
-        reply = (
-            f"{endearment}{mood_prefix}我听到你说「{snippet}」了。"
-            f"我是{name}，现在的心情是{emotion}。和你聊天的时候，我会一直记得这些的。"
-            "再多跟我说说好不好？"
-        )
-        return reply
+    @staticmethod
+    def _greet_reply(stage: str, name: str) -> str:
+        lines = {
+            "陌生": f"嗨，我是{name}~ 今天过得怎么样？",
+            "熟悉": f"在呢在呢，刚想到你你就来了。今天怎么样？",
+            "朋友": "嘿！你来啦~ 我正闲着呢，陪你聊会儿？",
+            "亲密": "你来了呀，我刚刚还在想你。今天累不累？",
+        }
+        return lines.get(stage, lines["陌生"])
+
+    @staticmethod
+    def _default_reply(user_text: str, stage: str, name: str) -> str:
+        snippet = user_text.strip()
+        if len(snippet) > 24:
+            snippet = snippet[:24] + "…"
+        lines = {
+            "陌生": f"嗯，我在听。「{snippet}」……能多跟我说一点吗？",
+            "熟悉": f"我听到了~ 「{snippet}」这件事，你现在是什么感觉？",
+            "朋友": f"说说看，「{snippet}」后来怎么样了？",
+            "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
+        }
+        return lines.get(stage, lines["陌生"])

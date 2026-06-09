@@ -146,7 +146,9 @@ class Orchestrator:
             self._db.add_event(ev)
 
         # [7] 数字人表情 + 可选 TTS
-        avatar = emotion_to_avatar(emotion, is_crisis=False)
+        avatar = emotion_to_avatar(
+            emotion, is_crisis=False, user_sentiment=sentiment_for_log
+        )
 
         return ChatResult(
             reply=reply, emotion=emotion, relationship=relationship,

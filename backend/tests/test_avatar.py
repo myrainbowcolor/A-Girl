@@ -27,3 +27,9 @@ def test_crisis_overrides_to_worried_comfort():
 def test_intensity_in_range():
     cue = emotion_to_avatar(EmotionState(pleasure=0.5, arousal=0.5))
     assert 0.0 <= cue.intensity <= 1.0
+
+
+def test_avatar_comfort_when_user_distressed():
+    cue = emotion_to_avatar(EmotionState(pleasure=-0.2, arousal=0.3), user_sentiment=-1.0)
+    assert cue.expression == "担心"
+    assert cue.animation == "comfort"
