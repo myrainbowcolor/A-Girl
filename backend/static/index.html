@@ -13,14 +13,15 @@
     body {
       margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: linear-gradient(160deg, #f4ecf7, #e8dff0); color: var(--text);
-      height: 100vh; display: flex; align-items: center; justify-content: center;
+      height: 100vh; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
     }
     .app {
-      width: 920px; max-width: 96vw; height: 88vh; background: var(--panel);
+      width: 920px; max-width: 96vw; height: 88vh; max-height: 88vh; background: var(--panel);
       border-radius: 20px; box-shadow: 0 20px 60px rgba(120, 80, 150, 0.18);
       display: grid; grid-template-columns: 1fr 280px; overflow: hidden;
     }
-    .chat { display: flex; flex-direction: column; min-width: 0; }
+    .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
     .chat-header {
       padding: 16px 20px; border-bottom: 1px solid #eee; display: flex;
       align-items: center; gap: 12px;
@@ -33,23 +34,29 @@
     }
     .chat-header .name { font-weight: 600; font-size: 16px; }
     .chat-header .sub { font-size: 12px; color: var(--muted); }
-    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .messages {
+      flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+      overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    }
     .msg { max-width: 72%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
     .msg.user { align-self: flex-end; background: var(--user); border-bottom-right-radius: 4px; }
     .msg.npc { align-self: flex-start; background: var(--npc); border-bottom-left-radius: 4px; }
     .msg.crisis { background: #ffe2e2; border: 1px solid #ffb3b3; }
-    .composer { display: flex; gap: 10px; padding: 16px; border-top: 1px solid #eee; }
-    .composer input {
+    .composer { display: flex; gap: 10px; padding: 16px; border-top: 1px solid #eee; flex-shrink: 0; align-items: flex-end; }
+    .composer textarea {
       flex: 1; padding: 12px 14px; border: 1px solid #e0d4ea; border-radius: 12px;
-      font-size: 14px; outline: none;
+      font-size: 14px; outline: none; resize: none; min-height: 44px; max-height: 120px;
+      font-family: inherit; line-height: 1.5;
     }
-    .composer input:focus { border-color: var(--accent); }
+    .composer textarea:focus { border-color: var(--accent); }
     .composer button {
       padding: 0 22px; border: none; border-radius: 12px; background: var(--accent);
       color: #fff; font-size: 14px; cursor: pointer; transition: background .2s;
     }
     .composer button:hover { background: var(--accent-dark); }
-    .composer button:disabled { opacity: .5; cursor: not-allowed; }
+    .msg.typing { color: var(--muted); font-style: italic; }
+    .composer-hint { font-size: 11px; color: #aaa; padding: 0 16px 10px; flex-shrink: 0; }
     .panel { background: #faf6fc; border-left: 1px solid #efe6f5; padding: 20px; overflow-y: auto; }
     .panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); letter-spacing: 1px; }
     .stat { margin-bottom: 18px; }
@@ -92,8 +99,9 @@
         </div>
       </div>
       <div class="messages" id="messages"></div>
+      <div class="composer-hint">连发多条会先合并，停 2 秒后再回复 · Shift+Enter 换行</div>
       <div class="composer">
-        <input id="input" type="text" placeholder="和 ta 说点什么…" autocomplete="off" />
+        <textarea id="input" rows="2" placeholder="和 ta 说点什么…（想说几句就停一下，小语会等你说完）"></textarea>
         <button id="send">发送</button>
       </div>
     </div>
@@ -165,12 +173,112 @@
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("send");
 
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      });
+    }
+
     function addMessage(text, who, crisis) {
       const div = document.createElement("div");
       div.className = "msg " + (who === "user" ? "user" : "npc") + (crisis ? " crisis" : "");
       div.textContent = text;
       messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      scrollToBottom();
+      return div;
+    }
+
+    let typingEl = null;
+    function showTyping(label) {
+      removeTyping();
+      typingEl = addMessage(label, "npc");
+      typingEl.classList.add("typing");
+    }
+    function removeTyping() {
+      if (typingEl) { typingEl.remove(); typingEl = null; }
+    }
+
+    // 合并连发：停 COMPOSE_MS 后再一次性请求，避免每句都打断
+    const COMPOSE_MS = 2000;
+    let pendingTexts = [];
+    let composeTimer = null;
+    let isReplying = false;
+
+    function scheduleFlush() {
+      if (composeTimer) clearTimeout(composeTimer);
+      showTyping("小语在听…");
+      composeTimer = setTimeout(flushPending, COMPOSE_MS);
+    }
+
+    function queueUserMessage(text) {
+      pendingTexts.push(text);
+      scheduleFlush();
+    }
+
+    async function flushPending() {
+      composeTimer = null;
+      if (!pendingTexts.length || isReplying) return;
+      const combined = pendingTexts.join("\n");
+      pendingTexts = [];
+      removeTyping();
+      isReplying = true;
+      sendBtn.disabled = true;
+      showTyping("小语在想…");
+      try {
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, message: combined })
+        });
+        removeTyping();
+        if (r.status === 403) {
+          showAgeGate();
+          addMessage("（请先完成年龄确认，我才能陪你聊天~）", "npc");
+          return;
+        }
+        if (!r.ok) {
+          addMessage("（服务异常 HTTP " + r.status + "，请刷新后重试）", "npc");
+          return;
+        }
+        const data = await r.json();
+        addMessage(data.reply, "npc", data.is_crisis);
+        updatePanel(data);
+        maybeSpeak(data.reply);
+      } catch (e) {
+        removeTyping();
+        setConnStatus(false, "无法连接后端");
+        addMessage("（无法连接后端 API。请确认地址是 http://127.0.0.1:8011/ 且端口已转发，或在本机启动服务后刷新）", "npc");
+      } finally {
+        isReplying = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+        if (pendingTexts.length) scheduleFlush();
+      }
+    }
+
+    function send() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      addMessage(text, "user");
+      inputEl.value = "";
+      inputEl.style.height = "auto";
+      queueUserMessage(text);
+    }
+
+    function sendNow() {
+      const text = inputEl.value.trim();
+      if (text) {
+        addMessage(text, "user");
+        inputEl.value = "";
+        inputEl.style.height = "auto";
+        pendingTexts.push(text);
+      }
+      if (composeTimer) { clearTimeout(composeTimer); composeTimer = null; }
+      if (isReplying) {
+        if (pendingTexts.length) showTyping("小语在听…");
+        return;
+      }
+      flushPending();
     }
 
     // expression -> 数字人面部参数（与后端 Live2D 预设对应）
@@ -298,40 +406,6 @@
       document.getElementById("npcSub").style.color = "";
     }
 
-    async function send() {
-      const text = inputEl.value.trim();
-      if (!text) return;
-      addMessage(text, "user");
-      inputEl.value = "";
-      sendBtn.disabled = true;
-      try {
-        const r = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, message: text })
-        });
-        if (r.status === 403) {
-          showAgeGate();
-          addMessage("（请先完成年龄确认，我才能陪你聊天~）", "npc");
-          return;
-        }
-        if (!r.ok) {
-          addMessage("（服务异常 HTTP " + r.status + "，请刷新后重试）", "npc");
-          return;
-        }
-        const data = await r.json();
-        addMessage(data.reply, "npc", data.is_crisis);
-        updatePanel(data);
-        maybeSpeak(data.reply);
-      } catch (e) {
-        setConnStatus(false, "无法连接后端");
-        addMessage("（无法连接后端 API。请确认地址是 http://127.0.0.1:8011/ 且端口已转发，或在本机启动服务后刷新）", "npc");
-      } finally {
-        sendBtn.disabled = false;
-        inputEl.focus();
-      }
-    }
-
     // ── 年龄确认门 ──
     function showAgeGate() { document.getElementById("ageGate").style.display = "flex"; }
     async function submitAge() {
@@ -383,8 +457,14 @@
       }
     }
 
-    sendBtn.addEventListener("click", send);
-    inputEl.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+    sendBtn.addEventListener("click", sendNow);
+    inputEl.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    inputEl.addEventListener("input", () => {
+      inputEl.style.height = "auto";
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+    });
     document.getElementById("ageSubmit").addEventListener("click", submitAge);
     document.getElementById("userIdHint").textContent = "本地身份：" + userId.slice(0, 18) + (userId.length > 18 ? "…" : "");
     document.getElementById("resetIdentity").addEventListener("click", () => {
