@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     # 近期对话注入轮数
     recent_messages_window: int = 8
 
+    # 情感分析：lexicon | llm | hybrid（中性句用 LLM 细判）
+    sentiment_mode: str = "hybrid"
+    sentiment_ema_alpha: float = 0.35   # 情感 EMA 平滑系数
+
+    # 关系归纳：每 N 轮互动刷新一次 LLM 关系摘要（0=仅规则）
+    relationship_summary_every_n: int = 3
+
 
 @lru_cache
 def get_settings() -> Settings:

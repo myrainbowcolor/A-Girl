@@ -61,8 +61,14 @@ def _emotion_out(e) -> EmotionOut:
     return EmotionOut(pleasure=e.pleasure, arousal=e.arousal, dominance=e.dominance, label=e.label())
 
 
-def _relationship_out(r) -> RelationshipOut:
-    return RelationshipOut(affinity=r.affinity, stage=r.stage.value)
+def _relationship_out(r, summary: str = "", health: float = 0.0, trend: str = "new") -> RelationshipOut:
+    return RelationshipOut(
+        affinity=r.affinity,
+        stage=r.stage.value,
+        health_score=health,
+        summary=summary,
+        trend=trend,
+    )
 
 
 def _avatar_out(a) -> AvatarOut:
@@ -101,13 +107,19 @@ def chat(req: ChatRequest) -> ChatResponse:
     return ChatResponse(
         reply=result.reply,
         emotion=_emotion_out(result.emotion),
-        relationship=_relationship_out(result.relationship),
+        relationship=_relationship_out(
+            result.relationship,
+            summary=result.relationship_summary,
+            health=result.relationship_health,
+            trend=result.relationship_trend,
+        ),
         avatar=_avatar_out(result.avatar),
         retrieved_memories=result.retrieved_memories,
         is_crisis=result.is_crisis,
         safety_category=result.safety_category,
         llm=result.llm,
         tts=_tts_out(result.tts),
+        user_sentiment_label=result.user_sentiment_label,
     )
 
 
@@ -249,8 +261,15 @@ def proactive_outbox(user_id: str) -> list[dict]:
 @app.get("/api/state/{user_id}", response_model=StateResponse)
 def get_state(user_id: str) -> StateResponse:
     emotion, relationship = _orchestrator.get_state(user_id)
+    meta = _db.get_user_meta(user_id)
     return StateResponse(
-        emotion=_emotion_out(emotion), relationship=_relationship_out(relationship)
+        emotion=_emotion_out(emotion),
+        relationship=_relationship_out(
+            relationship,
+            summary=meta.relationship_summary if meta else "",
+            health=meta.relationship_health if meta else 0.0,
+            trend="stable",
+        ),
     )
 
 

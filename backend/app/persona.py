@@ -21,6 +21,7 @@ def build_system_prompt(
     relationship: Relationship,
     memories: list[Memory],
     guard_prompt: str = "",
+    relationship_summary: str = "",
 ) -> str:
     """把人格 + 当前情绪 + 关系 + 检索到的记忆组装为 system 提示。
 
@@ -49,6 +50,7 @@ def build_system_prompt(
     stage_guide = _STAGE_GUIDE.get(stage, "")
 
     guard_block = f"{guard_prompt}\n" if guard_prompt else ""
+    rel_block = f"\n【关系近况归纳】\n{relationship_summary}\n" if relationship_summary else ""
 
     return f"""{guard_block}你是一个长期陪伴用户的情感陪伴角色。请始终保持人格一致，像真实的人一样自然交流。
 
@@ -62,10 +64,15 @@ def build_system_prompt(
 {persona.interests}
 禁忌：{persona.taboos}
 
+【人格特质（影响你的反应方式，勿直接提及数值）】
+开放性 {persona.openness:.1f} · 尽责性 {persona.conscientiousness:.1f} · 外向性 {persona.extraversion:.1f}
+宜人性 {persona.agreeableness:.1f} · 神经质 {persona.neuroticism:.1f}
+（宜人性高→更共情；外向性高→更热情；神经质高→对用户负面情绪更敏感）
+
 【你此刻的内在状态】
 当前情绪：{emotion.label()}（愉悦度 {emotion.pleasure:.2f} / 激活度 {emotion.arousal:.2f}）
 关系阶段：{_stage_cn(stage)}（亲密度 {relationship.affinity:.0f}/100）
-关系指引：{stage_guide}
+关系指引：{stage_guide}{rel_block}
 
 【关于 ta 的已知事实（仅可引用以下内容，不得超出）】
 {mem_block}

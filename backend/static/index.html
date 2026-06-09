@@ -142,6 +142,23 @@
         <div class="k">亲密度</div>
         <div class="bar"><span id="affinityBar" style="width:5%"></span></div>
       </div>
+      <div class="stat">
+        <div class="k">关系健康度</div>
+        <div class="bar"><span id="healthBar" style="width:0%"></span></div>
+        <div class="v" id="healthScore" style="font-size:12px;margin-top:4px;color:#8a7d96;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">关系趋势</div>
+        <div class="v" id="relTrend" style="font-size:13px;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">关系归纳</div>
+        <div class="v" id="relSummary" style="font-size:12px;font-weight:400;line-height:1.5;color:#5a4d66;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">本轮情感</div>
+        <div class="v" id="userSentiment" style="font-size:13px;">—</div>
+      </div>
       <h3 style="margin-top:24px;">本轮回忆起</h3>
       <ul class="mem-list" id="memList"><li style="color:#aaa;">暂无</li></ul>
       <div style="margin-top:20px;padding-top:14px;border-top:1px solid #efe6f5;">
@@ -378,6 +395,14 @@
       const stageCn = { stranger: "陌生", acquainted: "熟悉", friend: "朋友", close: "亲密" };
       document.getElementById("stage").textContent = stageCn[data.relationship.stage] || data.relationship.stage;
       document.getElementById("affinityBar").style.width = data.relationship.affinity + "%";
+      const trendCn = { warming: "升温 ↑", stable: "稳定 →", cooling: "降温 ↓", new: "初识 ·" };
+      const rel = data.relationship || {};
+      const health = rel.health_score != null ? rel.health_score : 0;
+      document.getElementById("healthBar").style.width = health + "%";
+      document.getElementById("healthScore").textContent = health ? (health.toFixed(0) + " / 100") : "—";
+      document.getElementById("relTrend").textContent = trendCn[rel.trend] || rel.trend || "—";
+      document.getElementById("relSummary").textContent = rel.summary || "—";
+      document.getElementById("userSentiment").textContent = data.user_sentiment_label || "—";
       const memList = document.getElementById("memList");
       if (data.retrieved_memories && data.retrieved_memories.length) {
         memList.innerHTML = data.retrieved_memories.map(m => `<li>${m}</li>`).join("");

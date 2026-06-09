@@ -20,6 +20,9 @@ class EmotionOut(BaseModel):
 class RelationshipOut(BaseModel):
     affinity: float
     stage: str
+    health_score: float = 0.0
+    summary: str = ""
+    trend: str = "new"
 
 
 class AvatarOut(BaseModel):
@@ -49,6 +52,7 @@ class ChatResponse(BaseModel):
     safety_category: str | None = None
     llm: str
     tts: TtsOut | None = None
+    user_sentiment_label: str = ""
 
 
 class TtsRequest(BaseModel):
@@ -93,6 +97,7 @@ class ProactiveResponse(BaseModel):
 class StateResponse(BaseModel):
     emotion: EmotionOut
     relationship: RelationshipOut
+    user_sentiment_label: str = ""
 
 
 class PersonaOut(BaseModel):

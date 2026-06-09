@@ -102,10 +102,14 @@ class Message:
 
 @dataclass
 class UserMeta:
-    """用于主动关心的轻量元信息。"""
+    """用于主动关心与关系归纳的轻量元信息。"""
     user_id: str
     last_interaction_at: float = 0.0
     last_sentiment: float = 0.0
+    sentiment_ema: float = 0.0          # 情感指数滑动平均 [-1, 1]
+    interaction_count: int = 0
+    relationship_summary: str = ""    # LLM/规则归纳的关系描述
+    relationship_health: float = 0.0  # 0~100 关系健康度
 
 
 @dataclass
