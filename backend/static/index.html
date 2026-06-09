@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A-Girl · 长期陪伴情感 NPC</title>
+  <style>
+    :root {
+      --bg: #f4ecf7; --panel: #ffffff; --accent: #b07cc6; --accent-dark: #8e5aa8;
+      --user: #d7b6e6; --npc: #f0e6f6; --text: #3a2e42; --muted: #8a7d96;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(160deg, #f4ecf7, #e8dff0); color: var(--text);
+      height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .app {
+      width: 920px; max-width: 96vw; height: 88vh; background: var(--panel);
+      border-radius: 20px; box-shadow: 0 20px 60px rgba(120, 80, 150, 0.18);
+      display: grid; grid-template-columns: 1fr 280px; overflow: hidden;
+    }
+    .chat { display: flex; flex-direction: column; min-width: 0; }
+    .chat-header {
+      padding: 16px 20px; border-bottom: 1px solid #eee; display: flex;
+      align-items: center; gap: 12px;
+    }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #e0a8d8);
+      display: flex; align-items: center; justify-content: center; color: #fff;
+      font-weight: 600; font-size: 18px;
+    }
+    .chat-header .name { font-weight: 600; font-size: 16px; }
+    .chat-header .sub { font-size: 12px; color: var(--muted); }
+    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 72%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: var(--user); border-bottom-right-radius: 4px; }
+    .msg.npc { align-self: flex-start; background: var(--npc); border-bottom-left-radius: 4px; }
+    .msg.crisis { background: #ffe2e2; border: 1px solid #ffb3b3; }
+    .composer { display: flex; gap: 10px; padding: 16px; border-top: 1px solid #eee; }
+    .composer input {
+      flex: 1; padding: 12px 14px; border: 1px solid #e0d4ea; border-radius: 12px;
+      font-size: 14px; outline: none;
+    }
+    .composer input:focus { border-color: var(--accent); }
+    .composer button {
+      padding: 0 22px; border: none; border-radius: 12px; background: var(--accent);
+      color: #fff; font-size: 14px; cursor: pointer; transition: background .2s;
+    }
+    .composer button:hover { background: var(--accent-dark); }
+    .composer button:disabled { opacity: .5; cursor: not-allowed; }
+    .panel { background: #faf6fc; border-left: 1px solid #efe6f5; padding: 20px; overflow-y: auto; }
+    .panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); letter-spacing: 1px; }
+    .stat { margin-bottom: 18px; }
+    .stat .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .stat .v { font-size: 15px; font-weight: 600; }
+    .bar { height: 8px; background: #ece0f3; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+    .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #e0a8d8); transition: width .4s; }
+    .mem-list { list-style: none; padding: 0; margin: 0; }
+    .mem-list li { font-size: 12px; color: #5a4d66; padding: 6px 8px; background: #fff; border-radius: 8px; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar" id="avatar">语</div>
+        <div>
+          <div class="name" id="npcName">小语</div>
+          <div class="sub" id="npcSub">正在加载…</div>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <input id="input" type="text" placeholder="和 ta 说点什么…" autocomplete="off" />
+        <button id="send">发送</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>数字人</h3>
+      <div style="text-align:center; margin-bottom:18px;">
+        <svg id="face" width="140" height="150" viewBox="0 0 200 210" style="display:block;margin:0 auto;">
+          <ellipse cx="100" cy="105" rx="78" ry="88" fill="#fde6f3" stroke="#e0a8d8" stroke-width="3"/>
+          <path d="M40 70 Q60 40 92 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
+          <path d="M160 70 Q140 40 108 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
+          <g id="browL"><line x1="58" y1="74" x2="86" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
+          <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
+          <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <ellipse cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <ellipse cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <path id="mouth" d="" fill="#c0506e"/>
+        </svg>
+        <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
+        <label style="font-size:12px;color:#8a7d96;display:block;margin-top:8px;cursor:pointer;">
+          <input type="checkbox" id="voiceToggle" checked /> 语音朗读 + 口型同步
+        </label>
+      </div>
+      <h3>内在状态</h3>
+      <div class="stat">
+        <div class="k">当前情绪</div>
+        <div class="v" id="emotionLabel">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">愉悦度</div>
+        <div class="bar"><span id="pleasureBar" style="width:50%"></span></div>
+      </div>
+      <div class="stat">
+        <div class="k">关系阶段</div>
+        <div class="v" id="stage">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">亲密度</div>
+        <div class="bar"><span id="affinityBar" style="width:5%"></span></div>
+      </div>
+      <h3 style="margin-top:24px;">本轮回忆起</h3>
+      <ul class="mem-list" id="memList"><li style="color:#aaa;">暂无</li></ul>
+    </div>
+  </div>
+
+  <script>
+    const userId = "demo-user";
+    const messagesEl = document.getElementById("messages");
+    const inputEl = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    function addMessage(text, who, crisis) {
+      const div = document.createElement("div");
+      div.className = "msg " + (who === "user" ? "user" : "npc") + (crisis ? " crisis" : "");
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // expression -> 数字人面部参数（与后端 Live2D 预设对应）
+    const EXPR_FACE = {
+      "微笑": { form: 0.8, brow: 0.2, eye: 1.0 },
+      "大笑": { form: 1.0, brow: 0.4, eye: 0.7 },
+      "难过": { form: -0.7, brow: -0.5, eye: 0.65 },
+      "担心": { form: -0.35, brow: -0.7, eye: 1.0 },
+      "惊讶": { form: 0.0, brow: 0.7, eye: 1.15 },
+      "平静": { form: 0.15, brow: 0.0, eye: 1.0 }
+    };
+    let currentExpr = "平静";
+
+    function setFace(expr, mouthOpen) {
+      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      mouthOpen = mouthOpen || 0;
+      // 眼睛开合
+      const ry = 12 * f.eye;
+      document.getElementById("eyeL").setAttribute("ry", ry);
+      document.getElementById("eyeR").setAttribute("ry", ry);
+      // 眉毛升降
+      const browDy = -f.brow * 6;
+      document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
+      document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
+      // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
+      const cx = 100, w = 30, midY = 148;
+      const cornerY = midY - f.form * 10;       // 嘴角相对中点上扬(笑)或下撇
+      const upperMidY = midY - mouthOpen * 28;   // 上唇中点
+      const lowerMidY = midY + mouthOpen * 28;   // 下唇中点
+      const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
+              + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
+      const mouth = document.getElementById("mouth");
+      mouth.setAttribute("d", d);
+      // 张口露出口腔深色，闭口为唇色
+      mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
+    }
+    setFace("平静", 0);
+
+    let lipsyncRAF = null;
+    function playLipsync(track) {
+      if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
+      if (!track || !track.length) { setFace(currentExpr, 0); return; }
+      const start = performance.now();
+      function step(nowT) {
+        const t = nowT - start;
+        // 找到当前时间对应的关键帧（线性查找，轨迹很短）
+        let v = 0;
+        for (let i = 0; i < track.length; i++) {
+          if (track[i].t <= t) v = track[i].v; else break;
+        }
+        const last = track[track.length - 1].t;
+        setFace(currentExpr, v);
+        if (t < last) lipsyncRAF = requestAnimationFrame(step);
+        else setFace(currentExpr, 0);
+      }
+      lipsyncRAF = requestAnimationFrame(step);
+    }
+
+    function updatePanel(data) {
+      document.getElementById("emotionLabel").textContent = data.emotion.label;
+      document.getElementById("pleasureBar").style.width = ((data.emotion.pleasure + 1) / 2 * 100) + "%";
+      const stageCn = { stranger: "陌生", acquainted: "熟悉", friend: "朋友", close: "亲密" };
+      document.getElementById("stage").textContent = stageCn[data.relationship.stage] || data.relationship.stage;
+      document.getElementById("affinityBar").style.width = data.relationship.affinity + "%";
+      const memList = document.getElementById("memList");
+      if (data.retrieved_memories && data.retrieved_memories.length) {
+        memList.innerHTML = data.retrieved_memories.map(m => `<li>${m}</li>`).join("");
+      } else {
+        memList.innerHTML = '<li style="color:#aaa;">暂无</li>';
+      }
+      // 数字人表情随情绪变化
+      if (data.avatar) {
+        currentExpr = data.avatar.expression;
+        setFace(currentExpr, 0);
+        document.getElementById("faceExpr").textContent =
+          data.avatar.expression + " · " + data.avatar.animation;
+      }
+    }
+
+    async function maybeSpeak(text) {
+      if (!document.getElementById("voiceToggle").checked) return;
+      try {
+        const r = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text })
+        });
+        const data = await r.json();
+        const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
+        audio.play().catch(() => {});
+        playLipsync(data.lipsync);   // 口型同步动画
+      } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
+    }
+
+    async function loadPersona() {
+      try {
+        const r = await fetch("/api/persona");
+        const p = await r.json();
+        document.getElementById("npcName").textContent = p.name;
+        document.getElementById("npcSub").textContent = p.backstory.slice(0, 18) + "…";
+        document.getElementById("avatar").textContent = p.name[0];
+        document.getElementById("npcName").dataset.name = p.name;
+      } catch (e) { document.getElementById("npcSub").textContent = "在线"; }
+    }
+
+    async function send() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      addMessage(text, "user");
+      inputEl.value = "";
+      sendBtn.disabled = true;
+      try {
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, message: text })
+        });
+        const data = await r.json();
+        addMessage(data.reply, "npc", data.is_crisis);
+        updatePanel(data);
+        maybeSpeak(data.reply);
+      } catch (e) {
+        addMessage("（网络出错了…）", "npc");
+      } finally {
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    sendBtn.addEventListener("click", send);
+    inputEl.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+    loadPersona();
+  </script>
+</body>
+</html>
