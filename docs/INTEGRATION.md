@@ -3,7 +3,7 @@
 A-Girl 同一套后端支持两种部署模式，独立 Web 与游戏共用同一 HTTP API：
 
 - **standalone（独立）**：后端自带 Web 聊天 UI（含数字人 + 语音）。
-- **embedded（嵌入游戏）**：游戏客户端（Lua / Unity 等）通过 HTTP 调用后端，自行渲染游戏内数字人；用响应里的 `avatar` 驱动表情/动作，用 `tts` 音频做配音。
+- **embedded（嵌入游戏）**：游戏 **Python 脚本层**通过 HTTP 调用后端，自行渲染游戏内数字人；用响应里的 `avatar` 驱动表情/动作，用 `tts` 音频做配音。
 
 > 研究阶段为单玩家（1:1）。`user_id` 用稳定的玩家标识即可（如存档 ID）。
 
@@ -94,6 +94,21 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8011
 
 口型：用 `tts.duration_ms` 做简单开合循环，或后续接入 viseme 时序。
 
-## 4. Lua 客户端示例
+## 4. Python 游戏客户端示例
 
-见 [`examples/lua_client.lua`](../examples/lua_client.lua)，演示从 Lua 发起 `/api/chat` 请求并解析 `reply` 与 `avatar`，可直接对接到游戏内伙伴系统（如 `PartnerDojoCtrl`）。
+见 [`examples/python_game_client.py`](../examples/python_game_client.py)，演示从游戏 Python 脚本层发起 `/api/chat`、`/api/tts`、`/api/stt` 请求并解析 `reply` 与 `avatar`，可直接对接到游戏内伙伴系统（如 `PartnerDojoCtrl`）。仅依赖标准库，可直接冒烟运行：
+
+```bash
+python examples/python_game_client.py
+```
+
+核心用法：
+
+```python
+from examples.python_game_client import AGirlClient, apply_to_avatar, speak
+
+client = AGirlClient(player_id="player-001")
+data = client.chat("你好呀，我今天有点累")
+apply_to_avatar(game, client, data)   # game 为你引擎的渲染接口
+speak(game, client, data["reply"])     # 取 TTS 并配音 + 简单口型
+```
