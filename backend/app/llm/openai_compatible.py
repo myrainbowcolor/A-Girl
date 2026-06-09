@@ -48,6 +48,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
     def generate_stream(
         self, system_prompt: str, messages: list[dict], temperature: float = 0.8
     ) -> Iterator[str]:
+        pieces: list[str] = []
         with httpx.Client(timeout=self._timeout) as client:
             with client.stream(
                 "POST",
@@ -56,6 +57,13 @@ class OpenAICompatibleLLMProvider(LLMProvider):
                 headers=self._headers(),
             ) as resp:
                 resp.raise_for_status()
+                ctype = (resp.headers.get("content-type") or "").lower()
+                if "text/event-stream" not in ctype:
+                    data = json.loads(resp.read())
+                    text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+                    if text:
+                        yield text.strip()
+                    return
                 for line in resp.iter_lines():
                     if not line or not line.startswith("data: "):
                         continue
@@ -72,4 +80,9 @@ class OpenAICompatibleLLMProvider(LLMProvider):
                     delta = choices[0].get("delta") or {}
                     piece = delta.get("content")
                     if piece:
+                        pieces.append(piece)
                         yield piece
+        if not pieces:
+            text = self.generate(system_prompt, messages, temperature=temperature)
+            if text:
+                yield text

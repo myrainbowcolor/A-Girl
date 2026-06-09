@@ -423,6 +423,7 @@
 
     let lastEmotion = { pleasure: 0, arousal: 0 };
     async function maybeSpeak(text) {
+      if (!text || !text.trim()) return;
       if (!document.getElementById("voiceToggle").checked) return;
       try {
         const r = await fetch("/api/tts", {
