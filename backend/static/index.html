@@ -136,10 +136,23 @@
       </div>
       <h3 style="margin-top:24px;">本轮回忆起</h3>
       <ul class="mem-list" id="memList"><li style="color:#aaa;">暂无</li></ul>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #efe6f5;">
+        <div style="font-size:11px;color:#aaa;margin-bottom:8px;" id="userIdHint">本地身份</div>
+        <button id="resetIdentity" type="button" style="width:100%;padding:8px 10px;border:1px solid #e0d4ea;
+                border-radius:10px;background:#fff;color:#8a7d96;font-size:12px;cursor:pointer;">
+          重新开始（清除本地身份）
+        </button>
+      </div>
     </div>
   </div>
 
   <script>
+    // URL ?reset=1 时自动清除本地身份（便于一键重置）
+    if (new URLSearchParams(location.search).get("reset") === "1") {
+      localStorage.removeItem("agirl-user-id");
+      history.replaceState(null, "", location.pathname);
+    }
+
     const userId = (() => {
       let id = localStorage.getItem("agirl-user-id");
       if (!id) {
@@ -373,6 +386,13 @@
     sendBtn.addEventListener("click", send);
     inputEl.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
     document.getElementById("ageSubmit").addEventListener("click", submitAge);
+    document.getElementById("userIdHint").textContent = "本地身份：" + userId.slice(0, 18) + (userId.length > 18 ? "…" : "");
+    document.getElementById("resetIdentity").addEventListener("click", () => {
+      if (confirm("清除本地身份并重新开始？\n\n将分配新 ID，不再使用旧记忆（需重新确认年龄）。")) {
+        localStorage.removeItem("agirl-user-id");
+        location.reload();
+      }
+    });
     init();
   </script>
 </body>
