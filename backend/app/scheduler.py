@@ -13,13 +13,15 @@ import time
 
 from .config import Settings
 from .db import Database
+from .push import PushHub
 
 
 class ProactiveScheduler:
-    def __init__(self, db: Database, orchestrator, settings: Settings) -> None:
+    def __init__(self, db: Database, orchestrator, settings: Settings, push: PushHub | None = None) -> None:
         self._db = db
         self._orch = orchestrator
         self._s = settings
+        self._push = push
         self._outbox: dict[str, list[dict]] = {}
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -48,7 +50,8 @@ class ProactiveScheduler:
         for user_id in self._db.all_user_ids():
             result, avatar = self._orch.deliver_proactive(user_id)
             if result.should_reach_out:
-                self._push(user_id, {
+                item = {
+                    "type": "proactive",
                     "trigger": result.trigger,
                     "reason": result.reason,
                     "message": result.message,
@@ -58,9 +61,12 @@ class ProactiveScheduler:
                         "animation": avatar.animation,
                     } if avatar else None,
                     "ts": time.time(),
-                })
+                }
+                self._enqueue(user_id, item)
+                if self._push is not None:
+                    self._push.publish(user_id, item)
 
-    def _push(self, user_id: str, item: dict) -> None:
+    def _enqueue(self, user_id: str, item: dict) -> None:
         with self._lock:
             self._outbox.setdefault(user_id, []).append(item)
 

@@ -12,9 +12,10 @@ from .emotion import EmotionEngine
 from .llm import LLMProvider
 from .memory import MemoryStore
 from .persona import build_system_prompt, default_persona
+from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
-from .voice import TTSProvider
+from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
 
 
@@ -41,6 +42,7 @@ class Orchestrator:
         settings: Settings,
         persona: Persona | None = None,
         tts: TTSProvider | None = None,
+        audit: "AuditLogger | None" = None,
     ) -> None:
         self._db = db
         self._memory = memory
@@ -49,6 +51,7 @@ class Orchestrator:
         self._s = settings
         self._persona = persona or default_persona()
         self._tts = tts
+        self._audit = audit
         self._proactivity = ProactivityEngine(db, settings, self._persona)
 
     @property
@@ -81,6 +84,9 @@ class Orchestrator:
         # [2] 安全前置：危机/未成年人内容分级/隐私防诱导，优先于一切
         safety = check_safety(user_text, audience=self._s.audience)
         if safety.is_blocked:
+            # 安全事件写入家长可见审计日志
+            if self._audit and safety.category:
+                self._audit.log_safety_event(user_id, safety.category.value, user_text)
             reply = safety.safe_response or ""
             self._db.add_message(
                 Message(session_id=session_id, role="assistant", content=reply, created_at=time.time())
@@ -101,7 +107,7 @@ class Orchestrator:
                 avatar=avatar, retrieved_memories=[], is_crisis=safety.is_crisis,
                 llm="safety",
                 safety_category=safety.category.value if safety.category else None,
-                tts=self._maybe_tts(reply),
+                tts=self._maybe_tts(reply, emotion, is_crisis=safety.is_crisis),
             )
 
         # [3] 记忆检索
@@ -146,14 +152,20 @@ class Orchestrator:
             reply=reply, emotion=emotion, relationship=relationship,
             avatar=avatar, retrieved_memories=[m.content for m in retrieved],
             is_crisis=False, llm=self._llm.name, safety_category=None,
-            tts=self._maybe_tts(reply),
+            tts=self._maybe_tts(reply, emotion, is_crisis=False),
         )
 
-    def _maybe_tts(self, text: str) -> TTSResult | None:
-        """按配置在 chat 响应内联 TTS（嵌入游戏时通常关闭，改用 /api/tts 按需取）。"""
+    def _maybe_tts(
+        self, text: str, emotion: EmotionState, is_crisis: bool = False
+    ) -> TTSResult | None:
+        """按配置在 chat 响应内联 TTS（嵌入游戏时通常关闭，改用 /api/tts 按需取）。
+
+        语音风格随当前情绪变化（开心更快更亮，难过更慢更低，危机更轻柔）。
+        """
         if self._tts is None or not self._s.chat_include_tts:
             return None
-        return self._tts.synthesize(text)
+        style = style_from_emotion(emotion, is_crisis=is_crisis)
+        return self._tts.synthesize(text, style=style)
 
     # ---------- 主动关心 ----------
     def check_proactive(self, user_id: str, now: float | None = None) -> ProactiveResult:

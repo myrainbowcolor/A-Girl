@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     proactive_scheduler_enabled: bool = False     # 是否启用后台轮询调度
     proactive_scheduler_interval_seconds: int = 60
 
+    # 主动推送：webhook 回调地址（留空则仅 SSE）
+    push_webhook_url: str = ""
+
+    # 未成年人合规
+    require_age_gate: bool = True                 # 是否需要年龄确认后才能对话
+    min_age: int = 0                              # 允许的最小年龄（0=不限，仅记录）
+    audit_log_path: str = "audit.log"             # 家长可见安全审计日志路径
+
     # 持久化：SQLite 文件路径
     db_path: str = "agirl.db"
 

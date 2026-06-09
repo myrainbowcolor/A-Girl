@@ -61,9 +61,22 @@ CREATE TABLE IF NOT EXISTS events (
     created_at REAL NOT NULL,
     fired INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS user_consent (
+    user_id TEXT PRIMARY KEY,
+    age INTEGER,
+    consented_at REAL
+);
+CREATE TABLE IF NOT EXISTS audit_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    excerpt TEXT,
+    created_at REAL NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id);
 CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_events(user_id);
 """
 
 
@@ -239,3 +252,41 @@ class Database:
         with self._lock:
             self._conn.execute("UPDATE events SET fired=1 WHERE id=?", (event_id,))
             self._conn.commit()
+
+    # ---------- consent (age gate) ----------
+    def get_consent(self, user_id: str) -> Optional[dict]:
+        cur = self._conn.execute("SELECT * FROM user_consent WHERE user_id=?", (user_id,))
+        r = cur.fetchone()
+        if not r:
+            return None
+        return {"user_id": r["user_id"], "age": r["age"], "consented_at": r["consented_at"]}
+
+    def save_consent(self, user_id: str, age: int, consented_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO user_consent(user_id, age, consented_at) VALUES(?,?,?)"
+                " ON CONFLICT(user_id) DO UPDATE SET age=excluded.age,"
+                " consented_at=excluded.consented_at",
+                (user_id, age, consented_at),
+            )
+            self._conn.commit()
+
+    # ---------- audit ----------
+    def add_audit_event(self, user_id: str, category: str, excerpt: str, created_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO audit_events(user_id, category, excerpt, created_at) VALUES(?,?,?,?)",
+                (user_id, category, excerpt, created_at),
+            )
+            self._conn.commit()
+
+    def audit_events(self, user_id: str, limit: int = 100) -> list[dict]:
+        cur = self._conn.execute(
+            "SELECT * FROM audit_events WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
+        )
+        return [
+            {"id": r["id"], "category": r["category"], "excerpt": r["excerpt"],
+             "created_at": r["created_at"]}
+            for r in cur.fetchall()
+        ]

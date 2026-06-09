@@ -1,22 +1,28 @@
 """FastAPI 入口与依赖装配。"""
 from __future__ import annotations
 
+import json
+import queue
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .compliance import AgeGate, AuditLogger
 from .config import get_settings
 from .db import Database
 from .emotion import EmotionEngine
 from .llm import build_llm_provider
 from .memory import MemoryStore, build_embedding_provider
 from .orchestrator import Orchestrator
+from .push import PushHub
 from .schemas import (
     AvatarOut,
     ChatRequest,
     ChatResponse,
+    ConsentRequest,
+    ConsentResponse,
     EmotionOut,
     MemoryOut,
     PersonaOut,
@@ -39,9 +45,14 @@ _emotion_engine = EmotionEngine()
 _llm = build_llm_provider(settings)
 _tts = build_tts_provider(settings)
 _stt = build_stt_provider(settings)
-_orchestrator = Orchestrator(_db, _memory, _emotion_engine, _llm, settings, tts=_tts)
+_audit = AuditLogger(_db, settings.audit_log_path)
+_age_gate = AgeGate(_db, require=settings.require_age_gate, min_age=settings.min_age)
+_push = PushHub(settings)
+_orchestrator = Orchestrator(
+    _db, _memory, _emotion_engine, _llm, settings, tts=_tts, audit=_audit
+)
 
-app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.2.0")
+app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.3.0")
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -67,6 +78,7 @@ def _tts_out(t) -> TtsOut | None:
     return TtsOut(
         audio_base64=t.audio_base64, format=t.format,
         duration_ms=t.duration_ms, provider=t.provider, lipsync=t.lipsync,
+        visemes=t.visemes, style=t.style,
     )
 
 
@@ -81,6 +93,9 @@ def health() -> dict:
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest) -> ChatResponse:
+    # 未成年人合规：未完成年龄确认前不允许对话
+    if not _age_gate.has_consent(req.user_id):
+        raise HTTPException(status_code=403, detail="age_gate_required")
     session_id = req.session_id or f"sess-{req.user_id}"
     result = _orchestrator.chat(req.user_id, session_id, req.message)
     return ChatResponse(
@@ -98,7 +113,14 @@ def chat(req: ChatRequest) -> ChatResponse:
 
 @app.post("/api/tts", response_model=TtsOut)
 def tts(req: TtsRequest) -> TtsOut:
-    result = _tts.synthesize(req.text, voice=req.voice)
+    style = None
+    if req.pleasure is not None or req.arousal is not None:
+        from .domain import EmotionState
+        from .voice import style_from_emotion
+        style = style_from_emotion(
+            EmotionState(pleasure=req.pleasure or 0.0, arousal=req.arousal or 0.0)
+        )
+    result = _tts.synthesize(req.text, voice=req.voice, style=style)
     return _tts_out(result)
 
 
@@ -125,7 +147,62 @@ def proactive(user_id: str) -> ProactiveResponse:
     )
 
 
-_scheduler = ProactiveScheduler(_db, _orchestrator, settings)
+@app.post("/api/consent", response_model=ConsentResponse)
+def consent(req: ConsentRequest) -> ConsentResponse:
+    """年龄确认门：记录用户年龄确认，通过后才能对话。"""
+    result = _age_gate.record_consent(req.user_id, req.age)
+    return ConsentResponse(ok=result["ok"], reason=result["reason"])
+
+
+@app.get("/api/consent/{user_id}")
+def consent_status(user_id: str) -> dict:
+    return {"has_consent": _age_gate.has_consent(user_id), "required": _age_gate.required}
+
+
+@app.get("/api/audit/{user_id}")
+def audit(user_id: str, limit: int = 100) -> list[dict]:
+    """家长可见安全审计日志（危机/成人/暴力/隐私等事件）。"""
+    return _db.audit_events(user_id, limit=limit)
+
+
+@app.get("/api/stream/{user_id}")
+def stream(user_id: str) -> StreamingResponse:
+    """SSE 主动推送：客户端订阅后实时收到主动关心消息。"""
+    q = _push.subscribe(user_id)
+
+    def event_gen():
+        try:
+            # 首帧握手，便于客户端确认连接
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                try:
+                    item = q.get(timeout=15)
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    yield ": keep-alive\n\n"  # 心跳
+        finally:
+            _push.unsubscribe(user_id, q)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@app.post("/api/proactive/{user_id}/push")
+def proactive_push(user_id: str) -> dict:
+    """评估主动关心并通过 SSE/webhook 推送（用于手动触发与测试）。"""
+    result, avatar = _orchestrator.deliver_proactive(user_id)
+    if not result.should_reach_out:
+        return {"should_reach_out": False}
+    item = {
+        "type": "proactive", "trigger": result.trigger, "reason": result.reason,
+        "message": result.message,
+        "avatar": {"expression": avatar.expression, "intensity": avatar.intensity,
+                   "animation": avatar.animation} if avatar else None,
+    }
+    stats = _push.publish(user_id, item)
+    return {"should_reach_out": True, **item, "delivery": stats}
+
+
+_scheduler = ProactiveScheduler(_db, _orchestrator, settings, push=_push)
 
 
 @app.on_event("startup")

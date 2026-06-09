@@ -62,6 +62,21 @@
   </style>
 </head>
 <body>
+  <div id="ageGate" style="display:none;position:fixed;inset:0;background:rgba(60,40,80,.55);
+       z-index:99;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 30px;width:340px;text-align:center;
+         box-shadow:0 20px 60px rgba(120,80,150,.3);">
+      <div style="font-size:18px;font-weight:600;color:#3a2e42;margin-bottom:8px;">开始前，先确认一下年龄</div>
+      <div style="font-size:13px;color:#8a7d96;margin-bottom:16px;">
+        这是一个面向未成年人也安全的陪伴助手，我们需要你的年龄来提供合适的保护。</div>
+      <input id="ageInput" type="number" min="1" max="120" placeholder="请输入你的年龄"
+             style="width:100%;padding:10px 12px;border:1px solid #e0d4ea;border-radius:10px;font-size:14px;outline:none;" />
+      <div id="ageErr" style="color:#d05a6e;font-size:12px;min-height:16px;margin:6px 0;"></div>
+      <button id="ageSubmit" style="width:100%;padding:11px;border:none;border-radius:10px;
+              background:#b07cc6;color:#fff;font-size:14px;cursor:pointer;">确认并开始</button>
+    </div>
+  </div>
+
   <div class="app">
     <div class="chat">
       <div class="chat-header">
@@ -144,9 +159,11 @@
     };
     let currentExpr = "平静";
 
-    function setFace(expr, mouthOpen) {
+    // mouthOpen: 0~1 张口度；wide: -1(圆/窄) ~ 1(扁/宽)，来自 viseme
+    function setFace(expr, mouthOpen, wide) {
       const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
       mouthOpen = mouthOpen || 0;
+      wide = (wide === undefined || wide === null) ? 0 : wide;
       // 眼睛开合
       const ry = 12 * f.eye;
       document.getElementById("eyeL").setAttribute("ry", ry);
@@ -155,11 +172,12 @@
       const browDy = -f.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
-      // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
-      const cx = 100, w = 30, midY = 148;
-      const cornerY = midY - f.form * 10;       // 嘴角相对中点上扬(笑)或下撇
-      const upperMidY = midY - mouthOpen * 28;   // 上唇中点
-      const lowerMidY = midY + mouthOpen * 28;   // 下唇中点
+      // 嘴宽：viseme 的 wide 让嘴更扁(宽)或更圆(窄)
+      const w = 30 + wide * 12;
+      const cx = 100, midY = 148;
+      const cornerY = midY - f.form * 10;        // 嘴角上扬(笑)或下撇
+      const upperMidY = midY - mouthOpen * 28;    // 上唇中点
+      const lowerMidY = midY + mouthOpen * 28;    // 下唇中点
       const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
               + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
       const mouth = document.getElementById("mouth");
@@ -167,29 +185,33 @@
       // 张口露出口腔深色，闭口为唇色
       mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
     }
-    setFace("平静", 0);
+    setFace("平静", 0, 0);
 
     let lipsyncRAF = null;
-    function playLipsync(track) {
+    // 优先使用 viseme 序列（含 open+wide 口型），否则回退到张口度轨迹
+    function playLipsync(track, visemes) {
       if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
-      if (!track || !track.length) { setFace(currentExpr, 0); return; }
+      const useViseme = visemes && visemes.length;
+      const frames = useViseme ? visemes : track;
+      if (!frames || !frames.length) { setFace(currentExpr, 0, 0); return; }
       const start = performance.now();
       function step(nowT) {
         const t = nowT - start;
-        // 找到当前时间对应的关键帧（线性查找，轨迹很短）
-        let v = 0;
-        for (let i = 0; i < track.length; i++) {
-          if (track[i].t <= t) v = track[i].v; else break;
+        let cur = frames[0];
+        for (let i = 0; i < frames.length; i++) {
+          if (frames[i].t <= t) cur = frames[i]; else break;
         }
-        const last = track[track.length - 1].t;
-        setFace(currentExpr, v);
+        const last = frames[frames.length - 1].t;
+        if (useViseme) setFace(currentExpr, cur.open, cur.wide);
+        else setFace(currentExpr, cur.v, 0);
         if (t < last) lipsyncRAF = requestAnimationFrame(step);
-        else setFace(currentExpr, 0);
+        else setFace(currentExpr, 0, 0);
       }
       lipsyncRAF = requestAnimationFrame(step);
     }
 
     function updatePanel(data) {
+      if (data.emotion) lastEmotion = { pleasure: data.emotion.pleasure, arousal: data.emotion.arousal };
       document.getElementById("emotionLabel").textContent = data.emotion.label;
       document.getElementById("pleasureBar").style.width = ((data.emotion.pleasure + 1) / 2 * 100) + "%";
       const stageCn = { stranger: "陌生", acquainted: "熟悉", friend: "朋友", close: "亲密" };
@@ -204,23 +226,24 @@
       // 数字人表情随情绪变化
       if (data.avatar) {
         currentExpr = data.avatar.expression;
-        setFace(currentExpr, 0);
+        setFace(currentExpr, 0, 0);
         document.getElementById("faceExpr").textContent =
           data.avatar.expression + " · " + data.avatar.animation;
       }
     }
 
+    let lastEmotion = { pleasure: 0, arousal: 0 };
     async function maybeSpeak(text) {
       if (!document.getElementById("voiceToggle").checked) return;
       try {
         const r = await fetch("/api/tts", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
         });
         const data = await r.json();
         const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
         audio.play().catch(() => {});
-        playLipsync(data.lipsync);   // 口型同步动画
+        playLipsync(data.lipsync, data.visemes);   // viseme 口型同步动画
       } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
     }
 
@@ -247,6 +270,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ user_id: userId, message: text })
         });
+        if (r.status === 403) { showAgeGate(); sendBtn.disabled = false; return; }
         const data = await r.json();
         addMessage(data.reply, "npc", data.is_crisis);
         updatePanel(data);
@@ -259,9 +283,54 @@
       }
     }
 
+    // ── 年龄确认门 ──
+    function showAgeGate() { document.getElementById("ageGate").style.display = "flex"; }
+    async function submitAge() {
+      const age = parseInt(document.getElementById("ageInput").value, 10);
+      if (!age || age < 1) { document.getElementById("ageErr").textContent = "请输入有效年龄"; return; }
+      const r = await fetch("/api/consent", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, age })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById("ageGate").style.display = "none";
+        addMessage("（已完成年龄确认，我会用适合你的方式陪你聊天~）", "npc");
+        subscribeProactive();
+      } else {
+        document.getElementById("ageErr").textContent = d.reason || "确认失败";
+      }
+    }
+
+    // ── 主动关心 SSE 订阅 ──
+    function subscribeProactive() {
+      try {
+        const es = new EventSource("/api/stream/" + encodeURIComponent(userId));
+        es.onmessage = (ev) => {
+          try {
+            const item = JSON.parse(ev.data);
+            if (item && item.message) {
+              addMessage("💜 " + item.message, "npc");
+              if (item.avatar) { currentExpr = item.avatar.expression; setFace(currentExpr, 0, 0); }
+              maybeSpeak(item.message);
+            }
+          } catch (_) {}
+        };
+      } catch (_) {}
+    }
+
+    async function init() {
+      await loadPersona();
+      const r = await fetch("/api/consent/" + encodeURIComponent(userId));
+      const s = await r.json();
+      if (s.required && !s.has_consent) showAgeGate();
+      else subscribeProactive();
+    }
+
     sendBtn.addEventListener("click", send);
     inputEl.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
-    loadPersona();
+    document.getElementById("ageSubmit").addEventListener("click", submitAge);
+    init();
   </script>
 </body>
 </html>
