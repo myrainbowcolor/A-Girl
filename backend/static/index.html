@@ -86,10 +86,10 @@
           <path d="M160 70 Q140 40 108 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
           <g id="browL"><line x1="58" y1="74" x2="86" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
           <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
-          <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
-          <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
-          <ellipse cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
-          <ellipse cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a" style="transition: ry .12s ease"/>
+          <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a" style="transition: ry .12s ease"/>
+          <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35" style="transition: opacity .45s ease"/>
+          <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35" style="transition: opacity .45s ease"/>
           <path id="mouth" d="" fill="#c0506e"/>
         </svg>
         <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
@@ -135,39 +135,76 @@
 
     // expression -> 数字人面部参数（与后端 Live2D 预设对应）
     const EXPR_FACE = {
-      "微笑": { form: 0.8, brow: 0.2, eye: 1.0 },
-      "大笑": { form: 1.0, brow: 0.4, eye: 0.7 },
-      "难过": { form: -0.7, brow: -0.5, eye: 0.65 },
-      "担心": { form: -0.35, brow: -0.7, eye: 1.0 },
-      "惊讶": { form: 0.0, brow: 0.7, eye: 1.15 },
-      "平静": { form: 0.15, brow: 0.0, eye: 1.0 }
+      "微笑": { form: 0.8, brow: 0.25, eye: 0.92, cheek: 0.45 },
+      "大笑": { form: 1.0, brow: 0.45, eye: 0.65, cheek: 0.75 },
+      "难过": { form: -0.7, brow: -0.5, eye: 0.55, cheek: 0.0 },
+      "担心": { form: -0.35, brow: -0.7, eye: 1.05, cheek: 0.05 },
+      "惊讶": { form: 0.05, brow: 0.7, eye: 1.12, cheek: 0.15 },
+      "平静": { form: 0.15, brow: 0.0, eye: 1.0, cheek: 0.08 }
     };
     let currentExpr = "平静";
+    let currentIntensity = 0.5;
+    let blinkTimer = null;
+    let isBlinking = false;
 
-    function setFace(expr, mouthOpen) {
+    function setBlush(expr, intensity) {
+      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      const opacity = Math.min(0.85, 0.15 + (f.cheek || 0) * intensity);
+      for (const id of ["cheekL", "cheekR"]) {
+        document.getElementById(id).setAttribute("opacity", opacity.toFixed(2));
+      }
+    }
+
+    function blinkOnce() {
+      if (isBlinking) return;
+      isBlinking = true;
+      const eyeL = document.getElementById("eyeL");
+      const eyeR = document.getElementById("eyeR");
+      const baseRy = parseFloat(eyeL.getAttribute("ry"));
+      eyeL.setAttribute("ry", Math.max(1.5, baseRy * 0.12));
+      eyeR.setAttribute("ry", Math.max(1.5, baseRy * 0.12));
+      setTimeout(() => {
+        eyeL.setAttribute("ry", baseRy);
+        eyeR.setAttribute("ry", baseRy);
+        isBlinking = false;
+      }, 110);
+    }
+
+    function scheduleBlink() {
+      if (blinkTimer) clearInterval(blinkTimer);
+      blinkTimer = setInterval(() => {
+        if (Math.random() < 0.55) blinkOnce();
+      }, 2800 + Math.random() * 2200);
+    }
+
+    function setFace(expr, mouthOpen, intensity) {
       const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
       mouthOpen = mouthOpen || 0;
+      if (intensity !== undefined) currentIntensity = intensity;
       // 眼睛开合
       const ry = 12 * f.eye;
-      document.getElementById("eyeL").setAttribute("ry", ry);
-      document.getElementById("eyeR").setAttribute("ry", ry);
-      // 眉毛升降
+      if (!isBlinking) {
+        document.getElementById("eyeL").setAttribute("ry", ry);
+        document.getElementById("eyeR").setAttribute("ry", ry);
+      }
+      // 眉毛升降（带缓动）
       const browDy = -f.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
+      setBlush(expr, currentIntensity);
       // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
       const cx = 100, w = 30, midY = 148;
-      const cornerY = midY - f.form * 10;       // 嘴角相对中点上扬(笑)或下撇
-      const upperMidY = midY - mouthOpen * 28;   // 上唇中点
-      const lowerMidY = midY + mouthOpen * 28;   // 下唇中点
+      const cornerY = midY - f.form * 10;
+      const upperMidY = midY - mouthOpen * 28;
+      const lowerMidY = midY + mouthOpen * 28;
       const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
               + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
       const mouth = document.getElementById("mouth");
       mouth.setAttribute("d", d);
-      // 张口露出口腔深色，闭口为唇色
       mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
     }
-    setFace("平静", 0);
+    setFace("平静", 0, 0.5);
+    scheduleBlink();
 
     let lipsyncRAF = null;
     function playLipsync(track) {
@@ -204,7 +241,8 @@
       // 数字人表情随情绪变化
       if (data.avatar) {
         currentExpr = data.avatar.expression;
-        setFace(currentExpr, 0);
+        currentIntensity = data.avatar.intensity ?? 0.5;
+        setFace(currentExpr, 0, currentIntensity);
         document.getElementById("faceExpr").textContent =
           data.avatar.expression + " · " + data.avatar.animation;
       }

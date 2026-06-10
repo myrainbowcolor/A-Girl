@@ -33,7 +33,10 @@ def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> 
     节奏固定（不随文字长度变得过快），保证可观察性。
     """
     seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
-    cycles = max(1, duration_ms // cycle_ms)
+    syllables = estimate_syllables(text)
+    max_cycles = max(1, duration_ms // cycle_ms)
+    # 音节数约束节奏，避免长句口型过快、短句口型过稀
+    cycles = max(1, min(max_cycles, syllables))
     frames: list[dict] = [{"t": 0, "v": 0.0}]
     for k in range(cycles):
         base = k * cycle_ms

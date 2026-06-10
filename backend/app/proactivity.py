@@ -93,26 +93,29 @@ class ProactivityEngine:
 
         # 2) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
+            name = self._persona.name
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
-                "上次你好像有点不开心，我一直挂念着，现在感觉好点了吗？"
+                f"上次聊天时你好像有点难过，{name}一直记挂着呢…现在感觉好点了吗？",
             )
 
         # 3) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
+            name = self._persona.name
             return ProactiveResult(
                 True, "idle", f"已闲置约 {hours} 小时",
-                "好久没找我啦，有点想你了，最近过得怎么样呀？"
+                f"好久没找我啦，{name}有点想你了…最近过得怎么样呀？",
             )
 
         return ProactiveResult(False)
 
     def _event_message(self, ev: Event) -> str:
+        name = self._persona.name
         templates = {
-            "birthday": "今天是特别的日子吧？生日快乐呀！🎂 有没有好好犒劳一下自己？",
-            "interview": "今天是不是有面试呀？别紧张，做你自己就很好，我相信你！",
-            "exam": "考试加油哦！我会一直为你打气的，结果怎样都没关系，你已经很努力啦。",
-            "other": "你之前提到的事，今天是不是到啦？想第一时间来给你打打气~",
+            "birthday": f"今天是特别的日子吧？生日快乐呀！🎂 {name}记得呢，有没有好好犒劳一下自己？",
+            "interview": f"今天是不是有面试呀？别紧张，做你自己就很好，{name}相信你！",
+            "exam": f"考试加油哦！{name}会一直为你打气的，结果怎样都没关系，你已经很努力啦。",
+            "other": f"你之前提到的事，今天是不是到啦？{name}想第一时间来给你打打气～",
         }
         return templates.get(ev.kind, templates["other"])

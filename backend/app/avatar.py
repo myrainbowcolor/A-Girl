@@ -34,12 +34,12 @@ class AvatarCue:
 
 # expression -> Live2D 表情基线（值域约 -1~1，正=上扬/睁大）
 _LIVE2D_PRESETS = {
-    "微笑": {"mouth_form": 1.0, "brow": 0.2, "eye_open": 1.0, "cheek": 0.3},
-    "大笑": {"mouth_form": 1.0, "brow": 0.4, "eye_open": 0.7, "cheek": 0.6},
-    "难过": {"mouth_form": -0.8, "brow": -0.6, "eye_open": 0.6, "cheek": 0.0},
-    "担心": {"mouth_form": -0.4, "brow": -0.8, "eye_open": 1.0, "cheek": 0.0},
-    "惊讶": {"mouth_form": 0.0, "brow": 0.8, "eye_open": 1.0, "cheek": 0.1},
-    "平静": {"mouth_form": 0.2, "brow": 0.0, "eye_open": 1.0, "cheek": 0.0},
+    "微笑": {"mouth_form": 1.0, "brow": 0.25, "eye_open": 0.92, "cheek": 0.45},
+    "大笑": {"mouth_form": 1.0, "brow": 0.45, "eye_open": 0.65, "cheek": 0.75},
+    "难过": {"mouth_form": -0.85, "brow": -0.65, "eye_open": 0.55, "cheek": 0.0},
+    "担心": {"mouth_form": -0.45, "brow": -0.85, "eye_open": 1.05, "cheek": 0.05},
+    "惊讶": {"mouth_form": 0.05, "brow": 0.85, "eye_open": 1.12, "cheek": 0.15},
+    "平静": {"mouth_form": 0.18, "brow": 0.0, "eye_open": 1.0, "cheek": 0.08},
 }
 
 
