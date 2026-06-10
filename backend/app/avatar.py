@@ -52,7 +52,8 @@ def emotion_to_avatar(emotion: EmotionState, is_crisis: bool = False) -> AvatarC
         return AvatarCue(expression="担心", intensity=0.9, animation="comfort")
 
     p, a = emotion.pleasure, emotion.arousal
-    intensity = min(1.0, (abs(p) + abs(a)) / 2 + 0.2)
+    # 强度随 PAD 幅度平滑变化，弱情绪也有可见微表情
+    intensity = min(1.0, max(0.25, (abs(p) * 0.7 + abs(a) * 0.5) + 0.15))
 
     if p >= 0.3 and a >= 0.45:
         return AvatarCue(expression="大笑", intensity=intensity, animation="cheer")

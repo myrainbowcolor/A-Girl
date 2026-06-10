@@ -28,18 +28,34 @@ def estimate_syllables(text: str) -> int:
 def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> list[dict]:
     """返回 [{"t": 毫秒, "v": 0~1 张口度}, ...]，首尾闭合。
 
-    以固定节奏（约 3.5Hz）生成明确的"张口→闭合"循环，模拟真人说话：
-    每个周期内嘴巴张开到峰值再完全合上，肉眼可清晰分辨开合，而非一直半张。
-    节奏固定（不随文字长度变得过快），保证可观察性。
+    按音节数在时长内均匀分布张口峰值，模拟说话节奏；同一文本输出确定。
     """
     seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
-    cycles = max(1, duration_ms // cycle_ms)
+    syllables = estimate_syllables(text)
+    max_cycles = max(1, duration_ms // cycle_ms)
+    cycles = min(max_cycles, max(1, syllables))
+
     frames: list[dict] = [{"t": 0, "v": 0.0}]
-    for k in range(cycles):
-        base = k * cycle_ms
-        jitter = ((seed >> (k % 23)) & 0xFF) / 255.0
-        open_v = round(0.6 + 0.35 * jitter, 3)               # 张口峰值 0.6~0.95
-        frames.append({"t": base + int(cycle_ms * 0.35), "v": open_v})  # 张口
-        frames.append({"t": base + int(cycle_ms * 0.85), "v": 0.0})     # 闭合
-    frames.append({"t": duration_ms, "v": 0.0})              # 结尾闭口
+    if cycles == 1:
+        jitter = (seed & 0xFF) / 255.0
+        open_v = round(0.55 + 0.4 * jitter, 3)
+        mid = duration_ms // 2
+        frames.append({"t": max(40, mid - 60), "v": open_v})
+        frames.append({"t": min(duration_ms - 20, mid + 60), "v": 0.0})
+    else:
+        span = max(cycle_ms, duration_ms // cycles)
+        for k in range(cycles):
+            base = k * span
+            if base >= duration_ms - 40:
+                break
+            jitter = ((seed >> (k % 23)) & 0xFF) / 255.0
+            open_v = round(0.55 + 0.4 * jitter, 3)
+            open_t = base + int(span * 0.35)
+            close_t = base + int(span * 0.82)
+            frames.append({"t": open_t, "v": open_v})
+            frames.append({"t": min(close_t, duration_ms - 10), "v": 0.0})
+
+    frames.append({"t": duration_ms, "v": 0.0})
+    # 去重并按时间排序，保证单调
+    frames = sorted({f["t"]: f for f in frames}.values(), key=lambda x: x["t"])
     return frames

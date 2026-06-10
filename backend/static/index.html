@@ -59,6 +59,14 @@
     .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #e0a8d8); transition: width .4s; }
     .mem-list { list-style: none; padding: 0; margin: 0; }
     .mem-list li { font-size: 12px; color: #5a4d66; padding: 6px 8px; background: #fff; border-radius: 8px; margin-bottom: 6px; }
+    #faceWrap { display: inline-block; transition: transform .35s ease; transform-origin: center 85%; }
+    #faceWrap.anim-nod { animation: nod .6s ease; }
+    #faceWrap.anim-cheer { animation: cheer .7s ease; }
+    #faceWrap.anim-comfort { animation: comfort .8s ease; }
+    @keyframes nod { 0%,100%{transform:translateY(0)} 35%{transform:translateY(6px)} 55%{transform:translateY(-2px)} }
+    @keyframes cheer { 0%,100%{transform:scale(1)} 30%{transform:scale(1.04) translateY(-4px)} 60%{transform:scale(1.02)} }
+    @keyframes comfort { 0%,100%{transform:rotate(0)} 40%{transform:rotate(-2deg)} 70%{transform:rotate(1deg)} }
+    #cheekL, #cheekR { transition: opacity .35s ease; }
   </style>
 </head>
 <body>
@@ -80,6 +88,7 @@
     <div class="panel">
       <h3>数字人</h3>
       <div style="text-align:center; margin-bottom:18px;">
+        <div id="faceWrap">
         <svg id="face" width="140" height="150" viewBox="0 0 200 210" style="display:block;margin:0 auto;">
           <ellipse cx="100" cy="105" rx="78" ry="88" fill="#fde6f3" stroke="#e0a8d8" stroke-width="3"/>
           <path d="M40 70 Q60 40 92 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
@@ -88,10 +97,11 @@
           <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
           <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
           <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
-          <ellipse cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
-          <ellipse cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.7"/>
+          <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35"/>
+          <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35"/>
           <path id="mouth" d="" fill="#c0506e"/>
         </svg>
+        </div>
         <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
         <label style="font-size:12px;color:#8a7d96;display:block;margin-top:8px;cursor:pointer;">
           <input type="checkbox" id="voiceToggle" checked /> 语音朗读 + 口型同步
@@ -135,56 +145,101 @@
 
     // expression -> 数字人面部参数（与后端 Live2D 预设对应）
     const EXPR_FACE = {
-      "微笑": { form: 0.8, brow: 0.2, eye: 1.0 },
-      "大笑": { form: 1.0, brow: 0.4, eye: 0.7 },
-      "难过": { form: -0.7, brow: -0.5, eye: 0.65 },
-      "担心": { form: -0.35, brow: -0.7, eye: 1.0 },
-      "惊讶": { form: 0.0, brow: 0.7, eye: 1.15 },
-      "平静": { form: 0.15, brow: 0.0, eye: 1.0 }
+      "微笑": { form: 0.8, brow: 0.2, eye: 1.0, cheek: 0.55 },
+      "大笑": { form: 1.0, brow: 0.4, eye: 0.7, cheek: 0.85 },
+      "难过": { form: -0.7, brow: -0.5, eye: 0.65, cheek: 0.0 },
+      "担心": { form: -0.35, brow: -0.7, eye: 1.0, cheek: 0.0 },
+      "惊讶": { form: 0.0, brow: 0.7, eye: 1.15, cheek: 0.2 },
+      "平静": { form: 0.15, brow: 0.0, eye: 1.0, cheek: 0.15 }
     };
     let currentExpr = "平静";
+    let faceIntensity = 0.5;
+    let faceState = { form: 0.15, brow: 0, eye: 1.0, cheek: 0.15, mouthOpen: 0 };
+    let faceAnimRAF = null;
 
-    function setFace(expr, mouthOpen) {
-      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
-      mouthOpen = mouthOpen || 0;
-      // 眼睛开合
-      const ry = 12 * f.eye;
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function applyFaceState() {
+      const s = faceState;
+      const ry = 12 * s.eye;
       document.getElementById("eyeL").setAttribute("ry", ry);
       document.getElementById("eyeR").setAttribute("ry", ry);
-      // 眉毛升降
-      const browDy = -f.brow * 6;
+      const browDy = -s.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
-      // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
+      const cheekOp = Math.min(0.9, s.cheek * faceIntensity);
+      document.getElementById("cheekL").setAttribute("opacity", cheekOp);
+      document.getElementById("cheekR").setAttribute("opacity", cheekOp);
       const cx = 100, w = 30, midY = 148;
-      const cornerY = midY - f.form * 10;       // 嘴角相对中点上扬(笑)或下撇
-      const upperMidY = midY - mouthOpen * 28;   // 上唇中点
-      const lowerMidY = midY + mouthOpen * 28;   // 下唇中点
+      const cornerY = midY - s.form * 10;
+      const upperMidY = midY - s.mouthOpen * 28;
+      const lowerMidY = midY + s.mouthOpen * 28;
       const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
               + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
       const mouth = document.getElementById("mouth");
       mouth.setAttribute("d", d);
-      // 张口露出口腔深色，闭口为唇色
-      mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
+      mouth.setAttribute("fill", s.mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
     }
-    setFace("平静", 0);
+
+    function setFace(expr, mouthOpen, intensity) {
+      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      if (intensity != null) faceIntensity = intensity;
+      mouthOpen = mouthOpen || 0;
+      const target = { form: f.form, brow: f.brow, eye: f.eye, cheek: f.cheek ?? 0, mouthOpen };
+      if (faceAnimRAF) cancelAnimationFrame(faceAnimRAF);
+      const start = { ...faceState };
+      const t0 = performance.now();
+      const dur = 220;
+      function step(now) {
+        const t = Math.min(1, (now - t0) / dur);
+        const ease = t * (2 - t);
+        faceState = {
+          form: lerp(start.form, target.form, ease),
+          brow: lerp(start.brow, target.brow, ease),
+          eye: lerp(start.eye, target.eye, ease),
+          cheek: lerp(start.cheek, target.cheek, ease),
+          mouthOpen: lerp(start.mouthOpen, target.mouthOpen, ease),
+        };
+        applyFaceState();
+        if (t < 1) faceAnimRAF = requestAnimationFrame(step);
+        else faceState = target;
+      }
+      faceAnimRAF = requestAnimationFrame(step);
+    }
+
+    function playBodyAnim(anim) {
+      const wrap = document.getElementById("faceWrap");
+      wrap.classList.remove("anim-nod", "anim-cheer", "anim-comfort");
+      void wrap.offsetWidth;
+      const cls = { nod: "anim-nod", cheer: "anim-cheer", comfort: "anim-comfort" }[anim];
+      if (cls) wrap.classList.add(cls);
+    }
+    applyFaceState();
 
     let lipsyncRAF = null;
     function playLipsync(track) {
       if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
-      if (!track || !track.length) { setFace(currentExpr, 0); return; }
+      if (!track || !track.length) { faceState.mouthOpen = 0; applyFaceState(); return; }
       const start = performance.now();
+      function interpLipsync(t) {
+        for (let i = 0; i < track.length - 1; i++) {
+          const a = track[i], b = track[i + 1];
+          if (a.t <= t && t <= b.t) {
+            const span = b.t - a.t || 1;
+            const r = (t - a.t) / span;
+            return a.v + (b.v - a.v) * r;
+          }
+        }
+        return track[track.length - 1].v;
+      }
       function step(nowT) {
         const t = nowT - start;
-        // 找到当前时间对应的关键帧（线性查找，轨迹很短）
-        let v = 0;
-        for (let i = 0; i < track.length; i++) {
-          if (track[i].t <= t) v = track[i].v; else break;
-        }
+        const v = interpLipsync(t);
+        faceState.mouthOpen = v;
+        applyFaceState();
         const last = track[track.length - 1].t;
-        setFace(currentExpr, v);
         if (t < last) lipsyncRAF = requestAnimationFrame(step);
-        else setFace(currentExpr, 0);
+        else { faceState.mouthOpen = 0; applyFaceState(); }
       }
       lipsyncRAF = requestAnimationFrame(step);
     }
@@ -204,7 +259,8 @@
       // 数字人表情随情绪变化
       if (data.avatar) {
         currentExpr = data.avatar.expression;
-        setFace(currentExpr, 0);
+        setFace(currentExpr, 0, data.avatar.intensity ?? 0.5);
+        playBodyAnim(data.avatar.animation);
         document.getElementById("faceExpr").textContent =
           data.avatar.expression + " · " + data.avatar.animation;
       }
