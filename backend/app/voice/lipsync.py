@@ -25,21 +25,50 @@ def estimate_syllables(text: str) -> int:
     return max(1, cjk + words)
 
 
+def _pause_ms_at(text: str, cycle_idx: int) -> int:
+    """在标点处插入短暂停顿，模拟真人换气。"""
+    if not text:
+        return 0
+    punct = "，。！？、；：,.!?;"
+    positions = [i for i, ch in enumerate(text) if ch in punct]
+    if not positions:
+        return 0
+    pos = positions[cycle_idx % len(positions)]
+    # 句末停顿略长
+    ch = text[pos]
+    return 90 if ch in "。！？.!?" else 45
+
+
 def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> list[dict]:
     """返回 [{"t": 毫秒, "v": 0~1 张口度}, ...]，首尾闭合。
 
     以固定节奏（约 3.5Hz）生成明确的"张口→闭合"循环，模拟真人说话：
-    每个周期内嘴巴张开到峰值再完全合上，肉眼可清晰分辨开合，而非一直半张。
-    节奏固定（不随文字长度变得过快），保证可观察性。
+    每个周期内嘴巴张开到峰值再完全合上；标点处插入短暂停顿，更接近自然语流。
     """
     seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
     cycles = max(1, duration_ms // cycle_ms)
     frames: list[dict] = [{"t": 0, "v": 0.0}]
+    t_cursor = 0
     for k in range(cycles):
-        base = k * cycle_ms
+        pause = _pause_ms_at(text, k)
+        base = t_cursor + pause
+        if base >= duration_ms:
+            break
         jitter = ((seed >> (k % 23)) & 0xFF) / 255.0
-        open_v = round(0.6 + 0.35 * jitter, 3)               # 张口峰值 0.6~0.95
-        frames.append({"t": base + int(cycle_ms * 0.35), "v": open_v})  # 张口
-        frames.append({"t": base + int(cycle_ms * 0.85), "v": 0.0})     # 闭合
-    frames.append({"t": duration_ms, "v": 0.0})              # 结尾闭口
-    return frames
+        # 轻声/语气词张口略小，重读略大
+        open_v = round(0.55 + 0.4 * jitter, 3)
+        open_t = min(duration_ms, base + int(cycle_ms * 0.35))
+        close_t = min(duration_ms, base + int(cycle_ms * 0.85))
+        frames.append({"t": open_t, "v": open_v})
+        frames.append({"t": close_t, "v": 0.0})
+        t_cursor = base + cycle_ms
+    frames.append({"t": duration_ms, "v": 0.0})
+    # 去重并按时间排序，保证单调递增
+    frames.sort(key=lambda f: f["t"])
+    deduped: list[dict] = []
+    for f in frames:
+        if deduped and deduped[-1]["t"] == f["t"]:
+            deduped[-1] = f
+        else:
+            deduped.append(f)
+    return deduped

@@ -10,13 +10,20 @@ from ..domain import EmotionState, Relationship
 # 轻量中文情感词典（骨架用，可替换为模型）
 _POSITIVE = {
     "喜欢", "开心", "高兴", "爱", "谢谢", "感谢", "想你", "想念", "好棒", "厉害",
-    "温暖", "幸福", "哈哈", "棒", "可爱", "陪", "在乎", "甜", "笑",
+    "温暖", "幸福", "哈哈", "棒", "可爱", "陪", "在乎", "甜", "笑", "舒服", "安心",
+    "治愈", "期待", "满足", "放松", "顺利", "真好", "太好了", "感动", "被理解",
 }
 _NEGATIVE = {
     "难过", "伤心", "累", "烦", "讨厌", "孤独", "痛苦", "失望", "生气", "委屈",
-    "压力", "焦虑", "崩溃", "哭", "无聊", "糟糕", "不开心", "想哭", "绝望",
+    "压力", "焦虑", "崩溃", "哭", "无聊", "糟糕", "不开心", "想哭", "绝望", "迷茫",
+    "无助", "害怕", "紧张", "失眠", "委屈", "心累", "emo", "低落", "难受", "烦死了",
 }
-_HIGH_AROUSAL = {"兴奋", "激动", "生气", "崩溃", "焦虑", "愤怒", "害怕", "惊喜"}
+_HIGH_AROUSAL = {
+    "兴奋", "激动", "生气", "崩溃", "焦虑", "愤怒", "害怕", "惊喜", "紧张", "慌",
+    "超级", "太", "真的", "！！",
+}
+# 语气缓和词：降低激活度，让情绪起伏更贴近真人
+_LOW_AROUSAL = {"嗯", "好吧", "算了", "随便", "还好", "一般", "慢慢", "静静"}
 
 
 def analyze_sentiment(text: str) -> float:
@@ -48,16 +55,25 @@ class EmotionEngine:
         """根据用户输入更新情绪，返回(新情绪, 情感倾向值)。"""
         sentiment = analyze_sentiment(user_text)
         arousal_signal = 0.5 if any(w in user_text for w in _HIGH_AROUSAL) else 0.0
+        if any(w in user_text for w in _LOW_AROUSAL):
+            arousal_signal -= 0.25
+        # 感叹号与"哈哈"叠加：兴奋感更强；省略号则偏沉静
+        if "！" in user_text or "!" in user_text:
+            arousal_signal += 0.15
+        if "…" in user_text or "..." in user_text:
+            arousal_signal -= 0.1
 
         # 愉悦度：先向基线回落，再叠加本轮情感传导
         new_p = self._decay * emotion.pleasure + (1 - self._decay) * self._baseline_p
         new_p += self._gain * sentiment
 
         # 激活度：情绪强度越大（无论正负）越高，强情绪词额外加成
-        new_a = self._decay * emotion.arousal + (1 - self._decay) * (abs(sentiment) + arousal_signal)
+        arousal_target = max(0.0, abs(sentiment) + arousal_signal)
+        new_a = self._decay * emotion.arousal + (1 - self._decay) * arousal_target
 
-        # 支配度：暂随时间回落到中性
-        new_d = self._decay * emotion.dominance
+        # 支配度：用户倾诉脆弱时 NPC 更"接住"对方（略偏顺从/关怀）
+        dominance_signal = -0.15 if sentiment < -0.2 else 0.05
+        new_d = self._decay * emotion.dominance + (1 - self._decay) * dominance_signal
 
         return EmotionState(
             pleasure=_clamp(new_p), arousal=_clamp(new_a), dominance=_clamp(new_d)
