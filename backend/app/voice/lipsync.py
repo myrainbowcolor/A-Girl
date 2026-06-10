@@ -28,18 +28,25 @@ def estimate_syllables(text: str) -> int:
 def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> list[dict]:
     """返回 [{"t": 毫秒, "v": 0~1 张口度}, ...]，首尾闭合。
 
-    以固定节奏（约 3.5Hz）生成明确的"张口→闭合"循环，模拟真人说话：
-    每个周期内嘴巴张开到峰值再完全合上，肉眼可清晰分辨开合，而非一直半张。
-    节奏固定（不随文字长度变得过快），保证可观察性。
+    按估算音节数把时长均分，每段一个"张口→闭合"周期，模拟真人说话节奏：
+    长句音节多、开合次数多；短句更慢、更从容。仍保持确定性，便于无头测试。
     """
     seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
-    cycles = max(1, duration_ms // cycle_ms)
+    syllables = estimate_syllables(text)
+    cycles = max(syllables, duration_ms // cycle_ms)
+    step = max(cycle_ms, duration_ms // cycles)
     frames: list[dict] = [{"t": 0, "v": 0.0}]
     for k in range(cycles):
-        base = k * cycle_ms
+        base = k * step
+        if base >= duration_ms:
+            break
         jitter = ((seed >> (k % 23)) & 0xFF) / 255.0
-        open_v = round(0.6 + 0.35 * jitter, 3)               # 张口峰值 0.6~0.95
-        frames.append({"t": base + int(cycle_ms * 0.35), "v": open_v})  # 张口
-        frames.append({"t": base + int(cycle_ms * 0.85), "v": 0.0})     # 闭合
-    frames.append({"t": duration_ms, "v": 0.0})              # 结尾闭口
+        # 句首/句尾略轻，中间音节张口更明显
+        edge = 0.85 if 0 < k < cycles - 1 else 0.65
+        open_v = round(min(0.95, (0.55 + 0.4 * jitter) * edge), 3)
+        open_t = base + int(step * 0.32)
+        close_t = min(duration_ms, base + int(step * 0.82))
+        frames.append({"t": open_t, "v": open_v})
+        frames.append({"t": close_t, "v": 0.0})
+    frames.append({"t": duration_ms, "v": 0.0})
     return frames
