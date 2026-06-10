@@ -93,17 +93,19 @@ class ProactivityEngine:
 
         # 2) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
+            name = self._persona.name
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
-                "上次你好像有点不开心，我一直挂念着，现在感觉好点了吗？"
+                f"上次聊完我一直有点惦记你…现在好点了吗？不想说也没关系，{name}在呢。",
             )
 
         # 3) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
+            name = self._persona.name
             return ProactiveResult(
                 True, "idle", f"已闲置约 {hours} 小时",
-                "好久没找我啦，有点想你了，最近过得怎么样呀？"
+                f"好久没找我啦，{name}有点想你了～最近过得怎么样呀？",
             )
 
         return ProactiveResult(False)

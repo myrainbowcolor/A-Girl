@@ -34,12 +34,12 @@ class AvatarCue:
 
 # expression -> Live2D 表情基线（值域约 -1~1，正=上扬/睁大）
 _LIVE2D_PRESETS = {
-    "微笑": {"mouth_form": 1.0, "brow": 0.2, "eye_open": 1.0, "cheek": 0.3},
-    "大笑": {"mouth_form": 1.0, "brow": 0.4, "eye_open": 0.7, "cheek": 0.6},
-    "难过": {"mouth_form": -0.8, "brow": -0.6, "eye_open": 0.6, "cheek": 0.0},
-    "担心": {"mouth_form": -0.4, "brow": -0.8, "eye_open": 1.0, "cheek": 0.0},
-    "惊讶": {"mouth_form": 0.0, "brow": 0.8, "eye_open": 1.0, "cheek": 0.1},
-    "平静": {"mouth_form": 0.2, "brow": 0.0, "eye_open": 1.0, "cheek": 0.0},
+    "微笑": {"mouth_form": 1.0, "brow": 0.18, "eye_open": 0.9, "cheek": 0.42},
+    "大笑": {"mouth_form": 1.0, "brow": 0.45, "eye_open": 0.62, "cheek": 0.72},
+    "难过": {"mouth_form": -0.85, "brow": -0.65, "eye_open": 0.55, "cheek": 0.0},
+    "担心": {"mouth_form": -0.35, "brow": -0.85, "eye_open": 1.05, "cheek": 0.05},
+    "惊讶": {"mouth_form": 0.05, "brow": 0.85, "eye_open": 1.12, "cheek": 0.15},
+    "平静": {"mouth_form": 0.18, "brow": 0.0, "eye_open": 0.95, "cheek": 0.08},
 }
 
 
@@ -52,7 +52,8 @@ def emotion_to_avatar(emotion: EmotionState, is_crisis: bool = False) -> AvatarC
         return AvatarCue(expression="担心", intensity=0.9, animation="comfort")
 
     p, a = emotion.pleasure, emotion.arousal
-    intensity = min(1.0, (abs(p) + abs(a)) / 2 + 0.2)
+    # 情绪越鲜明强度越高，弱情绪保留柔和底噪避免"面瘫"
+    intensity = min(1.0, max(0.25, (abs(p) * 0.65 + abs(a) * 0.55) + 0.15))
 
     if p >= 0.3 and a >= 0.45:
         return AvatarCue(expression="大笑", intensity=intensity, animation="cheer")
