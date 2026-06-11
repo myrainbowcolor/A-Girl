@@ -1,0 +1,35 @@
+name: Dialogue Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dialogue-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run dialogue quality scenarios (pytest)
+        run: python -m pytest tests/test_dialogue_quality.py -v
+
+      - name: Run dialogue quality script (strict)
+        run: python scripts/run_dialogue_quality.py --strict
+
+      - name: Run full test suite
+        run: python -m pytest -q
