@@ -39,6 +39,24 @@ def _is_cjk(ch: str) -> bool:
     return "\u4e00" <= ch <= "\u9fff"
 
 
+_PAUSE_CHARS = frozenset("，。！？、,.!?…；;:")
+
+
+def _pause_ms_at(text: str, cycle: int) -> int:
+    """在标点附近为对应说话周期插入短暂停顿（毫秒），模拟自然语流。"""
+    if not text:
+        return 0
+    punct = [i for i, ch in enumerate(text) if ch in _PAUSE_CHARS]
+    if not punct:
+        return 0
+    syllables = estimate_syllables(text)
+    char_pos = min(len(text) - 1, int((cycle + 0.5) * len(text) / max(1, syllables)))
+    for p in punct:
+        if abs(p - char_pos) <= 1:
+            return 90 if text[p] in "，。！？、,.!?…" else 55
+    return 0
+
+
 def estimate_syllables(text: str) -> int:
     """粗略估算音节数：中文按字计，英文按词计。"""
     cjk = sum(1 for ch in text if _is_cjk(ch))

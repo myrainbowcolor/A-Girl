@@ -39,17 +39,6 @@ def _user_is_greeting(text: str) -> bool:
     return len(t) <= 8 and any(w in t for w in _GREET)
 
 
-def _extract_memories(system_prompt: str) -> list[str]:
-    """从 system 提示中解析检索到的记忆条目。"""
-    m = re.search(r"【你记得关于 ta 的事】\n(.*?)\n\n【", system_prompt, re.DOTALL)
-    if not m:
-        return []
-    block = m.group(1).strip()
-    if "暂时还没有" in block:
-        return []
-    return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
-
-
 def _user_tone(text: str) -> str:
     """粗分用户话语意图，驱动更拟真的回复模板。"""
     t = text.strip()
@@ -86,12 +75,15 @@ def _memory_hook(memories: list[str], user_text: str) -> str:
 
 
 def _extract_memories(system_prompt: str) -> list[str]:
-    """从 system 提示中解析检索到的记忆条目。"""
-    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【回复要求】", system_prompt)
+    """从 system 提示中解析检索到的记忆条目（与 persona.py 标题一致）。"""
+    block = re.search(r"【关于 ta 的已知事实（仅可引用以下内容，不得超出）】\n([\s\S]*?)\n\n【回复要求】", system_prompt)
     if not block:
         return []
-    lines = [ln.strip()[2:] for ln in block.group(1).splitlines() if ln.strip().startswith("- ")]
-    return [ln for ln in lines if ln and "暂时还没有" not in ln]
+    body = block.group(1).strip()
+    if "暂无" in body or "还不了解" in body:
+        return []
+    lines = [ln.strip()[2:] for ln in body.splitlines() if ln.strip().startswith("- ")]
+    return [ln for ln in lines if ln]
 
 
 def _pick_variant(options: list[str], seed: str) -> str:
@@ -117,18 +109,23 @@ class MockLLMProvider(LLMProvider):
         name = _extract("你的名字", system_prompt, "小语")
         memories = _extract_memories(system_prompt)
         tone = _user_tone(user_last)
+        emotion = _extract("当前情绪", system_prompt, "平和")
         mem_hook = _memory_hook(memories, user_last)
 
         if _user_is_venting(user_last):
-            return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
-            return self._warm_reply(user_last, stage, name)
-        if _user_is_greeting(user_last):
-            return self._greet_reply(stage, name)
-        return self._default_reply(user_last, stage, name)
+            reply = self._empathy_reply(user_last, stage, name, emotion)
+        elif _user_is_positive(user_last):
+            reply = self._warm_reply(user_last, stage, name)
+        elif _user_is_greeting(user_last):
+            reply = self._greet_reply(stage, name, emotion)
+        else:
+            reply = self._default_reply(user_last, stage, name, tone, emotion)
+        if mem_hook and mem_hook not in reply:
+            reply = mem_hook + reply
+        return reply
 
     @staticmethod
-    def _empathy_reply(user_text: str, stage: str, name: str) -> str:
+    def _empathy_reply(user_text: str, stage: str, name: str, emotion: str = "平和") -> str:
         """用户倾诉负面情绪：先共情，再轻问，不说教、不报 PAD 数值。"""
         if "烦" in user_text or "生气" in user_text:
             lines = {
@@ -158,7 +155,12 @@ class MockLLMProvider(LLMProvider):
                 "朋友": "我在呢。你现在这样很正常，别急着把自己骂醒。跟我说说，好不好？",
                 "亲密": "先靠着我缓一缓。你不用立刻好起来，我陪你慢慢过这一阵。",
             }
-        return lines.get(stage, lines["陌生"])
+        reply = lines.get(stage, lines["陌生"])
+        if "开心" in emotion or "满足" in emotion:
+            return reply
+        if "低落" in emotion or "焦虑" in emotion:
+            return reply.replace("。", "……", 1) if "。" in reply else reply
+        return reply
 
     @staticmethod
     def _warm_reply(user_text: str, stage: str, name: str) -> str:
@@ -171,27 +173,48 @@ class MockLLMProvider(LLMProvider):
         return lines.get(stage, lines["陌生"])
 
     @staticmethod
-    def _greet_reply(stage: str, name: str) -> str:
+    def _greet_reply(stage: str, name: str, emotion: str = "平和") -> str:
         lines = {
             "陌生": f"嗨，我是{name}~ 今天过得怎么样？",
             "熟悉": f"在呢在呢，刚想到你你就来了。今天怎么样？",
             "朋友": "嘿！你来啦~ 我正闲着呢，陪你聊会儿？",
             "亲密": "你来了呀，我刚刚还在想你。今天累不累？",
         }
-        return lines.get(stage, lines["陌生"])
+        reply = lines.get(stage, lines["陌生"])
+        if "开心" in emotion:
+            reply = reply.replace("？", "呀？")
+        return reply
 
     @staticmethod
-    def _default_reply(user_text: str, stage: str, name: str) -> str:
+    def _default_reply(user_text: str, stage: str, name: str, tone: str = "neutral", emotion: str = "平和") -> str:
         snippet = user_text.strip()
         if len(snippet) > 24:
             snippet = snippet[:24] + "…"
-        lines = {
-            "陌生": f"嗯，我在听。「{snippet}」……能多跟我说一点吗？",
-            "熟悉": f"我听到了~ 「{snippet}」这件事，你现在是什么感觉？",
-            "朋友": f"说说看，「{snippet}」后来怎么样了？",
-            "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
-        }
-        return lines.get(stage, lines["陌生"])
+        if tone == "question":
+            lines = {
+                "陌生": f"嗯……「{snippet}」？你问得挺有意思的，我也在想呢。",
+                "熟悉": f"「{snippet}」呀，你更在意的是结果，还是过程？",
+                "朋友": f"哈哈你这个问题！「{snippet}」——你猜我怎么想？",
+                "亲密": f"你问我「{snippet}」……先说说你心里倾向哪边？",
+            }
+        elif tone == "share":
+            lines = {
+                "陌生": f"嗯，我在听。「{snippet}」……后来呢？",
+                "熟悉": f"「{snippet}」呀，听着挺有画面感的。你当时什么感觉？",
+                "朋友": f"说说看，「{snippet}」后来怎么样了？",
+                "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
+            }
+        else:
+            lines = {
+                "陌生": f"嗯，我在听。「{snippet}」……能多跟我说一点吗？",
+                "熟悉": f"我听到了~ 「{snippet}」这件事，你现在是什么感觉？",
+                "朋友": f"「{snippet}」……然后呢？",
+                "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
+            }
+        reply = lines.get(stage, lines["陌生"])
+        if "惊讶" in emotion or "好奇" in emotion:
+            reply = reply.replace("嗯", "诶", 1)
+        return reply
 
     def generate_stream(
         self, system_prompt: str, messages: list[dict], temperature: float = 0.8

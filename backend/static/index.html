@@ -71,6 +71,11 @@
       50% { transform: scale(1.04); }
     }
     #face.anim-comfort { animation: comfort-pulse 1.1s ease-in-out 2; transform-origin: center center; }
+    @keyframes blink {
+      0%, 92%, 100% { transform: scaleY(1); }
+      96% { transform: scaleY(0.08); }
+    }
+    .eye-blink { transform-origin: center; animation: blink 4.2s ease-in-out infinite; }
   </style>
 </head>
 <body>
@@ -114,8 +119,8 @@
           <path d="M160 70 Q140 40 108 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
           <g id="browL"><line x1="58" y1="74" x2="86" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
           <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
-          <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
-          <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <g class="eye-blink"><ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/></g>
+          <g class="eye-blink" style="animation-delay:.15s"><ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/></g>
           <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
           <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
           <path id="mouth" d="" fill="#c0506e"/>
@@ -342,29 +347,70 @@
     let blinkUntil = 0;
     let mouthOpenOverride = 0;
 
+    function lerpFace(a, b, t) {
+      const o = {};
+      for (const k of Object.keys(a)) o[k] = a[k] + (b[k] - a[k]) * t;
+      return o;
+    }
+    function intensityCurve(raw) {
+      const x = Math.max(0, Math.min(1, raw));
+      return x * x * (3 - 2 * x);
+    }
+
     // mouthOpen: 0~1 张口度；wide: -1(圆/窄) ~ 1(扁/宽)，来自 viseme
-    function setFace(expr, mouthOpen, wide) {
-      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
+    function applyFaceBlend(mouthOpen, wide) {
+      const f = faceBlend;
+      const k = intensityCurve(faceIntensity);
       mouthOpen = mouthOpen || 0;
       wide = (wide === undefined || wide === null) ? 0 : wide;
-      // 眼睛开合
-      const ry = 12 * f.eye;
+      const ry = 12 * f.eye * (1 + mouthOpen * 0.08);
       document.getElementById("eyeL").setAttribute("ry", ry);
       document.getElementById("eyeR").setAttribute("ry", ry);
       const browDy = -f.brow * 6 * k;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
-      // 嘴宽：viseme 的 wide 让嘴更扁(宽)或更圆(窄)
+      const cheekOp = Math.max(0, f.cheek * k * 0.85);
+      document.getElementById("cheekL").setAttribute("opacity", cheekOp);
+      document.getElementById("cheekR").setAttribute("opacity", cheekOp);
       const w = 30 + wide * 12;
       const cx = 100, midY = 148;
-      const cornerY = midY - f.form * 10;        // 嘴角上扬(笑)或下撇
-      const upperMidY = midY - mouthOpen * 28;    // 上唇中点
-      const lowerMidY = midY + mouthOpen * 28;    // 下唇中点
+      const cornerY = midY - f.form * 10 * k;
+      const upperMidY = midY - mouthOpen * 28;
+      const lowerMidY = midY + mouthOpen * 28;
       const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
               + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
       const mouth = document.getElementById("mouth");
       mouth.setAttribute("d", d);
       mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
+    }
+
+    function setFace(expr, mouthOpen, wide) {
+      const base = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      const k = intensityCurve(faceIntensity);
+      faceBlend = lerpFace(EXPR_FACE["平静"], base, k);
+      applyFaceBlend(mouthOpen, wide);
+    }
+
+    let faceAnimRAF = null;
+    function animateFaceTo(expr, intensity) {
+      if (faceAnimRAF) cancelAnimationFrame(faceAnimRAF);
+      const fromBlend = { ...faceBlend };
+      const target = EXPR_FACE[expr] || EXPR_FACE["平静"];
+      const toK = intensity != null ? intensity : faceIntensity;
+      const toBlend = lerpFace(EXPR_FACE["平静"], target, intensityCurve(toK));
+      const fromK = faceIntensity;
+      const start = performance.now();
+      const dur = 380;
+      function step(now) {
+        const t = Math.min(1, (now - start) / dur);
+        const ease = t * t * (3 - 2 * t);
+        faceBlend = lerpFace(fromBlend, toBlend, ease);
+        faceIntensity = fromK + (toK - fromK) * ease;
+        applyFaceBlend(0, 0);
+        if (t < 1) faceAnimRAF = requestAnimationFrame(step);
+        else { faceTarget = { ...toBlend }; faceIntensity = toK; }
+      }
+      faceAnimRAF = requestAnimationFrame(step);
     }
     setFace("平静", 0, 0);
 
@@ -412,16 +458,17 @@
       } else {
         memList.innerHTML = '<li style="color:#aaa;">暂无</li>';
       }
-      // 数字人表情随情绪变化
+      // 数字人表情随情绪变化（渐变过渡 + 强度）
       if (data.avatar) {
         currentExpr = data.avatar.expression;
-        setFace(currentExpr, 0, 0);
+        const intensity = data.avatar.intensity != null ? data.avatar.intensity : faceIntensity;
+        animateFaceTo(currentExpr, intensity);
         const face = document.getElementById("face");
         face.classList.remove("anim-comfort");
         if (data.avatar.animation === "comfort") face.classList.add("anim-comfort");
         document.getElementById("faceExpr").textContent =
           data.avatar.expression + " · " + data.avatar.animation
-          + " · 强度 " + Math.round(faceIntensity * 100) + "%";
+          + " · 强度 " + Math.round(intensity * 100) + "%";
       }
     }
 
