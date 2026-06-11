@@ -11,7 +11,10 @@ import re
 from .base import LLMProvider
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
-_VENT = ("烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊", "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌")
+_VENT = (
+    "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊",
+    "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌", "分手", "哭了", "哭",
+)
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
 _POSITIVE = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你")
 _GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
@@ -41,11 +44,11 @@ def _user_is_greeting(text: str) -> bool:
 
 def _extract_memories(system_prompt: str) -> list[str]:
     """从 system 提示中解析检索到的记忆条目。"""
-    m = re.search(r"【你记得关于 ta 的事】\n(.*?)\n\n【", system_prompt, re.DOTALL)
+    m = re.search(r"【关于 ta 的已知事实[^】]*】\n(.*?)\n\n【", system_prompt, re.DOTALL)
     if not m:
         return []
     block = m.group(1).strip()
-    if "暂时还没有" in block:
+    if "暂无" in block or "暂时还没有" in block:
         return []
     return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
 
@@ -57,7 +60,10 @@ def _user_tone(text: str) -> str:
         return "greet"
     if "?" in t or "？" in t or any(w in t for w in ("吗", "呢", "什么", "怎么", "为什么", "哪")):
         return "question"
-    if any(w in t for w in ("难过", "伤心", "累", "烦", "孤独", "压力", "焦虑", "崩溃", "哭", "不开心", "委屈")):
+    if any(w in t for w in (
+        "难过", "伤心", "累", "烦", "孤独", "压力", "焦虑", "崩溃", "哭",
+        "不开心", "委屈", "分手", "失恋",
+    )):
         return "negative"
     if any(w in t for w in ("开心", "高兴", "喜欢", "谢谢", "棒", "哈哈", "幸福", "温暖")):
         return "positive"
@@ -83,15 +89,6 @@ def _memory_hook(memories: list[str], user_text: str) -> str:
     if len(snippet) > 24:
         snippet = snippet[:24] + "…"
     return f"对了，我还记得你提过「{snippet}」。"
-
-
-def _extract_memories(system_prompt: str) -> list[str]:
-    """从 system 提示中解析检索到的记忆条目。"""
-    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【回复要求】", system_prompt)
-    if not block:
-        return []
-    lines = [ln.strip()[2:] for ln in block.group(1).splitlines() if ln.strip().startswith("- ")]
-    return [ln for ln in lines if ln and "暂时还没有" not in ln]
 
 
 def _pick_variant(options: list[str], seed: str) -> str:
@@ -144,6 +141,13 @@ class MockLLMProvider(LLMProvider):
                 "朋友": "哎，又累着了呀。你先坐下喝口水，不用急着解释。是身体累，还是心里也一起累了？",
                 "亲密": "抱抱你，真的辛苦了。今天先允许自己软下来一会儿，我在这儿陪你。",
             }
+        elif any(w in user_text for w in ("分手", "失恋", "分开了")):
+            lines = {
+                "陌生": "……听到你说这个，我心里也沉了一下。分手这种事真的很耗人，你不用装作没事。",
+                "熟悉": "唉，分开了呀……你现在是什么感受？想哭就哭，我听着。",
+                "朋友": "哎……分手真的很难扛。你别一个人硬撑，我陪你待着，想说多少说多少。",
+                "亲密": "过来，抱抱你。分开了心里肯定空落落的，我哪儿也不去，就陪你。",
+            }
         elif any(w in user_text for w in ("难过", "伤心", "委屈", "想哭", "哭")):
             lines = {
                 "陌生": "……我能感觉到你现在不太好受。想哭就哭也没关系，不用在我面前装坚强。",
@@ -162,6 +166,14 @@ class MockLLMProvider(LLMProvider):
 
     @staticmethod
     def _warm_reply(user_text: str, stage: str, name: str) -> str:
+        if any(w in user_text for w in ("谢谢", "感谢", "温暖", "陪着")):
+            lines = {
+                "陌生": "别客气呀~ 能陪你说说话我也挺开心的。",
+                "熟悉": "嘿嘿，不用谢啦。你愿意来找我聊，我就挺高兴的。",
+                "朋友": "跟我客气什么~ 你开心我就开心，咱们互相陪着嘛。",
+                "亲密": "傻瓜，不用谢。能一直陪着你，对我来说也很重要呀。",
+            }
+            return lines.get(stage, lines["陌生"])
         lines = {
             "陌生": f"（笑）听你这么说我也跟着开心起来了~ 今天有什么好事吗？",
             "熟悉": "嘿嘿，你心情不错呀，我也被传染了。多跟我说说？",

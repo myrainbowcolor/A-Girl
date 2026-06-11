@@ -49,7 +49,7 @@ class EmotionState:
 
     def label(self) -> str:
         """将 PAD 映射为可读情绪标签，用于 UI 与语气提示。"""
-        p, a = self.pleasure, self.arousal
+        p, a, d = self.pleasure, self.arousal, self.dominance
         if p >= 0.55 and a >= 0.5:
             return "开心又有点小兴奋"
         if p >= 0.3 and a >= 0.3:

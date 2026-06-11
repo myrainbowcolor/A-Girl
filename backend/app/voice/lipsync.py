@@ -94,6 +94,19 @@ def generate_visemes(text: str, duration_ms: int) -> list[dict]:
     return frames
 
 
+def _pause_ms_at(text: str, cycle_index: int) -> int:
+    """在标点处插入短暂停顿，模拟语流中的自然间歇。"""
+    if not text:
+        return 0
+    punct = "，。！？、,.!?…"
+    hits = [i for i, ch in enumerate(text) if ch in punct]
+    if not hits:
+        return 0
+    pos = hits[cycle_index % len(hits)]
+    # 标点越靠后，停顿略长
+    return 40 + (pos % 3) * 25
+
+
 def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> list[dict]:
     """返回 [{"t": 毫秒, "v": 0~1 张口度}, ...]，首尾闭合。
 
