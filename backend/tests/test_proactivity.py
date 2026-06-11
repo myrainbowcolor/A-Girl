@@ -5,7 +5,7 @@ import pytest
 
 from app.config import Settings
 from app.db import Database
-from app.domain import Persona, UserMeta
+from app.domain import Message, Persona, UserMeta
 from app.proactivity import ProactivityEngine, extract_events
 
 
@@ -18,13 +18,29 @@ def engine():
         db.close()
 
 
-def test_no_trigger_without_meta(engine):
+def test_welcome_trigger_on_first_visit(engine):
     eng, _, _ = engine
+    r = eng.check("u1")
+    assert r.should_reach_out and r.trigger == "welcome"
+    assert "嗨" in (r.message or "")
+
+
+def test_no_trigger_without_meta_when_has_history(engine):
+    eng, db, _ = engine
+    from app.domain import Message
+    db.add_message(Message(session_id="sess-u1", role="user", content="hi", created_at=time.time()))
     assert not eng.check("u1").should_reach_out
+
+
+def _seed_history(db, user_id: str = "u1") -> None:
+    db.add_message(
+        Message(session_id=f"sess-{user_id}", role="user", content="之前聊过", created_at=time.time())
+    )
 
 
 def test_idle_trigger(engine):
     eng, db, s = engine
+    _seed_history(db)
     now = time.time()
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 10 * 3600, last_sentiment=0.1))
     r = eng.check("u1", now=now)
@@ -34,6 +50,7 @@ def test_idle_trigger(engine):
 
 def test_no_trigger_when_recent(engine):
     eng, db, _ = engine
+    _seed_history(db)
     now = time.time()
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 60, last_sentiment=0.1))
     assert not eng.check("u1", now=now).should_reach_out
@@ -41,6 +58,7 @@ def test_no_trigger_when_recent(engine):
 
 def test_emotion_trigger(engine):
     eng, db, _ = engine
+    _seed_history(db)
     now = time.time()
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 3600, last_sentiment=-0.6))
     r = eng.check("u1", now=now)
@@ -49,6 +67,7 @@ def test_emotion_trigger(engine):
 
 def test_event_trigger_has_priority(engine):
     eng, db, _ = engine
+    _seed_history(db)
     now = time.time()
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 10 * 3600, last_sentiment=-0.9))
     from app.domain import Event

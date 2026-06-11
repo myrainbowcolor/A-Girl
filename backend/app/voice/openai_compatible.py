@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import base64
 
+from dataclasses import asdict
+
 import httpx
 
-from .base import STTProvider, TTSProvider, TTSResult
-from .lipsync import generate_lipsync
+from .base import STTProvider, TTSProvider, TTSResult, VoiceStyle
+from .lipsync import generate_lipsync, generate_visemes
 
 _MS_PER_CHAR = 140
 
@@ -27,25 +29,33 @@ class OpenAICompatibleTTSProvider(TTSProvider):
     def name(self) -> str:
         return f"openai_compatible:{self._model}"
 
-    def synthesize(self, text: str, voice: str | None = None) -> TTSResult:
+    def synthesize(
+        self, text: str, voice: str | None = None, style: VoiceStyle | None = None
+    ) -> TTSResult:
+        style = style or VoiceStyle()
         payload = {
             "model": self._model,
             "voice": voice or self._voice,
             "input": text,
             "response_format": "wav",
+            # OpenAI 兼容扩展：语速；语气作为 instructions 传递（兼容 gpt-4o-mini-tts）
+            "speed": style.rate,
+            "instructions": f"以{style.style}的语气说话",
         }
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
         with httpx.Client(timeout=self._timeout) as client:
             resp = client.post(f"{self._base_url}/audio/speech", json=payload, headers=headers)
             resp.raise_for_status()
             audio = resp.content
-        duration_ms = max(300, len(text) * _MS_PER_CHAR)
+        duration_ms = max(300, int(len(text) * _MS_PER_CHAR / max(0.3, style.rate)))
         return TTSResult(
             audio_base64=base64.b64encode(audio).decode("ascii"),
             format="wav",
             duration_ms=duration_ms,
             provider=self.name,
             lipsync=generate_lipsync(text, duration_ms),
+            visemes=generate_visemes(text, duration_ms),
+            style=asdict(style),
         )
 
 
