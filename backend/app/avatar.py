@@ -19,6 +19,7 @@ class AvatarCue:
         """映射为 Live2D 标准参数，供嵌入游戏直接驱动 3D/2D 数字人。
 
         口型参数 ParamMouthOpenY 由 TTS 的 lipsync 轨迹逐帧驱动，这里给静态基线。
+        intensity 做非线性映射，弱情绪更含蓄、强情绪更明显，避免"半永久尬笑"。
         """
         base = _LIVE2D_PRESETS.get(self.expression, _LIVE2D_PRESETS["平静"])
         k = max(0.15, min(1.0, self.intensity))
@@ -33,6 +34,12 @@ class AvatarCue:
             "ParamEyeRSmile": round(eye_smile, 3),
             "ParamCheek": round(base["cheek"] * k, 3),            # 脸颊（脸红/鼓腮）
         }
+
+
+def _intensity_curve(raw: float) -> float:
+    """S 形强度曲线：中段变化细腻，高段不过饱和。"""
+    x = max(0.0, min(1.0, raw))
+    return round(x * x * (3.0 - 2.0 * x), 3)
 
 
 # expression -> Live2D 表情基线（值域约 -1~1，正=上扬/睁大）

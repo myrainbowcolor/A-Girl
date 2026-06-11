@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import re
 
 from .base import LLMProvider
@@ -82,6 +83,22 @@ def _memory_hook(memories: list[str], user_text: str) -> str:
     if len(snippet) > 24:
         snippet = snippet[:24] + "…"
     return f"对了，我还记得你提过「{snippet}」。"
+
+
+def _extract_memories(system_prompt: str) -> list[str]:
+    """从 system 提示中解析检索到的记忆条目。"""
+    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【回复要求】", system_prompt)
+    if not block:
+        return []
+    lines = [ln.strip()[2:] for ln in block.group(1).splitlines() if ln.strip().startswith("- ")]
+    return [ln for ln in lines if ln and "暂时还没有" not in ln]
+
+
+def _pick_variant(options: list[str], seed: str) -> str:
+    if not options:
+        return ""
+    idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
+    return options[idx]
 
 
 class MockLLMProvider(LLMProvider):

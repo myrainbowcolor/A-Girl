@@ -58,7 +58,9 @@ class EmotionState:
             return "平静又满足"
         if p <= -0.3 and a >= 0.5:
             return "有些焦虑/委屈"
-        if p <= -0.3 and a < 0.3:
+        if p <= -0.3 and d < -0.1:
+            return "低落，想轻轻安慰你"
+        if p <= -0.3:
             return "低落"
         if a >= 0.55:
             return "有点惊讶/好奇"
