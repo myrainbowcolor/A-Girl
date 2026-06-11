@@ -335,8 +335,15 @@ Reflection      反思：id, user_id, insight, source_memory_ids, created_at
 - **M0 核心骨架（已完成）**：人格 + 记忆流 + 情绪/关系 + 编排 + Web 聊天 + 安全前置 + 测试。无 Key 可运行。
 - **M1 多模态与嵌入（本阶段）**：语音 TTS/STT 抽象、数字人表情映射、未成年人安全强化、游戏嵌入契约 + Python 示例。
 - **M2 真实模型接入**：接入 OpenAI / 自托管 LLM 与语音；记忆检索与反思调优；语音口型同步。
-- **M3 数字人深化**：Live2D / 3D 形象、微表情、情绪化语音风格。
-- **M4 主动性与运营**：调度器 + 主动关心；关系健康度指标；未成年人保护与合规体系化。
+- **M3 数字人深化 + 主动推送 + 合规（本阶段）**：viseme 级口型（音素→嘴型）、情绪化语音风格（PAD→语速/音调/语气）、主动推送通道（SSE + webhook）、未成年人合规（年龄确认门 + 家长安全日志）。
+- **M4 运营与深化**：Live2D/3D 真实形象与 viseme 级口型对齐、关系健康度指标、可信年龄核验与家长账户、合规留存策略。
+
+### M3 子系统补充
+
+- **viseme 口型**（`voice/lipsync.py`）：`text_to_visemes` 把文本转为 A/E/I/O/U/MBP/REST 口型序列，`generate_visemes` 排布时间帧（含 `open` 张口度与 `wide` 嘴宽），比单维开合更接近真人发音。
+- **情绪化语音风格**（`voice/style.py`）：`style_from_emotion` 由 PAD 推导 `rate/pitch/volume/style`（开心更快更亮、难过更慢更低、危机更轻柔），传给 TTS。
+- **主动推送**（`push.py`）：进程内 pub/sub，SSE（`/api/stream/{user_id}`）实时推送 + webhook 回调（`AGIRL_PUSH_WEBHOOK_URL`）；后台调度器命中主动关心后自动推送。
+- **未成年人合规**（`compliance.py`）：`AgeGate` 年龄确认门（未确认前 `/api/chat` 返回 403），`AuditLogger` 把安全事件写入家长可见审计日志（DB + 文件），`/api/audit/{user_id}` 查询。
 
 ---
 

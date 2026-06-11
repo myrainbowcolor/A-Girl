@@ -46,13 +46,23 @@ _LIVE2D_PRESETS = {
 }
 
 
-def emotion_to_avatar(emotion: EmotionState, is_crisis: bool = False) -> AvatarCue:
+def emotion_to_avatar(
+    emotion: EmotionState,
+    is_crisis: bool = False,
+    user_sentiment: float | None = None,
+) -> AvatarCue:
     """由 PAD 推导表情与动作。
 
     危机场景优先表现为"担心 + 安抚"，避免不合时宜的笑脸。
+    user_sentiment：用户本轮情感倾向；负向时 NPC 优先展示倾听/安抚姿态。
     """
     if is_crisis:
         return AvatarCue(expression="担心", intensity=0.9, animation="comfort")
+
+    if user_sentiment is not None and user_sentiment < -0.2:
+        p, a = emotion.pleasure, emotion.arousal
+        intensity = min(1.0, (abs(p) + abs(a)) / 2 + 0.35)
+        return AvatarCue(expression="担心", intensity=intensity, animation="comfort")
 
     p, a = emotion.pleasure, emotion.arousal
     # 情绪越鲜明，表情幅度越大；弱情绪也保留最低可见度
