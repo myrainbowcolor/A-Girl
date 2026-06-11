@@ -41,9 +41,13 @@ python scripts/run_dialogue_quality.py --strict
 # 只跑单个场景
 python scripts/run_dialogue_quality.py --scenario memory_pet_name
 
+# 列出全部场景及六维标签
+python scripts/run_dialogue_quality.py --list
+
 # 按维度筛选（子串匹配）
 python scripts/run_dialogue_quality.py --relationship 朋友 --emotion 焦虑
 python scripts/run_dialogue_quality.py --duration 6轮 --scene 深夜
+python scripts/run_dialogue_quality.py --mindset 孤独 --background 退休
 
 # pytest（默认无 critical 即通过，并写入报告）
 python -m pytest tests/test_dialogue_quality.py -v

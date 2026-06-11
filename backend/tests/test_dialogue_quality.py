@@ -58,3 +58,54 @@ def test_dialogue_quality_summary(dialogue_results):
     """整体平均分应维持在可接受区间（mock LLM 基线）。"""
     avg = sum(r.score for r in dialogue_results) / len(dialogue_results)
     assert avg >= 70.0, f"整体平均分过低：{avg:.1f}"
+
+
+def test_dimension_coverage():
+    """六维场景库应覆盖主要关系阶段与时长档位。"""
+    scenarios = all_scenarios()
+    relationships = {s.relationship for s in scenarios}
+    durations = {s.duration for s in scenarios}
+    assert "陌生" in relationships
+    assert "朋友" in relationships
+    assert "亲密" in relationships
+    assert any("单轮" in d for d in durations)
+    assert any("6轮" in d for d in durations)
+    assert len(scenarios) >= 26
+
+
+def test_failure_recording(tmp_path):
+    """质量不达标时应写入 failures.jsonl 供开发跟进。"""
+    from app.dialogue_quality.evaluator import QualityIssue
+    from app.dialogue_quality.runner import ScenarioResult, TurnRecord
+    from app.dialogue_quality.scenarios import all_scenarios
+
+    scenario = all_scenarios()[0]
+    result = ScenarioResult(
+        scenario=scenario,
+        passed=False,
+        score=40.0,
+        issues=[
+            QualityIssue("missing_empathy", "major", "测试用失败记录", 0),
+        ],
+        turns=[
+            TurnRecord(
+                turn_index=0,
+                user_text="测试",
+                reply="机械回复",
+                llm="mock",
+                avatar_expression="平静",
+                avatar_animation="idle",
+                affinity=5.0,
+                relationship_stage="stranger",
+            )
+        ],
+    )
+    report_dir = tmp_path / "dialogue_quality"
+    DialogueQualityReporter(report_dir).write_run_report([result], llm_name="test")
+
+    failures = (report_dir / "failures.jsonl").read_text(encoding="utf-8").strip()
+    assert failures
+    row = json.loads(failures.splitlines()[-1])
+    assert row["scenario_id"] == scenario.id
+    assert row["issues"][0]["fix_hint"]
+    assert row["transcript"]

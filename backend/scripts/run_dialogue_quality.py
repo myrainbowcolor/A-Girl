@@ -40,13 +40,31 @@ def main() -> int:
     parser.add_argument("--emotion", help="按情绪维度筛选（子串匹配）")
     parser.add_argument("--duration", help="按对话时长筛选（子串匹配）")
     parser.add_argument("--scene", help="按场景维度筛选（子串匹配）")
+    parser.add_argument("--mindset", help="按心态维度筛选（子串匹配）")
+    parser.add_argument("--background", help="按用户背景筛选（子串匹配）")
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="列出全部场景及六维标签后退出",
+    )
     args = parser.parse_args()
+
+    if args.list:
+        for s in all_scenarios():
+            print(
+                f"{s.id}\t{s.name}\t"
+                f"场景={s.scene}\t背景={s.background}\t心态={s.mindset}\t"
+                f"情绪={s.emotion}\t关系={s.relationship}\t时长={s.duration}"
+            )
+        return 0
 
     scenarios = filter_scenarios(
         relationship=args.relationship,
         emotion=args.emotion,
         duration=args.duration,
         scene=args.scene,
+        mindset=args.mindset,
+        background=args.background,
     )
     if args.scenario_ids:
         wanted = set(args.scenario_ids)

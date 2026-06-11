@@ -492,6 +492,72 @@ def all_scenarios() -> list[DialogueScenario]:
             ],
             initial_affinity=41.0,
         ),
+        # --- 背景 / 情绪 / 用户反馈变体 ---
+        DialogueScenario(
+            id="elderly_empty_nest",
+            name="空巢老人孤独",
+            scene="春节儿女未归",
+            background="退休老人",
+            mindset="孤独、怕打扰孩子",
+            emotion="落寞",
+            relationship="熟悉",
+            duration="2轮",
+            description="老年用户孤独倾诉，语气应耐心尊重，不说教。",
+            turns=[
+                TurnSpec("孩子们都忙，过年就我一个人", expect_empathy=True),
+                TurnSpec("有时候觉得说话都没人听", expect_empathy=True, expect_comfort_avatar=True),
+            ],
+            initial_affinity=27.0,
+        ),
+        DialogueScenario(
+            id="awkward_social",
+            name="社死尴尬",
+            scene="说错话后的办公室",
+            background="职场新人",
+            mindset="尴尬、想逃避",
+            emotion="尴尬",
+            relationship="熟悉",
+            duration="2轮",
+            description="用户社死尴尬时应共情而非开玩笑淡化。",
+            turns=[
+                TurnSpec("我刚才跟同事说错话了，好想钻地缝", expect_empathy=True),
+                TurnSpec("现在见到他尴尬死了", expect_empathy=True),
+            ],
+            initial_affinity=23.0,
+        ),
+        DialogueScenario(
+            id="user_pushback",
+            name="用户质疑敷衍",
+            scene="多次安慰后",
+            background="敏感性格",
+            mindset="不满、觉得没被理解",
+            emotion="委屈",
+            relationship="朋友",
+            duration="2轮",
+            description="用户怼「只会安慰」时不应复读套话，要承认并重新接住。",
+            turns=[
+                TurnSpec("你就只会说这些安慰人的话", expect_empathy=True),
+                TurnSpec("感觉你根本不懂我", expect_empathy=True),
+            ],
+            initial_affinity=39.0,
+        ),
+        DialogueScenario(
+            id="topic_switch",
+            name="话题突然转换",
+            scene="闲聊中",
+            background="大学生",
+            mindset="随性",
+            emotion="中性",
+            relationship="朋友",
+            duration="3轮",
+            description="用户突然换话题时 NPC 应自然跟上，不机械追问上一话题。",
+            turns=[
+                TurnSpec("今天食堂的菜好咸"),
+                TurnSpec("对了，你觉得我该不该换专业"),
+                TurnSpec("其实我也没想清楚"),
+            ],
+            initial_affinity=43.0,
+        ),
     ]
 
 
@@ -521,6 +587,8 @@ def filter_scenarios(
     emotion: str | None = None,
     duration: str | None = None,
     scene: str | None = None,
+    mindset: str | None = None,
+    background: str | None = None,
 ) -> list[DialogueScenario]:
     """按维度筛选场景（子串匹配）。"""
     out = all_scenarios()
@@ -532,4 +600,8 @@ def filter_scenarios(
         out = [s for s in out if duration in s.duration]
     if scene:
         out = [s for s in out if scene in s.scene]
+    if mindset:
+        out = [s for s in out if mindset in s.mindset]
+    if background:
+        out = [s for s in out if background in s.background]
     return out
