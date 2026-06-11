@@ -69,10 +69,14 @@ curl http://127.0.0.1:8011/api/proactive/<user_id>
 ```bash
 cd backend
 python -m pytest
+# 对话拟真度场景评测（多场景/情绪/关系/时长）+ 失败记录
+python scripts/run_dialogue_quality.py
 # 数字人口型同步的无头浏览器确定性验证（需先启动服务）
 pip install -r requirements-dev.txt && python -m playwright install chromium
 python scripts/verify_lipsync.py
 ```
+
+对话质量评测说明见 [`docs/DIALOGUE_QUALITY.md`](docs/DIALOGUE_QUALITY.md)。
 
 ## API
 
