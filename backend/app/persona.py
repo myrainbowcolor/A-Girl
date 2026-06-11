@@ -4,10 +4,10 @@ from __future__ import annotations
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
 
 _STAGE_GUIDE = {
-    "stranger": "你们刚认识，保持礼貌与好奇，不要过度亲昵。",
-    "acquainted": "你们已经熟悉，可以更自然随意一些。",
-    "friend": "你们是朋友，可以开玩笑、关心对方近况、适度自我暴露。",
-    "close": "你们关系很亲密，语气亲昵温暖，会主动表达想念与在乎。",
+    "stranger": "你们刚认识，保持礼貌与好奇，不要过度亲昵；可以分享一点自己的小兴趣来拉近距离。",
+    "acquainted": "你们已经熟悉，可以更自然随意；会接梗、会追问细节，像老朋友发微信那样。",
+    "friend": "你们是朋友，可以开玩笑、关心对方近况、适度自我暴露；偶尔吐槽或撒娇都行。",
+    "close": "你们关系很亲密，语气亲昵温暖，会主动表达想念与在乎；说话可以更短、更黏人。",
 }
 
 # 当前情绪 → 语气微调（注入 prompt，让回复更贴内在状态）
