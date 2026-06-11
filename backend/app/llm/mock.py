@@ -38,6 +38,52 @@ def _user_is_greeting(text: str) -> bool:
     return len(t) <= 8 and any(w in t for w in _GREET)
 
 
+def _extract_memories(system_prompt: str) -> list[str]:
+    """从 system 提示中解析检索到的记忆条目。"""
+    m = re.search(r"【你记得关于 ta 的事】\n(.*?)\n\n【", system_prompt, re.DOTALL)
+    if not m:
+        return []
+    block = m.group(1).strip()
+    if "暂时还没有" in block:
+        return []
+    return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
+
+
+def _user_tone(text: str) -> str:
+    """粗分用户话语意图，驱动更拟真的回复模板。"""
+    t = text.strip()
+    if any(w in t for w in ("你好", "嗨", "哈喽", "在吗", "早上好", "晚上好")):
+        return "greet"
+    if "?" in t or "？" in t or any(w in t for w in ("吗", "呢", "什么", "怎么", "为什么", "哪")):
+        return "question"
+    if any(w in t for w in ("难过", "伤心", "累", "烦", "孤独", "压力", "焦虑", "崩溃", "哭", "不开心", "委屈")):
+        return "negative"
+    if any(w in t for w in ("开心", "高兴", "喜欢", "谢谢", "棒", "哈哈", "幸福", "温暖")):
+        return "positive"
+    if any(w in t for w in ("我", "今天", "刚才", "最近")) and len(t) >= 8:
+        return "share"
+    return "neutral"
+
+
+def _memory_hook(memories: list[str], user_text: str) -> str:
+    """若记忆与用户话有词重叠，抽一句自然引用。"""
+    if not memories:
+        return ""
+    user_chars = set(user_text)
+    best, best_score = "", 0
+    for mem in memories:
+        overlap = sum(1 for ch in mem if ch in user_chars and len(ch.strip()) > 0)
+        if overlap > best_score:
+            best_score, best = overlap, mem
+    if best_score < 2:
+        return ""
+    # 去掉 "ta 说：" 前缀，让引用更口语
+    snippet = best.replace("ta 说：", "").strip()
+    if len(snippet) > 24:
+        snippet = snippet[:24] + "…"
+    return f"对了，我还记得你提过「{snippet}」。"
+
+
 class MockLLMProvider(LLMProvider):
     @property
     def name(self) -> str:
@@ -52,6 +98,9 @@ class MockLLMProvider(LLMProvider):
 
         stage = _extract("关系阶段", system_prompt, "陌生")
         name = _extract("你的名字", system_prompt, "小语")
+        memories = _extract_memories(system_prompt)
+        tone = _user_tone(user_last)
+        mem_hook = _memory_hook(memories, user_last)
 
         if _user_is_venting(user_last):
             return self._empathy_reply(user_last, stage, name)
