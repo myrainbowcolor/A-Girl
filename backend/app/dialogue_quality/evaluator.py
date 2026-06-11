@@ -71,7 +71,7 @@ _PREACHY_PATTERNS = [
 # 共情标记
 _EMPATHY_MARKERS = (
     "陪", "在呢", "心疼", "理解", "抱抱", "辛苦", "难过", "烦", "累",
-    "不用硬撑", "慢慢来", "我听见", "听起来",
+    "不用硬撑", "慢慢来", "我听见", "听起来", "听着", "难受", "委屈",
 )
 
 _WARM_MARKERS = ("开心", "高兴", "嘿嘿", "笑", "温暖", "真好", "棒")
@@ -159,6 +159,17 @@ class DialogueEvaluator:
                     )
                 )
 
+        if self._user_asks_direct_question(ctx.user_text):
+            if not self._reply_addresses_question(reply, ctx.user_text):
+                issues.append(
+                    QualityIssue(
+                        "ignores_user_question",
+                        "major",
+                        "用户直接提问但回复未正面回应",
+                        idx,
+                    )
+                )
+
         if expect_comfort_avatar or self._user_is_negative(ctx.user_text):
             av = ctx.result.avatar
             if av and av.expression == "大笑" and ctx.result.llm != "safety":
@@ -211,6 +222,10 @@ class DialogueEvaluator:
         issues: list[QualityIssue] = []
         if not turns:
             return issues
+
+        issues.extend(self._check_repetitive_replies(turns))
+        issues.extend(self._check_mechanical_echo(turns))
+        issues.extend(self._check_questionnaire_mode(turns))
 
         last = turns[-1].result
         exp = expectation or ScenarioExpectation()
@@ -272,6 +287,116 @@ class DialogueEvaluator:
                 )
 
         return issues
+
+    @staticmethod
+    def _normalize_reply(text: str) -> str:
+        """去掉动作描写与称呼，便于比较重复度。"""
+        t = re.sub(r"（[^）]*）", "", text)
+        t = re.sub(r"^(嘿，|亲爱的，)", "", t)
+        return t.strip()
+
+    @staticmethod
+    def _reply_similarity(a: str, b: str) -> float:
+        na, nb = DialogueEvaluator._normalize_reply(a), DialogueEvaluator._normalize_reply(b)
+        if not na or not nb:
+            return 0.0
+        if na == nb:
+            return 1.0
+        shorter, longer = (na, nb) if len(na) <= len(nb) else (nb, na)
+        if shorter in longer and len(shorter) >= 12:
+            return 0.92
+        # 字符集合重叠率（轻量近似）
+        sa, sb = set(na), set(nb)
+        union = sa | sb
+        if not union:
+            return 0.0
+        return len(sa & sb) / len(union)
+
+    def _check_repetitive_replies(self, turns: list[TurnContext]) -> list[QualityIssue]:
+        issues: list[QualityIssue] = []
+        for i in range(1, len(turns)):
+            prev = turns[i - 1].result.reply or ""
+            curr = turns[i].result.reply or ""
+            sim = self._reply_similarity(prev, curr)
+            if sim >= 0.88:
+                issues.append(
+                    QualityIssue(
+                        "repetitive_reply",
+                        "major",
+                        f"连续两轮回复高度重复（相似度 {sim:.0%}），不像真人对话",
+                        i,
+                    )
+                )
+        return issues
+
+    def _check_mechanical_echo(self, turns: list[TurnContext]) -> list[QualityIssue]:
+        issues: list[QualityIssue] = []
+        echo_pat = re.compile(r"^[「『].+[」』].*(然后呢|我在听|多跟我说)")
+        for ctx in turns:
+            reply = ctx.result.reply or ""
+            user = ctx.user_text.strip()
+            if len(user) >= 4 and user in reply:
+                issues.append(
+                    QualityIssue(
+                        "mechanical_echo",
+                        "major",
+                        "机械复述用户原话，缺少自然接话",
+                        ctx.turn_index,
+                    )
+                )
+            elif echo_pat.search(self._normalize_reply(reply)):
+                issues.append(
+                    QualityIssue(
+                        "mechanical_echo",
+                        "major",
+                        "回复像问卷式接话（复述+然后呢），不够口语",
+                        ctx.turn_index,
+                    )
+                )
+        return issues
+
+    def _check_questionnaire_mode(self, turns: list[TurnContext]) -> list[QualityIssue]:
+        issues: list[QualityIssue] = []
+        probe_markers = ("然后呢", "多跟我说", "然后呢？", "展开讲讲", "后来怎么样了")
+        hits = [
+            t.turn_index
+            for t in turns
+            if any(m in (t.result.reply or "") for m in probe_markers)
+        ]
+        if len(hits) >= 3:
+            issues.append(
+                QualityIssue(
+                    "questionnaire_mode",
+                    "minor",
+                    f"多轮连续追问（{len(hits)} 次），像访谈不像聊天",
+                    hits[-1],
+                )
+            )
+        return issues
+
+    @staticmethod
+    def _user_asks_direct_question(text: str) -> bool:
+        t = text.strip()
+        if "?" in t or "？" in t:
+            return True
+        return any(
+            p in t
+            for p in ("你在干嘛", "在干嘛", "干什么", "你是谁", "叫什么", "记得", "还记得")
+        )
+
+    @staticmethod
+    def _reply_addresses_question(reply: str, user_text: str) -> bool:
+        t = user_text.strip()
+        if any(p in t for p in ("你在干嘛", "在干嘛", "干什么")):
+            return any(
+                w in reply
+                for w in ("我", "刚", "在", "看", "听", "想", "发呆", "陪你", "聊")
+            )
+        if any(p in t for p in ("记得", "还记得", "有没有忘")):
+            return any(w in reply for w in ("记得", "忘了", "提醒", "记", "橘子", "猫"))
+        if "?" in t or "？" in t:
+            return "?" in reply or "？" in reply or len(reply) >= 8
+        return True
 
     @staticmethod
     def _user_is_negative(text: str) -> bool:

@@ -18,6 +18,7 @@ from app.dialogue_quality import (
     DialogueQualityReporter,
     DialogueQualityRunner,
     all_scenarios,
+    filter_scenarios,
 )
 from app.llm import MockLLMProvider
 
@@ -35,9 +36,18 @@ def main() -> int:
         dest="scenario_ids",
         help="仅运行指定场景 id，可重复传入",
     )
+    parser.add_argument("--relationship", help="按关系维度筛选（子串匹配）")
+    parser.add_argument("--emotion", help="按情绪维度筛选（子串匹配）")
+    parser.add_argument("--duration", help="按对话时长筛选（子串匹配）")
+    parser.add_argument("--scene", help="按场景维度筛选（子串匹配）")
     args = parser.parse_args()
 
-    scenarios = all_scenarios()
+    scenarios = filter_scenarios(
+        relationship=args.relationship,
+        emotion=args.emotion,
+        duration=args.duration,
+        scene=args.scene,
+    )
     if args.scenario_ids:
         wanted = set(args.scenario_ids)
         scenarios = [s for s in scenarios if s.id in wanted]

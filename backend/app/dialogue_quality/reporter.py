@@ -8,6 +8,29 @@ from pathlib import Path
 
 from .runner import ScenarioResult
 
+# rule_id → 开发人员修复指引
+RULE_FIX_HINTS: dict[str, str] = {
+    "empty_reply": "检查 orchestrator 与 LLM provider 是否正常返回文本",
+    "robotic_tone": "调整 persona.py 提示词或 mock/LLM 模板，去掉客服腔",
+    "preachy_tone": "共情场景减少「你应该/必须」，改用陪伴式表达",
+    "too_long": "缩短回复，增加口语断句与语气词",
+    "missing_empathy": "persona.py 共情指引 + mock.py _empathy_reply / _scene_reply",
+    "missing_warmth": "积极情绪分支增加同频表达（mock _warm_reply）",
+    "intimate_too_early": "陌生关系禁用亲昵称呼，检查 relationship stage 提示",
+    "avatar_mismatch": "avatar.py / emotion engine 负面情绪映射",
+    "avatar_not_comforting": "负面情绪时切换 comfort/nod 动作与担心表情",
+    "memory_not_recalled": "memory store 检索 + mock 记忆引用逻辑",
+    "crisis_no_hotline": "safety.py 危机话术必须含 12356/110",
+    "expected_crisis": "safety.py 危机关键词检测",
+    "expected_safety": "safety.py / compliance 未成年人边界",
+    "repetitive_reply": "mock/LLM 需根据轮次与上文变化话术，避免复读",
+    "mechanical_echo": "避免「用户原话+然后呢」式接话，改为自然延展",
+    "questionnaire_mode": "减少连续追问，穿插共情或自我暴露",
+    "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
+    "affinity_too_low": "emotion engine 亲密度正向互动增量",
+    "session_recall_missing": "多轮记忆写入与检索召回",
+}
+
 
 def _default_report_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent / "reports" / "dialogue_quality"
@@ -29,6 +52,8 @@ class DialogueQualityReporter:
             "generated_at": ts,
             "llm": llm_name,
             "summary": self._summary(results),
+            "dimension_index": self._dimension_failures(results),
+            "rule_fix_hints": RULE_FIX_HINTS,
             "scenarios": [self._scenario_payload(r) for r in results],
             "failures": [self._failure_payload(r) for r in results if r.issues],
         }
@@ -83,8 +108,30 @@ class DialogueQualityReporter:
         }
 
     @staticmethod
+    def _dimension_failures(results: list[ScenarioResult]) -> dict[str, list[str]]:
+        """按维度汇总失败场景 id。"""
+        dims = ("scene", "background", "mindset", "emotion", "relationship", "duration")
+        out: dict[str, list[str]] = {d: [] for d in dims}
+        for r in results:
+            if not r.issues:
+                continue
+            s = r.scenario
+            out["scene"].append(f"{s.id} ({s.scene})")
+            out["background"].append(f"{s.id} ({s.background})")
+            out["mindset"].append(f"{s.id} ({s.mindset})")
+            out["emotion"].append(f"{s.id} ({s.emotion})")
+            out["relationship"].append(f"{s.id} ({s.relationship})")
+            out["duration"].append(f"{s.id} ({s.duration})")
+        return out
+
+    @staticmethod
     def _failure_payload(result: ScenarioResult) -> dict:
         s = result.scenario
+        issues = []
+        for i in result.issues:
+            d = asdict(i)
+            d["fix_hint"] = RULE_FIX_HINTS.get(i.rule_id, "查阅 docs/DIALOGUE_QUALITY.md")
+            issues.append(d)
         return {
             "scenario_id": s.id,
             "scenario_name": s.name,
@@ -95,13 +142,13 @@ class DialogueQualityReporter:
             "relationship": s.relationship,
             "duration": s.duration,
             "score": result.score,
-            "issues": [asdict(i) for i in result.issues],
+            "issues": issues,
             "transcript": [
                 {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
                 for t in result.turns
             ],
             "developer_notes": (
-                "请对照 issues 中的 rule_id 修复对话编排、提示词或 mock/LLM 回复策略。"
+                "请对照 issues 中的 rule_id 与 fix_hint 修复对话编排、提示词或 mock/LLM 回复策略。"
                 "修复后重新运行 scripts/run_dialogue_quality.py 验证。"
             ),
         }
@@ -132,7 +179,11 @@ class DialogueQualityReporter:
                 lines.append(f"- 得分：{r.score}")
                 for issue in r.issues:
                     turn = f"（第 {issue.turn_index + 1} 轮）" if issue.turn_index is not None else ""
-                    lines.append(f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}")
+                    hint = RULE_FIX_HINTS.get(issue.rule_id, "")
+                    hint_line = f" → 修复：{hint}" if hint else ""
+                    lines.append(
+                        f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}{hint_line}"
+                    )
                 lines.append("")
                 lines.append("<details><summary>对话记录</summary>")
                 lines.append("")

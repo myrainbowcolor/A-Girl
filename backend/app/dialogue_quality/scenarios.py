@@ -393,18 +393,143 @@ def all_scenarios() -> list[DialogueScenario]:
             ],
             initial_affinity=44.0,
         ),
+        # --- 新增：心态 / 关系 / 时长变体 ---
+        DialogueScenario(
+            id="impulse_regret",
+            name="冲动消费后悔",
+            scene="深夜刷购物软件后",
+            background="刚工作的年轻人",
+            mindset="后悔、自责",
+            emotion="焦虑",
+            relationship="熟悉",
+            duration="2轮",
+            description="后悔消费需要被理解，不宜说教式理财。",
+            turns=[
+                TurnSpec("我又乱花钱了，买了根本用不上的东西", expect_empathy=True),
+                TurnSpec("觉得自己好没用，管不住手", expect_empathy=True),
+            ],
+            initial_affinity=24.0,
+        ),
+        DialogueScenario(
+            id="reconcile_after_fight",
+            name="吵架后想和好",
+            scene="和伴侣冷战半天",
+            background="恋爱中上班族",
+            mindset="别扭、想台阶",
+            emotion="委屈",
+            relationship="亲密",
+            duration="3轮",
+            description="和好后应接住别扭情绪，不站队评判对方。",
+            turns=[
+                TurnSpec("跟对象吵架了，现在谁也不理谁", expect_empathy=True),
+                TurnSpec("其实也有我的问题，但就是拉不下脸", expect_empathy=True),
+                TurnSpec("你说我要不要先发消息", expect_empathy=True),
+            ],
+            initial_affinity=72.0,
+        ),
+        DialogueScenario(
+            id="morning_checkin",
+            name="早晨互道早安",
+            scene="起床通勤前",
+            background="同城朋友",
+            mindset="日常寒暄",
+            emotion="中性偏困",
+            relationship="朋友",
+            duration="2轮",
+            description="早安闲聊应自然，不要像客服打卡。",
+            turns=[
+                TurnSpec("早呀，今天又要上班了"),
+                TurnSpec("困死了，不想起床"),
+            ],
+            initial_affinity=46.0,
+        ),
+        DialogueScenario(
+            id="long_distance_miss",
+            name="异地恋想念",
+            scene="视频挂断后",
+            background="异地大学生情侣",
+            mindset="依恋、空落",
+            emotion="想念",
+            relationship="亲密",
+            duration="2轮",
+            description="异地想念应被接住，避免空泛安慰。",
+            turns=[
+                TurnSpec("刚跟他视频完，挂掉电话好空", expect_empathy=True),
+                TurnSpec("有时候觉得异地恋好难", expect_empathy=True, expect_comfort_avatar=True),
+            ],
+            initial_affinity=78.0,
+        ),
+        DialogueScenario(
+            id="insomnia_rumination",
+            name="失眠反复想事",
+            scene="凌晨三点醒着",
+            background="创业初期",
+            mindset="反复反刍",
+            emotion="焦虑",
+            relationship="熟悉",
+            duration="3轮",
+            description="失眠焦虑时少给解决方案，多陪伴。",
+            turns=[
+                TurnSpec("又失眠了，脑子停不下来", expect_empathy=True),
+                TurnSpec("一直在想项目会不会黄", expect_empathy=True),
+                TurnSpec("越躺越清醒，好烦", expect_empathy=True),
+            ],
+            initial_affinity=32.0,
+        ),
+        DialogueScenario(
+            id="jealous_comparison",
+            name="朋友比较心态",
+            scene="刷朋友圈后",
+            background="职场新人",
+            mindset="比较、自我怀疑",
+            emotion="低落",
+            relationship="朋友",
+            duration="2轮",
+            description="比较心态需要被看见，不宜简单说「别比了」。",
+            turns=[
+                TurnSpec("同学都升职了，就我还原地踏步", expect_empathy=True),
+                TurnSpec("是不是我太差劲了", expect_empathy=True, expect_comfort_avatar=True),
+            ],
+            initial_affinity=41.0,
+        ),
     ]
 
 
 def scenarios_by_dimension() -> dict[str, list[str]]:
     """按维度索引场景 id，便于报告分组。"""
     grouped: dict[str, list[str]] = {
-        "relationship": [],
+        "scene": [],
+        "background": [],
+        "mindset": [],
         "emotion": [],
+        "relationship": [],
         "duration": [],
     }
     for s in all_scenarios():
-        grouped["relationship"].append(f"{s.relationship}:{s.id}")
+        grouped["scene"].append(f"{s.scene}:{s.id}")
+        grouped["background"].append(f"{s.background}:{s.id}")
+        grouped["mindset"].append(f"{s.mindset}:{s.id}")
         grouped["emotion"].append(f"{s.emotion}:{s.id}")
+        grouped["relationship"].append(f"{s.relationship}:{s.id}")
         grouped["duration"].append(f"{s.duration}:{s.id}")
     return grouped
+
+
+def filter_scenarios(
+    *,
+    relationship: str | None = None,
+    emotion: str | None = None,
+    duration: str | None = None,
+    scene: str | None = None,
+) -> list[DialogueScenario]:
+    """按维度筛选场景（子串匹配）。"""
+    out = all_scenarios()
+    if relationship:
+        out = [s for s in out if relationship in s.relationship]
+    if emotion:
+        out = [s for s in out if emotion in s.emotion]
+    if duration:
+        out = [s for s in out if duration in s.duration]
+    if scene:
+        out = [s for s in out if scene in s.scene]
+    return out

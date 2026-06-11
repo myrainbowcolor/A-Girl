@@ -2,7 +2,7 @@
 from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
 from .reporter import DialogueQualityReporter
 from .runner import DialogueQualityRunner, ScenarioResult
-from .scenarios import DialogueScenario, all_scenarios
+from .scenarios import DialogueScenario, all_scenarios, filter_scenarios, scenarios_by_dimension
 
 __all__ = [
     "DialogueEvaluator",
@@ -13,4 +13,6 @@ __all__ = [
     "ScenarioResult",
     "TurnContext",
     "all_scenarios",
+    "filter_scenarios",
+    "scenarios_by_dimension",
 ]

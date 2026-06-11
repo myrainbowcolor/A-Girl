@@ -1,0 +1,34 @@
+name: Dialogue Quality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/app/**"
+      - "backend/scripts/run_dialogue_quality.py"
+      - "backend/tests/test_dialogue_quality.py"
+      - ".github/workflows/dialogue-quality.yml"
+  pull_request:
+    paths:
+      - "backend/app/**"
+      - "backend/scripts/run_dialogue_quality.py"
+      - "backend/tests/test_dialogue_quality.py"
+      - ".github/workflows/dialogue-quality.yml"
+
+jobs:
+  dialogue-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run dialogue quality scenarios (strict)
+        run: python3 scripts/run_dialogue_quality.py --strict
+      - name: Run dialogue quality pytest
+        run: python3 -m pytest tests/test_dialogue_quality.py -v
