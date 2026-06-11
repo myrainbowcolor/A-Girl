@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-06-11T02:58:37Z",
+  "llm_provider": "mock",
+  "total_scenarios": 17,
+  "total_turns": 30,
+  "passed_turns": 30,
+  "failed_turns": 0,
+  "pass_rate": 1.0,
+  "summary_by_owner": {},
+  "failures": []
+}
