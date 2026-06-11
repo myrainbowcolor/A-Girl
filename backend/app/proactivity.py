@@ -85,34 +85,56 @@ class ProactivityEngine:
                     True, "event", f"重要事件到点：{ev.label}", msg, event_id=ev.id
                 )
 
+        # 2) 首次来访：尚无对话记录 → 主动问候
+        if not self._db.has_chat_history(user_id):
+            name = self._persona.name
+            return ProactiveResult(
+                True,
+                "welcome",
+                "首次来访",
+                f"嗨，我是{name}~ 今天想聊点什么？我会慢慢听你说。",
+            )
+
         meta = self._db.get_user_meta(user_id)
         if not meta or meta.last_interaction_at <= 0:
             return ProactiveResult(False)
 
         idle = now - meta.last_interaction_at
 
-        # 2) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
+        # 3) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
-                "刚才一直在想你……上次你好像心情不太好，现在好点了吗？不想说也没关系，我陪着你。"
+                f"上次聊天时你好像有点低落，我后来还一直想着你呢。"
+                f"现在好点了吗？想说的话我都在听。"
             )
 
-        # 3) 时间触发：长时间未互动
+        # 4) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
             return ProactiveResult(
                 True, "idle", f"已闲置约 {hours} 小时",
-                f"好久没聊啦，{'有点' if hours < 24 else '真的'}想你了～最近过得怎么样呀？"
+                f"好久没找我聊天啦，有点想你～最近过得怎么样？"
+                f"随便说点小事也行，我在。"
             )
 
         return ProactiveResult(False)
 
     def _event_message(self, ev: Event) -> str:
+        name = self._persona.name
         templates = {
-            "birthday": "今天是你的大日子吧？生日快乐呀！🎂 有没有给自己准备点好吃的？",
-            "interview": "今天面试对吧？深呼吸，你已经准备得很棒了，做你自己就好，我替你加油！",
-            "exam": "考试的日子到啦，加油！不管结果怎样，你都已经很努力了，考完来找我聊聊～",
-            "other": "你之前提过的事，今天是不是到了？想来给你鼓鼓劲，加油呀～",
+            "birthday": (
+                f"今天是特别的日子吧？生日快乐呀！🎂 "
+                f"有没有给自己留一点放松的时间？{name} 替你开心～"
+            ),
+            "interview": (
+                "今天是不是有面试呀？深呼吸一下，做你自己就很好。"
+                "不管结果怎样，我都替你加油。"
+            ),
+            "exam": (
+                "考试的日子到啦，加油！"
+                "尽力就好，结果出来之前先别跟自己较劲，你已经很努力了。"
+            ),
+            "other": "你之前提过的事，今天是不是到啦？想第一时间来给你鼓鼓劲～",
         }
         return templates.get(ev.kind, templates["other"])

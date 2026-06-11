@@ -50,7 +50,11 @@ CREATE TABLE IF NOT EXISTS relationship (
 CREATE TABLE IF NOT EXISTS user_meta (
     user_id TEXT PRIMARY KEY,
     last_interaction_at REAL DEFAULT 0,
-    last_sentiment REAL DEFAULT 0
+    last_sentiment REAL DEFAULT 0,
+    sentiment_ema REAL DEFAULT 0,
+    interaction_count INTEGER DEFAULT 0,
+    relationship_summary TEXT DEFAULT '',
+    relationship_health REAL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,9 +65,22 @@ CREATE TABLE IF NOT EXISTS events (
     created_at REAL NOT NULL,
     fired INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS user_consent (
+    user_id TEXT PRIMARY KEY,
+    age INTEGER,
+    consented_at REAL
+);
+CREATE TABLE IF NOT EXISTS audit_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    excerpt TEXT,
+    created_at REAL NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_memories_user ON memories(user_id);
 CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_events(user_id);
 """
 
 
@@ -74,6 +91,20 @@ class Database:
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._conn.commit()
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """增量迁移：为旧库补列。"""
+        cols = {r[1] for r in self._conn.execute("PRAGMA table_info(user_meta)")}
+        for name, typedef in (
+            ("sentiment_ema", "REAL DEFAULT 0"),
+            ("interaction_count", "INTEGER DEFAULT 0"),
+            ("relationship_summary", "TEXT DEFAULT ''"),
+            ("relationship_health", "REAL DEFAULT 0"),
+        ):
+            if name not in cols:
+                self._conn.execute(f"ALTER TABLE user_meta ADD COLUMN {name} {typedef}")
         self._conn.commit()
 
     def close(self) -> None:
@@ -104,6 +135,13 @@ class Database:
             )
             for r in rows
         ]
+
+    def has_chat_history(self, user_id: str) -> bool:
+        cur = self._conn.execute(
+            "SELECT 1 FROM messages WHERE session_id=? LIMIT 1",
+            (f"sess-{user_id}",),
+        )
+        return cur.fetchone() is not None
 
     # ---------- memories ----------
     def add_memory(self, mem: Memory) -> Memory:
@@ -194,16 +232,34 @@ class Database:
             user_id=r["user_id"],
             last_interaction_at=r["last_interaction_at"],
             last_sentiment=r["last_sentiment"],
+            sentiment_ema=r["sentiment_ema"] if "sentiment_ema" in r.keys() else 0.0,
+            interaction_count=r["interaction_count"] if "interaction_count" in r.keys() else 0,
+            relationship_summary=r["relationship_summary"] if "relationship_summary" in r.keys() else "",
+            relationship_health=r["relationship_health"] if "relationship_health" in r.keys() else 0.0,
         )
 
     def save_user_meta(self, meta: UserMeta) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT INTO user_meta(user_id, last_interaction_at, last_sentiment)"
-                " VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
+                "INSERT INTO user_meta("
+                "user_id, last_interaction_at, last_sentiment, sentiment_ema,"
+                " interaction_count, relationship_summary, relationship_health"
+                ") VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
                 " last_interaction_at=excluded.last_interaction_at,"
-                " last_sentiment=excluded.last_sentiment",
-                (meta.user_id, meta.last_interaction_at, meta.last_sentiment),
+                " last_sentiment=excluded.last_sentiment,"
+                " sentiment_ema=excluded.sentiment_ema,"
+                " interaction_count=excluded.interaction_count,"
+                " relationship_summary=excluded.relationship_summary,"
+                " relationship_health=excluded.relationship_health",
+                (
+                    meta.user_id,
+                    meta.last_interaction_at,
+                    meta.last_sentiment,
+                    meta.sentiment_ema,
+                    meta.interaction_count,
+                    meta.relationship_summary,
+                    meta.relationship_health,
+                ),
             )
             self._conn.commit()
 
@@ -239,3 +295,41 @@ class Database:
         with self._lock:
             self._conn.execute("UPDATE events SET fired=1 WHERE id=?", (event_id,))
             self._conn.commit()
+
+    # ---------- consent (age gate) ----------
+    def get_consent(self, user_id: str) -> Optional[dict]:
+        cur = self._conn.execute("SELECT * FROM user_consent WHERE user_id=?", (user_id,))
+        r = cur.fetchone()
+        if not r:
+            return None
+        return {"user_id": r["user_id"], "age": r["age"], "consented_at": r["consented_at"]}
+
+    def save_consent(self, user_id: str, age: int, consented_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO user_consent(user_id, age, consented_at) VALUES(?,?,?)"
+                " ON CONFLICT(user_id) DO UPDATE SET age=excluded.age,"
+                " consented_at=excluded.consented_at",
+                (user_id, age, consented_at),
+            )
+            self._conn.commit()
+
+    # ---------- audit ----------
+    def add_audit_event(self, user_id: str, category: str, excerpt: str, created_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO audit_events(user_id, category, excerpt, created_at) VALUES(?,?,?,?)",
+                (user_id, category, excerpt, created_at),
+            )
+            self._conn.commit()
+
+    def audit_events(self, user_id: str, limit: int = 100) -> list[dict]:
+        cur = self._conn.execute(
+            "SELECT * FROM audit_events WHERE user_id=? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
+        )
+        return [
+            {"id": r["id"], "category": r["category"], "excerpt": r["excerpt"],
+             "created_at": r["created_at"]}
+            for r in cur.fetchall()
+        ]

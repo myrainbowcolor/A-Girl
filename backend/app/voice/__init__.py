@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from ..config import Settings
-from .base import STTProvider, TTSProvider, TTSResult
+from .base import STTProvider, TTSProvider, TTSResult, VoiceStyle
 from .mock import MockSTTProvider, MockTTSProvider
 from .openai_compatible import OpenAICompatibleSTTProvider, OpenAICompatibleTTSProvider
+from .style import style_from_emotion
 
 
 def build_tts_provider(settings: Settings) -> TTSProvider:
@@ -34,6 +35,8 @@ __all__ = [
     "TTSProvider",
     "STTProvider",
     "TTSResult",
+    "VoiceStyle",
+    "style_from_emotion",
     "MockTTSProvider",
     "MockSTTProvider",
     "OpenAICompatibleTTSProvider",

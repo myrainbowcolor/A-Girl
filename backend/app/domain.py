@@ -50,14 +50,20 @@ class EmotionState:
     def label(self) -> str:
         """将 PAD 映射为可读情绪标签，用于 UI 与语气提示。"""
         p, a = self.pleasure, self.arousal
-        if p >= 0.3 and a >= 0.3:
+        if p >= 0.55 and a >= 0.5:
             return "开心又有点小兴奋"
+        if p >= 0.3 and a >= 0.3:
+            return "开心，心里暖暖的"
         if p >= 0.3 and a < 0.3:
             return "平静又满足"
-        if p <= -0.3 and a >= 0.3:
+        if p <= -0.3 and a >= 0.5:
             return "有些焦虑/委屈"
-        if p <= -0.3 and a < 0.3:
+        if p <= -0.3 and d < -0.1:
+            return "低落，想轻轻安慰你"
+        if p <= -0.3:
             return "低落"
+        if a >= 0.55:
+            return "有点惊讶/好奇"
         return "平和"
 
 
@@ -102,10 +108,14 @@ class Message:
 
 @dataclass
 class UserMeta:
-    """用于主动关心的轻量元信息。"""
+    """用于主动关心与关系归纳的轻量元信息。"""
     user_id: str
     last_interaction_at: float = 0.0
     last_sentiment: float = 0.0
+    sentiment_ema: float = 0.0          # 情感指数滑动平均 [-1, 1]
+    interaction_count: int = 0
+    relationship_summary: str = ""    # LLM/规则归纳的关系描述
+    relationship_health: float = 0.0  # 0~100 关系健康度
 
 
 @dataclass

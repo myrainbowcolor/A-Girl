@@ -1,22 +1,28 @@
 """FastAPI 入口与依赖装配。"""
 from __future__ import annotations
 
+import json
+import queue
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .compliance import AgeGate, AuditLogger
 from .config import get_settings
 from .db import Database
 from .emotion import EmotionEngine
 from .llm import build_llm_provider
 from .memory import MemoryStore, build_embedding_provider
 from .orchestrator import Orchestrator
+from .push import PushHub
 from .schemas import (
     AvatarOut,
     ChatRequest,
     ChatResponse,
+    ConsentRequest,
+    ConsentResponse,
     EmotionOut,
     MemoryOut,
     PersonaOut,
@@ -39,9 +45,14 @@ _emotion_engine = EmotionEngine()
 _llm = build_llm_provider(settings)
 _tts = build_tts_provider(settings)
 _stt = build_stt_provider(settings)
-_orchestrator = Orchestrator(_db, _memory, _emotion_engine, _llm, settings, tts=_tts)
+_audit = AuditLogger(_db, settings.audit_log_path)
+_age_gate = AgeGate(_db, require=settings.require_age_gate, min_age=settings.min_age)
+_push = PushHub(settings)
+_orchestrator = Orchestrator(
+    _db, _memory, _emotion_engine, _llm, settings, tts=_tts, audit=_audit
+)
 
-app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.2.0")
+app = FastAPI(title="A-Girl 情感陪伴 NPC", version="0.3.0")
 
 _STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -50,8 +61,14 @@ def _emotion_out(e) -> EmotionOut:
     return EmotionOut(pleasure=e.pleasure, arousal=e.arousal, dominance=e.dominance, label=e.label())
 
 
-def _relationship_out(r) -> RelationshipOut:
-    return RelationshipOut(affinity=r.affinity, stage=r.stage.value)
+def _relationship_out(r, summary: str = "", health: float = 0.0, trend: str = "new") -> RelationshipOut:
+    return RelationshipOut(
+        affinity=r.affinity,
+        stage=r.stage.value,
+        health_score=health,
+        summary=summary,
+        trend=trend,
+    )
 
 
 def _avatar_out(a) -> AvatarOut:
@@ -67,6 +84,7 @@ def _tts_out(t) -> TtsOut | None:
     return TtsOut(
         audio_base64=t.audio_base64, format=t.format,
         duration_ms=t.duration_ms, provider=t.provider, lipsync=t.lipsync,
+        visemes=t.visemes, style=t.style,
     )
 
 
@@ -81,24 +99,62 @@ def health() -> dict:
 
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(req: ChatRequest) -> ChatResponse:
+    # 未成年人合规：未完成年龄确认前不允许对话
+    if not _age_gate.has_consent(req.user_id):
+        raise HTTPException(status_code=403, detail="age_gate_required")
     session_id = req.session_id or f"sess-{req.user_id}"
     result = _orchestrator.chat(req.user_id, session_id, req.message)
     return ChatResponse(
         reply=result.reply,
         emotion=_emotion_out(result.emotion),
-        relationship=_relationship_out(result.relationship),
+        relationship=_relationship_out(
+            result.relationship,
+            summary=result.relationship_summary,
+            health=result.relationship_health,
+            trend=result.relationship_trend,
+        ),
         avatar=_avatar_out(result.avatar),
         retrieved_memories=result.retrieved_memories,
         is_crisis=result.is_crisis,
         safety_category=result.safety_category,
         llm=result.llm,
         tts=_tts_out(result.tts),
+        user_sentiment_label=result.user_sentiment_label,
+    )
+
+
+@app.post("/api/chat/stream")
+def chat_stream(req: ChatRequest) -> StreamingResponse:
+    """SSE 流式对话：event 顺序 meta → token* → done。"""
+    if not _age_gate.has_consent(req.user_id):
+        raise HTTPException(status_code=403, detail="age_gate_required")
+    session_id = req.session_id or f"sess-{req.user_id}"
+
+    def event_gen():
+        try:
+            for item in _orchestrator.chat_stream(req.user_id, session_id, req.message):
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        except Exception as exc:
+            err = {"type": "error", "message": str(exc)}
+            yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
 @app.post("/api/tts", response_model=TtsOut)
 def tts(req: TtsRequest) -> TtsOut:
-    result = _tts.synthesize(req.text, voice=req.voice)
+    style = None
+    if req.pleasure is not None or req.arousal is not None:
+        from .domain import EmotionState
+        from .voice import style_from_emotion
+        style = style_from_emotion(
+            EmotionState(pleasure=req.pleasure or 0.0, arousal=req.arousal or 0.0)
+        )
+    result = _tts.synthesize(req.text, voice=req.voice, style=style)
     return _tts_out(result)
 
 
@@ -114,6 +170,7 @@ def proactive(user_id: str) -> ProactiveResponse:
     result, avatar = _orchestrator.deliver_proactive(user_id)
     if not result.should_reach_out:
         return ProactiveResponse(should_reach_out=False)
+    emotion, relationship = _orchestrator.get_state(user_id)
     tts = _tts.synthesize(result.message) if settings.chat_include_tts and result.message else None
     return ProactiveResponse(
         should_reach_out=True,
@@ -121,11 +178,68 @@ def proactive(user_id: str) -> ProactiveResponse:
         reason=result.reason,
         message=result.message,
         avatar=_avatar_out(avatar) if avatar else None,
+        emotion=_emotion_out(emotion),
+        relationship=_relationship_out(relationship),
         tts=_tts_out(tts),
     )
 
 
-_scheduler = ProactiveScheduler(_db, _orchestrator, settings)
+@app.post("/api/consent", response_model=ConsentResponse)
+def consent(req: ConsentRequest) -> ConsentResponse:
+    """年龄确认门：记录用户年龄确认，通过后才能对话。"""
+    result = _age_gate.record_consent(req.user_id, req.age)
+    return ConsentResponse(ok=result["ok"], reason=result["reason"])
+
+
+@app.get("/api/consent/{user_id}")
+def consent_status(user_id: str) -> dict:
+    return {"has_consent": _age_gate.has_consent(user_id), "required": _age_gate.required}
+
+
+@app.get("/api/audit/{user_id}")
+def audit(user_id: str, limit: int = 100) -> list[dict]:
+    """家长可见安全审计日志（危机/成人/暴力/隐私等事件）。"""
+    return _db.audit_events(user_id, limit=limit)
+
+
+@app.get("/api/stream/{user_id}")
+def stream(user_id: str) -> StreamingResponse:
+    """SSE 主动推送：客户端订阅后实时收到主动关心消息。"""
+    q = _push.subscribe(user_id)
+
+    def event_gen():
+        try:
+            # 首帧握手，便于客户端确认连接
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                try:
+                    item = q.get(timeout=15)
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    yield ": keep-alive\n\n"  # 心跳
+        finally:
+            _push.unsubscribe(user_id, q)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@app.post("/api/proactive/{user_id}/push")
+def proactive_push(user_id: str) -> dict:
+    """评估主动关心并通过 SSE/webhook 推送（用于手动触发与测试）。"""
+    result, avatar = _orchestrator.deliver_proactive(user_id)
+    if not result.should_reach_out:
+        return {"should_reach_out": False}
+    item = {
+        "type": "proactive", "trigger": result.trigger, "reason": result.reason,
+        "message": result.message,
+        "avatar": {"expression": avatar.expression, "intensity": avatar.intensity,
+                   "animation": avatar.animation} if avatar else None,
+    }
+    stats = _push.publish(user_id, item)
+    return {"should_reach_out": True, **item, "delivery": stats}
+
+
+_scheduler = ProactiveScheduler(_db, _orchestrator, settings, push=_push)
 
 
 @app.on_event("startup")
@@ -147,8 +261,15 @@ def proactive_outbox(user_id: str) -> list[dict]:
 @app.get("/api/state/{user_id}", response_model=StateResponse)
 def get_state(user_id: str) -> StateResponse:
     emotion, relationship = _orchestrator.get_state(user_id)
+    meta = _db.get_user_meta(user_id)
     return StateResponse(
-        emotion=_emotion_out(emotion), relationship=_relationship_out(relationship)
+        emotion=_emotion_out(emotion),
+        relationship=_relationship_out(
+            relationship,
+            summary=meta.relationship_summary if meta else "",
+            health=meta.relationship_health if meta else 0.0,
+            trend="stable",
+        ),
     )
 
 
