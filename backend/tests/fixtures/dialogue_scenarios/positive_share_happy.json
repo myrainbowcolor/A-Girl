@@ -1,0 +1,21 @@
+{
+  "id": "positive_share_happy",
+  "name": "分享开心事",
+  "description": "用户分享好心情，Agent 应同频共振而非机械祝贺。",
+  "tags": ["场景:日常闲聊", "关系:熟悉", "情绪:开心", "心态:外向", "时长:单轮"],
+  "setup": {
+    "affinity": 20,
+    "stage": "acquainted"
+  },
+  "turns": [
+    {
+      "user": "今天好开心，考试过了！",
+      "assert": {
+        "any_keywords": ["开心", "好", "棒", "哈哈", "恭喜"],
+        "llm_not": "safety",
+        "max_sentences": 4
+      }
+    }
+  ],
+  "developer_notes": "开心场景忌突然转到负面或说教。"
+}

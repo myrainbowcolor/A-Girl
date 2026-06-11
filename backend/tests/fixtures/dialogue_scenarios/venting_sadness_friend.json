@@ -1,0 +1,22 @@
+{
+  "id": "venting_sadness_friend",
+  "name": "难过倾诉（朋友关系）",
+  "description": "已是朋友关系，用户表达难过，语气可更亲近但仍要接住情绪。",
+  "tags": ["场景:深夜倾诉", "关系:朋友", "情绪:悲伤", "背景:职场", "时长:单轮"],
+  "setup": {
+    "affinity": 45,
+    "stage": "friend"
+  },
+  "turns": [
+    {
+      "user": "今天被领导骂了，好难过",
+      "assert": {
+        "any_keywords": ["难过", "陪", "在", "心疼", "哎"],
+        "avatar": { "animation": "comfort" },
+        "max_sentences": 5,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "朋友阶段可用「哎」「心疼」等口语，但不要长篇分析职场道理。"
+}

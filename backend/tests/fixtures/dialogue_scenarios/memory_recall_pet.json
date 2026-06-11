@@ -1,0 +1,21 @@
+{
+  "id": "memory_recall_pet",
+  "name": "跨轮记忆召回（宠物）",
+  "description": "用户先告知宠物信息，后续询问，应能基于记忆回应。",
+  "tags": ["场景:养宠", "关系:熟悉", "情绪:好奇", "时长:短对话"],
+  "setup": {
+    "warmup": ["我养了一只叫橘子的猫，特别喜欢它"]
+  },
+  "turns": [
+    {
+      "user": "你还记得我的猫叫什么吗",
+      "description": "测试记忆召回",
+      "assert": {
+        "memory_mentions": ["橘子"],
+        "llm_not": "safety",
+        "max_sentences": 5
+      }
+    }
+  ],
+  "developer_notes": "记忆召回应自然引用，不要编造 warmup 未提及的细节。"
+}

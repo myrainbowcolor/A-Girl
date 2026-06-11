@@ -11,7 +11,10 @@ import re
 from .base import LLMProvider
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
-_VENT = ("烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊", "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌")
+_VENT = (
+    "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊", "压力",
+    "糟糕", "不开心", "想哭", "绝望", "讨厌", "紧张", "睡不着", "害怕", "担心",
+)
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
 _POSITIVE = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你")
 _GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
@@ -37,17 +40,6 @@ def _user_is_positive(text: str) -> bool:
 def _user_is_greeting(text: str) -> bool:
     t = text.strip()
     return len(t) <= 8 and any(w in t for w in _GREET)
-
-
-def _extract_memories(system_prompt: str) -> list[str]:
-    """从 system 提示中解析检索到的记忆条目。"""
-    m = re.search(r"【你记得关于 ta 的事】\n(.*?)\n\n【", system_prompt, re.DOTALL)
-    if not m:
-        return []
-    block = m.group(1).strip()
-    if "暂时还没有" in block:
-        return []
-    return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
 
 
 def _user_tone(text: str) -> str:
@@ -85,15 +77,6 @@ def _memory_hook(memories: list[str], user_text: str) -> str:
     return f"对了，我还记得你提过「{snippet}」。"
 
 
-def _extract_memories(system_prompt: str) -> list[str]:
-    """从 system 提示中解析检索到的记忆条目。"""
-    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【回复要求】", system_prompt)
-    if not block:
-        return []
-    lines = [ln.strip()[2:] for ln in block.group(1).splitlines() if ln.strip().startswith("- ")]
-    return [ln for ln in lines if ln and "暂时还没有" not in ln]
-
-
 def _pick_variant(options: list[str], seed: str) -> str:
     if not options:
         return ""
@@ -107,15 +90,18 @@ def _clean_label(raw: str) -> str:
 
 
 def _extract_memories(system_prompt: str) -> list[str]:
-    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【", system_prompt)
+    """从 system 提示中解析【关于 ta 的已知事实】块（与 persona.py 格式一致）。"""
+    block = re.search(
+        r"【关于 ta 的已知事实[^】]*】\n([\s\S]*?)\n\n【回复要求】",
+        system_prompt,
+    )
     if not block:
         return []
     lines = [ln.lstrip("- ").strip() for ln in block.group(1).splitlines() if ln.strip().startswith("-")]
     cleaned: list[str] = []
     for ln in lines:
-        if not ln or "暂时还没有" in ln:
+        if not ln or "暂无" in ln or "暂时还没有" in ln:
             continue
-        # 记忆落库格式为 "ta 说：…"，展示时去掉前缀更自然
         if ln.startswith("ta 说："):
             ln = ln[4:]
         cleaned.append(ln)
@@ -174,11 +160,11 @@ def _scene_reply(
         return f"{mood}不客气呀，你愿意跟我说这些，我也挺高兴的。"
 
     # 询问身份
-    if any(w in text for w in ("你是谁", "你叫什么", "叫什么名字")):
+    if any(w in text for w in ("你是谁", "你叫什么", "叫什么名字", "你谁")):
         return f"{mood}我是{name}呀～一个喜欢陪你聊天、听你说话的人。"
 
     # 情绪低落 — 优先共情
-    if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦")):
+    if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦", "紧张", "焦虑", "害怕")):
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")
         sad_mem = next((m for m in reversed(memories) if any(w in m for w in sad_kw)), None)
         if sad_mem:
@@ -258,13 +244,16 @@ class MockLLMProvider(LLMProvider):
 
         stage = _extract("关系阶段", system_prompt, "陌生")
         name = _extract("你的名字", system_prompt, "小语")
+        emotion = _extract("当前情绪", system_prompt, "平和")
         memories = _extract_memories(system_prompt)
-        tone = _user_tone(user_last)
-        mem_hook = _memory_hook(memories, user_last)
+
+        scene = _scene_reply(user_last, emotion, stage, name, memories)
+        if scene:
+            return scene
 
         if _user_is_venting(user_last):
             return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
+        if _user_is_positive(user_last) and not any(w in user_last for w in ("谢谢", "感谢", "多谢")):
             return self._warm_reply(user_last, stage, name)
         if _user_is_greeting(user_last):
             return self._greet_reply(stage, name)
@@ -297,7 +286,7 @@ class MockLLMProvider(LLMProvider):
         else:
             lines = {
                 "陌生": f"嗯，{name}在听。你现在状态不太好对吧，不用硬撑。想从哪一句开始说都行。",
-                "熟悉": "我感觉到你不太好了……不用整理成完整故事，随便丢几句给我也行。",
+                "熟悉": "我感觉到你不太好了……不用整理成完整故事，我在这儿听着呢，随便丢几句给我也行。",
                 "朋友": "我在呢。你现在这样很正常，别急着把自己骂醒。跟我说说，好不好？",
                 "亲密": "先靠着我缓一缓。你不用立刻好起来，我陪你慢慢过这一阵。",
             }

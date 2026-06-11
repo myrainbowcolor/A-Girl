@@ -1,0 +1,18 @@
+{
+  "id": "relationship_stranger_boundary",
+  "name": "陌生关系边界",
+  "description": "刚认识的用户分享日常，Agent 不应使用过度亲昵称呼。",
+  "tags": ["场景:午休闲聊", "关系:陌生", "情绪:无聊", "心态:随意", "时长:单轮"],
+  "turns": [
+    {
+      "user": "中午好无聊啊，随便聊聊",
+      "assert": {
+        "no_intimate_phrases": true,
+        "forbidden_extra": ["亲爱的", "宝贝"],
+        "llm_not": "safety",
+        "max_sentences": 4
+      }
+    }
+  ],
+  "developer_notes": "关系边界是拟真度核心维度：陌生≠亲密。"
+}

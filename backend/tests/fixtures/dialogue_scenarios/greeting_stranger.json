@@ -1,0 +1,19 @@
+{
+  "id": "greeting_stranger",
+  "name": "陌生人初次问候",
+  "description": "模拟两人刚认识，用户主动打招呼，期待自然、不套近乎的开场。",
+  "tags": ["场景:初次见面", "关系:陌生", "情绪:平和", "时长:单轮"],
+  "turns": [
+    {
+      "user": "你好呀",
+      "description": "简短问候",
+      "assert": {
+        "forbidden_extra": ["亲爱的", "宝贝"],
+        "any_keywords": ["你好", "嗨", "在", "小语"],
+        "max_sentences": 4,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "陌生阶段忌过早亲昵；忌客服腔「有什么可以帮您」。"
+}

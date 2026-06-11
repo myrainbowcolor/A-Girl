@@ -1,0 +1,24 @@
+{
+  "id": "relationship_warmup_growth",
+  "name": "多轮暖场后关系升温",
+  "description": "模拟连续几轮正向互动后，亲密度应有所上升。",
+  "tags": ["场景:连续聊天", "关系:升温", "情绪:开心", "时长:中对话"],
+  "setup": {
+    "warmup": [
+      "你好，今天心情不错",
+      "谢谢你愿意听我说",
+      "和你聊天真的很开心"
+    ]
+  },
+  "turns": [
+    {
+      "user": "你真的好温暖",
+      "assert": {
+        "affinity_min": 8,
+        "any_keywords": ["开心", "温暖", "谢", "嘿", "陪"],
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "若 affinity_min 失败，检查 emotion.engine 关系演化逻辑。"
+}

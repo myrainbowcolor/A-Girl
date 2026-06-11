@@ -2,38 +2,50 @@
 
 ## 项目概述
 
-**A-Girl** 是一个情感陪伴 Agent 的研究仓库（见 GitHub 描述）。当前 `main` 分支仅包含占位文件：
+**A-Girl** 是一个情感陪伴 Agent 研究仓库：长期记忆、动态情绪/关系、安全护栏与数字人表现。
 
-- `README.md` — 项目标题
-- `LICENSE` — MIT 许可证
-
-尚无应用代码、依赖清单、测试或 CI 配置。
+主要代码在 `backend/`，文档在 `docs/`。
 
 ## 开发环境
 
-| 项目 | 状态 |
+| 项目 | 说明 |
 |------|------|
-| 语言 / 框架 | 未定义 |
-| 包管理器 | 无（无 `package.json`、`requirements.txt` 等） |
-| 环境变量 | 无 `.env` 或文档 |
-| Docker / Compose | 无 |
+| 语言 | Python 3.12+ |
+| 框架 | FastAPI |
+| 依赖 | `backend/requirements.txt` |
+| 配置 | `backend/.env.example` |
 
-克隆仓库后即可工作，无需安装依赖。
+```bash
+cd backend && pip install -r requirements.txt
+```
 
 ## 常用命令
 
-当前无可运行的 lint、测试或开发服务器命令。待应用代码加入后，请在本节补充，例如：
-
 ```bash
-# 示例（尚未适用）
-# npm install && npm run dev
-# pip install -r requirements.txt && python -m app
+# 启动服务
+cd backend && python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8011
+
+# 全量测试
+cd backend && python3 -m pytest
+
+# 对话拟真度场景评测（多维度人机对话质量）
+cd backend && python3 -m pytest tests/test_dialogue_quality.py -v
+python3 scripts/run_dialogue_eval.py   # 输出 backend/tests/reports/dialogue_quality_report.json
+
+# LLM 连通性
+cd backend && python3 scripts/check_llm.py
 ```
+
+## 对话质量评测
+
+- 场景用例：`backend/tests/fixtures/dialogue_scenarios/*.json`
+- 评判规则：`backend/app/eval/rubric.py`
+- 失败报告：`backend/tests/reports/dialogue_quality_report.json`（gitignore，本地/CI 生成）
+- 说明文档：`docs/DIALOGUE_EVAL.md`
 
 ## Cursor Cloud specific instructions
 
-- **无依赖安装步骤**：VM 启动时的 `update_script` 为无操作（`true`），因为仓库没有 lockfile 或依赖清单。
-- **无可启动服务**：没有前端、后端、数据库或 Docker Compose 配置；无法执行端到端应用演示，直到实现代码并入仓库。
-- **Git**：在 `/workspace` 根目录操作；默认分支为 `main`。
-- **分支命名**：Cloud Agent 功能分支请使用 `cursor/<描述>-ff3f` 格式。
-- **添加代码后**：请同步更新 `README.md`（安装与运行说明）、依赖文件，以及本文件中的命令与服务说明。
+- **依赖**：`pip install -r backend/requirements.txt`
+- **默认无外部 LLM**：使用 Mock LLM，可直接跑测试与对话评测
+- **Git**：在 `/workspace` 根目录操作；默认分支为 `main`
+- **分支命名**：Cloud Agent 功能分支请使用 `cursor/<描述>-ff3f` 格式

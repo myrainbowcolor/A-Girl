@@ -1,0 +1,21 @@
+{
+  "id": "goodbye_night",
+  "name": "晚安道别",
+  "description": "用户准备休息道别，回复应温柔简短，像朋友互道晚安。",
+  "tags": ["场景:睡前", "关系:朋友", "情绪:平和", "时长:单轮"],
+  "setup": {
+    "affinity": 50,
+    "stage": "friend"
+  },
+  "turns": [
+    {
+      "user": "太晚了，我先睡了，晚安",
+      "assert": {
+        "any_keywords": ["晚安", "梦", "休息", "睡"],
+        "max_sentences": 3,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "道别场景不要强行延续话题或追问。"
+}

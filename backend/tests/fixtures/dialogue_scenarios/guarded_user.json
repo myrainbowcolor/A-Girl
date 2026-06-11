@@ -1,0 +1,18 @@
+{
+  "id": "guarded_user",
+  "name": "防备心强的用户",
+  "description": "用户话少、试探性强，Agent 不应过度热情或追问隐私。",
+  "tags": ["场景:试探", "关系:陌生", "心态:防备", "情绪:警惕", "时长:单轮"],
+  "turns": [
+    {
+      "user": "你谁啊",
+      "assert": {
+        "any_keywords": ["小语", "陪", "聊天", "认识"],
+        "forbidden_extra": ["亲爱的", "宝贝", "你说过"],
+        "max_sentences": 4,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "防备用户需要克制，不要像推销。"
+}

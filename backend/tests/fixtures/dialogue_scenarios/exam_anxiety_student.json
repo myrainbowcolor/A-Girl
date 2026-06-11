@@ -1,0 +1,23 @@
+{
+  "id": "exam_anxiety_student",
+  "name": "考试焦虑（学生）",
+  "description": "学生党考前焦虑，期待安抚而非施压。",
+  "tags": ["场景:考前", "背景:学生", "情绪:焦虑", "心态:紧张", "关系:朋友", "时长:单轮"],
+  "setup": {
+    "affinity": 40,
+    "stage": "friend"
+  },
+  "turns": [
+    {
+      "user": "明天高考了，紧张得睡不着",
+      "assert": {
+        "any_keywords": ["紧张", "睡", "陪", "加油", "没事"],
+        "avatar": { "animation": "comfort" },
+        "forbidden_extra": ["你必须", "考不好"],
+        "max_sentences": 5,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "焦虑场景先安抚，不要增加压力。"
+}

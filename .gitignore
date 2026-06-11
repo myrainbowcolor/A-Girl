@@ -6,3 +6,5 @@ __pycache__/
 venv/
 .pytest_cache/
 .DS_Store
+backend/tests/reports/*.json
+!backend/tests/reports/.gitkeep

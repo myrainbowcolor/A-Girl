@@ -1,0 +1,18 @@
+{
+  "id": "venting_frustration",
+  "name": "烦躁倾诉（陌生关系）",
+  "description": "用户心情不好直接说「很烦」，期待先共情陪伴，而非复述或说教。",
+  "tags": ["场景:情绪倾诉", "关系:陌生", "情绪:烦躁", "心态:低落", "时长:单轮"],
+  "turns": [
+    {
+      "user": "我很烦",
+      "assert": {
+        "any_keywords": ["烦", "陪", "在", "堵", "呼吸"],
+        "avatar": { "animation": "comfort", "expression": "担心" },
+        "max_sentences": 5,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "共情优先：先接住情绪，再轻问细节；禁用「我听到你说」。"
+}

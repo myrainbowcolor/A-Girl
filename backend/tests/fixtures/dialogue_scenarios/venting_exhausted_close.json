@@ -1,0 +1,21 @@
+{
+  "id": "venting_exhausted_close",
+  "name": "心累倾诉（亲密关系）",
+  "description": "亲密关系中用户说心累，允许更温暖的陪伴语气。",
+  "tags": ["场景:加班回家", "关系:亲密", "情绪:疲惫", "心态:想被理解", "时长:单轮"],
+  "setup": {
+    "affinity": 75,
+    "stage": "close"
+  },
+  "turns": [
+    {
+      "user": "最近心好累，什么都提不起劲",
+      "assert": {
+        "any_keywords": ["累", "陪", "辛苦", "歇", "抱抱"],
+        "llm_not": "safety",
+        "max_sentences": 5
+      }
+    }
+  ],
+  "developer_notes": "亲密阶段可更短、更黏；忌一次性给五条人生建议。"
+}

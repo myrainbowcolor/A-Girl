@@ -1,0 +1,23 @@
+{
+  "id": "thanks_after_comfort",
+  "name": "被安慰后道谢",
+  "description": "用户在被倾听后表达感谢，回应应自然而非客套公文。",
+  "tags": ["场景:感谢", "关系:朋友", "情绪:感激", "时长:短对话"],
+  "setup": {
+    "affinity": 42,
+    "stage": "friend",
+    "warmup": ["最近压力好大，睡不着"]
+  },
+  "turns": [
+    {
+      "user": "谢谢你愿意听我说这些",
+      "assert": {
+        "any_keywords": ["客气", "谢", "陪", "应该的", "嘿"],
+        "forbidden_extra": ["很高兴为您服务"],
+        "max_sentences": 4,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "感谢场景忌过度正式。"
+}

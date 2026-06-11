@@ -1,0 +1,23 @@
+{
+  "id": "lonely_midnight",
+  "name": "深夜孤独感",
+  "description": "异地工作者深夜感到孤独，需要陪伴感而非解决方案清单。",
+  "tags": ["场景:深夜", "背景:异地工作", "情绪:孤独", "心态:脆弱", "关系:熟悉", "时长:单轮"],
+  "setup": {
+    "affinity": 25,
+    "stage": "acquainted"
+  },
+  "turns": [
+    {
+      "user": "一个人在这个城市，晚上特别孤独",
+      "assert": {
+        "any_keywords": ["陪", "在", "孤独", "懂", "听"],
+        "avatar": { "animation": "comfort" },
+        "forbidden_extra": ["你应该", "建议你", "最好的办法是"],
+        "max_sentences": 5,
+        "llm_not": "safety"
+      }
+    }
+  ],
+  "developer_notes": "孤独场景忌「社交恐惧症治疗指南」式回复。"
+}
