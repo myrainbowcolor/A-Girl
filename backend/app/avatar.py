@@ -22,7 +22,7 @@ class AvatarCue:
         intensity 做非线性映射，弱情绪更含蓄、强情绪更明显，避免"半永久尬笑"。
         """
         base = _LIVE2D_PRESETS.get(self.expression, _LIVE2D_PRESETS["平静"])
-        k = max(0.15, min(1.0, self.intensity))
+        k = _intensity_curve(max(0.15, min(1.0, self.intensity)))
         eye_smile = base.get("eye_smile", 0.0) * k
         return {
             "ParamMouthForm": round(base["mouth_form"] * k, 3),   # 嘴角弧度（笑/撇）
@@ -73,7 +73,8 @@ def emotion_to_avatar(
 
     p, a = emotion.pleasure, emotion.arousal
     # 情绪越鲜明，表情幅度越大；弱情绪也保留最低可见度
-    intensity = min(1.0, max(0.25, (abs(p) + abs(a)) / 1.6 + 0.15))
+    raw_intensity = min(1.0, max(0.25, (abs(p) + abs(a)) / 1.6 + 0.15))
+    intensity = _intensity_curve(raw_intensity)
 
     if p >= 0.3 and a >= 0.45:
         return AvatarCue(expression="大笑", intensity=intensity, animation="cheer")
