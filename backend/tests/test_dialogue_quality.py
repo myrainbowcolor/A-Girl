@@ -35,6 +35,17 @@ def test_dialogue_scenario_no_critical_issues(scenario, dialogue_results):
     )
 
 
+@pytest.mark.parametrize("scenario", all_scenarios(), ids=lambda s: s.id)
+def test_dialogue_scenario_no_major_issues_mock_baseline(scenario, dialogue_results):
+    """Mock LLM 基线：每个场景不得出现 major 级拟真度问题。"""
+    result = next(r for r in dialogue_results if r.scenario.id == scenario.id)
+    major = result.major_issues
+    assert not major, (
+        f"场景 {scenario.id} 存在 major 问题："
+        + "; ".join(f"{i.rule_id}: {i.message}" for i in major)
+    )
+
+
 def test_dialogue_quality_report_written(dialogue_results):
     latest = _REPORT_DIR / "latest.json"
     assert latest.exists()
@@ -46,4 +57,4 @@ def test_dialogue_quality_report_written(dialogue_results):
 def test_dialogue_quality_summary(dialogue_results):
     """整体平均分应维持在可接受区间（mock LLM 基线）。"""
     avg = sum(r.score for r in dialogue_results) / len(dialogue_results)
-    assert avg >= 70.0, f"整体平均分过低：{avg:.1f}"
+    assert avg >= 90.0, f"整体平均分过低：{avg:.1f}"

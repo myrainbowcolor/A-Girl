@@ -49,6 +49,8 @@ class ScenarioExpectation:
 # 机械/客服腔 —— 真人很少这样说
 _ROBOTIC_PATTERNS = [
     r"我听到你说",
+    r"我听到了\s*[~～]",
+    r"说说看，「.+」后来怎么样了",
     r"作为一个\s*AI",
     r"作为人工智能",
     r"很高兴为您服务",
