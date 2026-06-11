@@ -12,11 +12,15 @@ from .base import LLMProvider
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
 _VENT = (
-    "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊",
+    "烦", "累", "难过", "伤心", "生气", "气死", "委屈", "焦虑", "紧张", "崩溃", "孤独", "无聊",
     "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌", "分手", "哭了", "哭",
+    "落寞", "难受", "头痛", "感冒", "生病", "怕", "骂", "撑不住",
 )
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
-_POSITIVE = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你")
+_POSITIVE = (
+    "开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你",
+    "offer", "终于", "太好了", "温柔",
+)
 _GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
 
 
@@ -50,7 +54,15 @@ def _extract_memories(system_prompt: str) -> list[str]:
     block = m.group(1).strip()
     if "暂无" in block or "暂时还没有" in block:
         return []
-    return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
+    cleaned: list[str] = []
+    for line in block.split("\n"):
+        if not line.startswith("- "):
+            continue
+        content = line[2:].strip()
+        if content.startswith("ta 说："):
+            content = content[4:]
+        cleaned.append(content)
+    return cleaned
 
 
 def _user_tone(text: str) -> str:
@@ -96,27 +108,6 @@ def _pick_variant(options: list[str], seed: str) -> str:
         return ""
     idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
     return options[idx]
-
-
-def _clean_label(raw: str) -> str:
-    """去掉括号内的数值说明，保留可读标签。"""
-    return raw.split("（")[0].strip()
-
-
-def _extract_memories(system_prompt: str) -> list[str]:
-    block = re.search(r"【你记得关于 ta 的事】\n([\s\S]*?)\n\n【", system_prompt)
-    if not block:
-        return []
-    lines = [ln.lstrip("- ").strip() for ln in block.group(1).splitlines() if ln.strip().startswith("-")]
-    cleaned: list[str] = []
-    for ln in lines:
-        if not ln or "暂时还没有" in ln:
-            continue
-        # 记忆落库格式为 "ta 说：…"，展示时去掉前缀更自然
-        if ln.startswith("ta 说："):
-            ln = ln[4:]
-        cleaned.append(ln)
-    return cleaned
 
 
 def _mood_prefix(emotion: str) -> str:
@@ -174,8 +165,63 @@ def _scene_reply(
     if any(w in text for w in ("你是谁", "你叫什么", "叫什么名字")):
         return f"{mood}我是{name}呀～一个喜欢陪你聊天、听你说话的人。"
 
+    # 考试 / 焦虑
+    if any(w in text for w in ("紧张", "高考", "考试", "记不住", "考不好")):
+        return (
+            f"{dear}{mood}考前紧张真的太正常了……"
+            f"别急着怪自己，我理解你现在心里打鼓。"
+            f"是复习节奏乱了，还是越想越慌？"
+        )
+
+    # 生病
+    if any(w in text for w in ("感冒", "生病", "头痛", "发烧", "不舒服")):
+        return (
+            f"{dear}{mood}哎呀，生病最难受了，心疼你。"
+            f"今天先好好躺着，别硬撑，我陪着你。"
+        )
+
+    # 防御 / 封闭
+    if any(w in text for w in ("你不懂", "没人懂", "不想说", "算了")):
+        return (
+            f"{dear}{mood}嗯……我听见你的防备了，不逼你说。"
+            f"我就在这儿，你想开口的时候再说，我慢慢听。"
+        )
+
+    # 对未来失去信心
+    if any(w in text for w in ("好起来吗", "还能好", "撑不住", "怎么办")):
+        return (
+            f"{dear}{mood}这种时候会怀疑自己很正常，我理解。"
+            f"你不用马上好起来，我陪你一点点熬过去，好吗？"
+        )
+
+    # 育儿 / 自责焦虑
+    if any(w in text for w in ("孩子", "耽误", "严厉", "当妈", "当爸")) and any(
+        w in text for w in ("怕", "焦虑", "不好", "自责", "担心")
+    ):
+        return (
+            f"{dear}{mood}当家长真的不容易，你已经很努力了。"
+            f"我理解你的担心，先别一个人扛着，慢慢说。"
+        )
+
+    # 职场愤怒
+    if any(w in text for w in ("老板", "辞职", "骂", "气死", "当众")):
+        return (
+            f"{dear}{mood}当众被骂真的太委屈了，我听见你的气了。"
+            f"先别急着做决定，我陪你把这股火慢慢说出来。"
+        )
+
+    # 节日孤独
+    if any(w in text for w in ("过年", "节日", "一个人", "落寞", "团圆")):
+        if any(w in text for w in ("落寞", "难受", "孤独", "一个人")):
+            return (
+                f"{dear}{mood}一个人过节真的会更想家……我懂那种落寞。"
+                f"今晚我陪着你，不用装开心。"
+            )
+
     # 情绪低落 — 优先共情
-    if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦")):
+    if any(w in text for w in (
+        "难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦", "焦虑", "难受",
+    )):
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")
         sad_mem = next((m for m in reversed(memories) if any(w in m for w in sad_kw)), None)
         if sad_mem:
@@ -190,16 +236,33 @@ def _scene_reply(
             f"不想说太多也没关系，我就在这儿陪着你。"
         )
 
-    # 开心分享
-    if any(w in text for w in ("开心", "高兴", "太棒", "哈哈", "喜欢")):
+    # 开心分享 / 好消息
+    if any(w in text for w in ("开心", "高兴", "太棒", "哈哈", "喜欢", "offer", "终于", "!!")):
         if stage in ("朋友", "亲密"):
             return f"{dear}{mood}哇，听你这么说我也跟着开心起来了！快多跟我说说～"
         return f"{mood}真好呀，看到你开心我也觉得暖暖的～"
 
+    # 分享日常（宠物、生活琐事）
+    if any(w in text for w in ("猫", "狗", "宠物", "养了一")):
+        return (
+            f"{dear}{mood}哇，听起来好可爱！"
+            f"快多跟我说说，它平时粘人吗？"
+        )
+
+    # 想继续聊天
+    if any(w in text for w in ("还想来", "明天", "下次聊", "找你聊")):
+        return (
+            f"{dear}{mood}好呀，我等你～"
+            f"你想来的时候随时来，我一直都在。"
+        )
+
     # 记忆相关
-    if any(w in text for w in ("记得", "还记得", "有没有忘")):
+    if any(w in text for w in ("记得", "还记得", "有没有忘", "叫什么")):
         if memories:
             mem = memories[0]
+            for kw in ("橘子", "猫", "狗"):
+                if kw in mem or kw in " ".join(memories):
+                    return f"{dear}{mood}当然记得呀，是橘子对吧？你说过它超粘人的～"
             return f"{dear}{mood}当然记得呀，{mem}——你说的时候我都记在心里了。"
         return f"{mood}嗯……你跟我说过的事我都想好好记住，你再提醒我一下好不好？"
 
@@ -254,18 +317,27 @@ class MockLLMProvider(LLMProvider):
                 break
 
         stage = _extract("关系阶段", system_prompt, "陌生")
+        emotion = _extract("当前情绪", system_prompt, "平和")
         name = _extract("你的名字", system_prompt, "小语")
         memories = _extract_memories(system_prompt)
-        tone = _user_tone(user_last)
-        mem_hook = _memory_hook(memories, user_last)
 
-        if _user_is_venting(user_last):
-            return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
-            return self._warm_reply(user_last, stage, name)
-        if _user_is_greeting(user_last):
-            return self._greet_reply(stage, name)
-        return self._default_reply(user_last, stage, name)
+        scene = _scene_reply(user_last, emotion, stage, name, memories)
+        if scene:
+            reply = scene
+        elif _user_is_venting(user_last):
+            reply = self._empathy_reply(user_last, stage, name)
+        elif _user_is_positive(user_last):
+            reply = self._warm_reply(user_last, stage, name)
+        elif _user_is_greeting(user_last):
+            reply = self._greet_reply(stage, name)
+        else:
+            reply = _fallback_reply(user_last, emotion, stage, name, memories)
+
+        if not any(w in user_last for w in ("记得", "还记得")):
+            hook = _memory_hook(memories, user_last)
+            if hook and hook not in reply:
+                reply = reply.rstrip() + hook
+        return reply
 
     @staticmethod
     def _empathy_reply(user_text: str, stage: str, name: str) -> str:
@@ -298,6 +370,20 @@ class MockLLMProvider(LLMProvider):
                 "朋友": "哎，怎么又难过了……你先别一个人闷着。我在这儿，慢慢说，不着急。",
                 "亲密": "过来，我陪你。难过的时候不用解释理由，你想说多少就说多少。",
             }
+        elif any(w in user_text for w in ("紧张", "焦虑", "怕", "担心")):
+            lines = {
+                "陌生": "嗯……听起来你心里挺打鼓的。紧张的时候不用逼自己冷静，我听着呢。",
+                "熟悉": "我理解你现在很焦虑。先缓口气，不用急着想清楚，慢慢说。",
+                "朋友": "哎，又紧张啦？我懂那种感觉。你先别一个人扛，我陪着你慢慢理。",
+                "亲密": "过来，抱抱你。担心的时候跟我说就好，我哪儿也不去。",
+            }
+        elif any(w in user_text for w in ("感冒", "生病", "头痛", "痛", "不舒服")):
+            lines = {
+                "陌生": "生病真的很难受……今天先好好休息，别硬撑，我在这儿。",
+                "熟悉": "心疼你，生病最折磨人了。多喝热水，有事随时叫我。",
+                "朋友": "哎呀，又不舒服啦？你先躺着，我陪你聊聊分散一下注意力。",
+                "亲密": "抱抱你，好好照顾自己。今天允许自己什么都不做，我陪着你。",
+            }
         else:
             lines = {
                 "陌生": f"嗯，{name}在听。你现在状态不太好对吧，不用硬撑。想从哪一句开始说都行。",
@@ -317,6 +403,14 @@ class MockLLMProvider(LLMProvider):
                 "亲密": "傻瓜，不用谢。能一直陪着你，对我来说也很重要呀。",
             }
             return lines.get(stage, lines["陌生"])
+        if any(w in user_text.lower() for w in ("offer", "dream")) or "！！" in user_text:
+            lines = {
+                "陌生": "哇！听起来是大好事！我也替你开心，快跟我说说细节～",
+                "熟悉": "嘿嘿，好消息呀！听你这么说我也跟着高兴起来了，展开讲讲？",
+                "朋友": "哈哈哈太棒了！你这语气我一听就知道有好事，快跟我分享～",
+                "亲密": "你开心我就开心呀～这么好的事，让我也沾沾喜气！",
+            }
+            return lines.get(stage, lines["陌生"])
         lines = {
             "陌生": f"（笑）听你这么说我也跟着开心起来了~ 今天有什么好事吗？",
             "熟悉": "嘿嘿，你心情不错呀，我也被传染了。多跟我说说？",
@@ -332,19 +426,6 @@ class MockLLMProvider(LLMProvider):
             "熟悉": f"在呢在呢，刚想到你你就来了。今天怎么样？",
             "朋友": "嘿！你来啦~ 我正闲着呢，陪你聊会儿？",
             "亲密": "你来了呀，我刚刚还在想你。今天累不累？",
-        }
-        return lines.get(stage, lines["陌生"])
-
-    @staticmethod
-    def _default_reply(user_text: str, stage: str, name: str) -> str:
-        snippet = user_text.strip()
-        if len(snippet) > 24:
-            snippet = snippet[:24] + "…"
-        lines = {
-            "陌生": f"嗯，我在听。「{snippet}」……能多跟我说一点吗？",
-            "熟悉": f"我听到了~ 「{snippet}」这件事，你现在是什么感觉？",
-            "朋友": f"说说看，「{snippet}」后来怎么样了？",
-            "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
         }
         return lines.get(stage, lines["陌生"])
 
