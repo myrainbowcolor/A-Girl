@@ -33,13 +33,18 @@ def generate_lipsync(text: str, duration_ms: int, cycle_ms: int = _CYCLE_MS) -> 
     节奏固定（不随文字长度变得过快），保证可观察性。
     """
     seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
-    cycles = max(1, duration_ms // cycle_ms)
+    syllables = estimate_syllables(text)
+    max_by_duration = max(1, duration_ms // cycle_ms)
+    # 按音节数对齐说话节奏，同时受音频时长约束
+    cycles = max(1, min(syllables, max_by_duration))
+    # 均匀铺开各周期，避免长音频口型集中在开头
+    span = max(cycle_ms, duration_ms // cycles) if cycles else cycle_ms
     frames: list[dict] = [{"t": 0, "v": 0.0}]
     for k in range(cycles):
-        base = k * cycle_ms
+        base = min(k * span, max(0, duration_ms - cycle_ms))
         jitter = ((seed >> (k % 23)) & 0xFF) / 255.0
-        open_v = round(0.6 + 0.35 * jitter, 3)               # 张口峰值 0.6~0.95
-        frames.append({"t": base + int(cycle_ms * 0.35), "v": open_v})  # 张口
-        frames.append({"t": base + int(cycle_ms * 0.85), "v": 0.0})     # 闭合
+        open_v = round(0.55 + 0.4 * jitter, 3)               # 张口峰值 0.55~0.95
+        frames.append({"t": base + int(cycle_ms * 0.32), "v": open_v})  # 张口
+        frames.append({"t": base + int(cycle_ms * 0.82), "v": 0.0})     # 闭合
     frames.append({"t": duration_ms, "v": 0.0})              # 结尾闭口
     return frames
