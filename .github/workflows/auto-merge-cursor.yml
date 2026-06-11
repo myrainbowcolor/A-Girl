@@ -9,6 +9,19 @@ permissions:
   pull-requests: write
 
 jobs:
+  ready-draft:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.user.login == 'cursor[bot]' &&
+      github.event.pull_request.draft == true &&
+      github.event.action == 'opened'
+    steps:
+      - name: Mark draft PR ready for review
+        run: gh pr ready "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   auto-merge:
     runs-on: ubuntu-latest
     if: |
