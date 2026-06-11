@@ -22,13 +22,15 @@
 
 ## 常用命令
 
-当前无可运行的 lint、测试或开发服务器命令。待应用代码加入后，请在本节补充，例如：
-
 ```bash
-# 示例（尚未适用）
-# npm install && npm run dev
-# pip install -r requirements.txt && python -m app
+cd backend
+pip install -r requirements.txt
+python3 -m uvicorn app.main:app --host 127.0.0.1 --port 8011
+python3 -m pytest
+python3 scripts/run_dialogue_quality.py   # 对话拟真度场景评测 + 失败记录
 ```
+
+对话质量评测说明见 `docs/DIALOGUE_QUALITY.md`。
 
 ## Cursor Cloud specific instructions
 

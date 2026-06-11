@@ -68,15 +68,15 @@ curl http://127.0.0.1:8011/api/proactive/<user_id>
 
 ```bash
 cd backend
-python3 -m pytest
-# 对话拟真度场景回归（多场景/情绪/关系/时长维度，失败写入 reports/）
-python3 scripts/run_dialogue_quality.py
+python -m pytest
+# 对话拟真度场景评测（多场景/情绪/关系/时长）+ 失败记录
+python scripts/run_dialogue_quality.py
 # 数字人口型同步的无头浏览器确定性验证（需先启动服务）
 pip install -r requirements-dev.txt && python -m playwright install chromium
 python scripts/verify_lipsync.py
 ```
 
-对话质量报告输出至 `backend/reports/dialogue-quality-failures.json`（机器可读）与 `dialogue-quality-report.md`（开发阅读）。未通过项含 `owner_hint` 字段，便于分流到 persona / mock_llm / emotion / avatar 等子系统。
+对话质量评测说明见 [`docs/DIALOGUE_QUALITY.md`](docs/DIALOGUE_QUALITY.md)。
 
 ## API
 

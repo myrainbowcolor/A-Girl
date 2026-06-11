@@ -1,149 +1,147 @@
-"""执行场景用例并汇总质量报告。"""
+"""对话质量场景执行器。"""
 from __future__ import annotations
 
+import tempfile
 import time
-from pathlib import Path
+from dataclasses import dataclass, field
 
 from ..config import Settings
 from ..db import Database
-from ..domain import Relationship, RelationshipStage
+from ..domain import Relationship
 from ..emotion import EmotionEngine
 from ..llm import LLMProvider, MockLLMProvider
 from ..memory import HashEmbeddingProvider, MemoryStore
 from ..orchestrator import Orchestrator
-from .evaluator import DialogueEvaluator, TurnContext
-from .reporter import FailureRecord, QualityReport, build_summary, utc_now_iso, write_markdown_summary, write_report
-from .scenarios import DialogueScenario, all_scenarios
-
-_STAGE_AFFINITY = {
-  "stranger": (5.0, RelationshipStage.STRANGER),
-  "acquainted": (25.0, RelationshipStage.ACQUAINTED),
-  "friend": (50.0, RelationshipStage.FRIEND),
-  "close": (75.0, RelationshipStage.CLOSE),
-}
+from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
+from .scenarios import DialogueScenario
 
 
-def _seed_relationship(db: Database, user_id: str, relationship: str) -> None:
-  aff, stage = _STAGE_AFFINITY.get(relationship, (5.0, RelationshipStage.STRANGER))
-  db.save_relationship(user_id, Relationship(affinity=aff, stage=stage), time.time())
+@dataclass
+class TurnRecord:
+    turn_index: int
+    user_text: str
+    reply: str
+    llm: str
+    avatar_expression: str
+    avatar_animation: str
+    affinity: float
+    relationship_stage: str
+    retrieved_memories: list[str] = field(default_factory=list)
 
 
-def run_scenarios(
-  orchestrator: Orchestrator,
-  scenarios: list[DialogueScenario] | None = None,
-  *,
-  evaluator: DialogueEvaluator | None = None,
-) -> QualityReport:
-  scenarios = scenarios or all_scenarios()
-  ev = evaluator or DialogueEvaluator()
-  llm_name = orchestrator._llm.name  # noqa: SLF001 — 测试运行器需记录 provider
+@dataclass
+class ScenarioResult:
+    scenario: DialogueScenario
+    passed: bool
+    score: float
+    issues: list[QualityIssue] = field(default_factory=list)
+    turns: list[TurnRecord] = field(default_factory=list)
 
-  failures: list[FailureRecord] = []
-  total_turns = 0
-  passed_turns = 0
+    @property
+    def critical_issues(self) -> list[QualityIssue]:
+        return [i for i in self.issues if i.severity == "critical"]
 
-  for sc in scenarios:
-    user_id = f"dq-{sc.id}"
-    session_id = f"sess-{sc.id}"
-    _seed_relationship(orchestrator._db, user_id, sc.relationship)  # noqa: SLF001
-    prior_user: list[str] = []
-
-    for turn_idx, user_text in enumerate(sc.user_turns):
-      result = orchestrator.chat(user_id, session_id, user_text)
-      total_turns += 1
-      rel_stage = result.relationship.stage.value
-
-      ctx = TurnContext(
-        user_text=user_text,
-        reply=result.reply,
-        relationship_stage=rel_stage,
-        user_sentiment=_sentiment_from_label(result.user_sentiment_label, user_text),
-        user_sentiment_label=result.user_sentiment_label,
-        avatar_expression=result.avatar.expression,
-        avatar_animation=result.avatar.animation,
-        retrieved_memories=result.retrieved_memories,
-        is_crisis=result.is_crisis,
-        turn_index=turn_idx,
-        prior_user_texts=list(prior_user),
-      )
-      checks = ev.evaluate_turn(ctx)
-      failed = [c for c in checks if not c.passed]
-
-      if failed:
-        failures.append(
-          FailureRecord(
-            scenario_id=sc.id,
-            scenario_title=sc.title,
-            scene=sc.scene,
-            background=sc.background,
-            mindset=sc.mindset,
-            emotion=sc.emotion,
-            relationship=sc.relationship,
-            duration=sc.duration,
-            turn_index=turn_idx,
-            user_text=user_text,
-            reply=result.reply,
-            failed_checks=[
-              {
-                "name": c.name,
-                "severity": c.severity,
-                "message": c.message,
-                "owner_hint": c.owner_hint,
-              }
-              for c in failed
-            ],
-            tags=sc.tags,
-            notes=sc.notes,
-            llm_provider=llm_name,
-          )
-        )
-      else:
-        passed_turns += 1
-
-      prior_user.append(user_text)
-
-  return QualityReport(
-    generated_at=utc_now_iso(),
-    llm_provider=llm_name,
-    total_scenarios=len(scenarios),
-    total_turns=total_turns,
-    passed_turns=passed_turns,
-    failed_turns=len(failures),
-    failures=failures,
-    summary_by_owner=build_summary(failures),
-  )
+    @property
+    def major_issues(self) -> list[QualityIssue]:
+        return [i for i in self.issues if i.severity == "major"]
 
 
-def _sentiment_from_label(label: str, user_text: str) -> float:
-  """从标签或关键词粗估 sentiment，供评估器使用。"""
-  if any(w in label for w in ("负面", "低落", "焦虑", "委屈")):
-    return -0.6
-  if any(w in label for w in ("开心", "兴奋", "正面")):
-    return 0.6
-  neg_kw = ("难过", "烦", "累", "焦虑", "哭", "分手", "孤独", "压力", "无聊", "麻木")
-  pos_kw = ("开心", "哈哈", "谢谢", "offer", "温暖", "好玩")
-  if any(k in user_text for k in neg_kw):
-    return -0.5
-  if any(k in user_text for k in pos_kw):
-    return 0.5
-  return 0.0
+class DialogueQualityRunner:
+    def __init__(
+        self,
+        llm: LLMProvider | None = None,
+        settings: Settings | None = None,
+        evaluator: DialogueEvaluator | None = None,
+    ) -> None:
+        self._llm = llm or MockLLMProvider()
+        self._settings = settings or Settings(reflection_every_n_memories=999)
+        self._evaluator = evaluator or DialogueEvaluator()
 
+    def run_scenario(self, scenario: DialogueScenario) -> ScenarioResult:
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            db = Database(f.name)
+            mem = MemoryStore(db, HashEmbeddingProvider(dim=256), self._settings)
+            orch = Orchestrator(
+                db, mem, EmotionEngine(), self._llm, self._settings
+            )
+            user_id = f"dq-{scenario.id}"
+            session_id = f"sess-{scenario.id}"
 
-def build_orchestrator(settings: Settings | None = None, llm: LLMProvider | None = None) -> Orchestrator:
-  s = settings or Settings(db_path=":memory:")
-  db = Database(s.db_path)
-  mem = MemoryStore(db, HashEmbeddingProvider(dim=s.embedding_dim), s)
-  return Orchestrator(db, mem, EmotionEngine(), llm or MockLLMProvider(), s)
+            rel = Relationship(affinity=scenario.initial_affinity)
+            rel.recompute_stage()
+            db.save_relationship(user_id, rel, time.time())
 
+            for seed in scenario.seed_memories:
+                mem.add(user_id, seed, importance=5.0)
 
-def run_and_write_reports(
-  out_dir: Path | str = "reports",
-  settings: Settings | None = None,
-  llm: LLMProvider | None = None,
-) -> QualityReport:
-  out = Path(out_dir)
-  orch = build_orchestrator(settings, llm)
-  report = run_scenarios(orch)
-  write_report(report, out / "dialogue-quality-failures.json")
-  write_markdown_summary(report, out / "dialogue-quality-report.md")
-  return report
+            turn_contexts: list[TurnContext] = []
+            turn_records: list[TurnRecord] = []
+            prior_user: list[str] = []
+            all_issues: list[QualityIssue] = []
+
+            for idx, spec in enumerate(scenario.turns):
+                result = orch.chat(user_id, session_id, spec.user)
+                ctx = TurnContext(
+                    turn_index=idx,
+                    user_text=spec.user,
+                    result=result,
+                    prior_user_texts=list(prior_user),
+                    retrieved_memories=list(result.retrieved_memories),
+                )
+                all_issues.extend(
+                    self._evaluator.evaluate_turn(
+                        ctx,
+                        expect_empathy=spec.expect_empathy,
+                        expect_warmth=spec.expect_warmth,
+                        forbid_intimate_tone=spec.forbid_intimate_tone,
+                        expect_comfort_avatar=spec.expect_comfort_avatar,
+                        expect_recall=spec.expect_recall,
+                        recall_keywords=spec.recall_keywords,
+                    )
+                )
+                turn_contexts.append(ctx)
+                turn_records.append(
+                    TurnRecord(
+                        turn_index=idx,
+                        user_text=spec.user,
+                        reply=result.reply,
+                        llm=result.llm,
+                        avatar_expression=result.avatar.expression if result.avatar else "",
+                        avatar_animation=result.avatar.animation if result.avatar else "",
+                        affinity=result.relationship.affinity,
+                        relationship_stage=result.relationship.stage.value,
+                        retrieved_memories=list(result.retrieved_memories),
+                    )
+                )
+                prior_user.append(spec.user)
+
+            all_issues.extend(
+                self._evaluator.evaluate_session(
+                    turn_contexts,
+                    scenario.expectation,
+                    initial_affinity=scenario.initial_affinity,
+                )
+            )
+
+            seen: set[tuple[str, int | None, str]] = set()
+            unique_issues: list[QualityIssue] = []
+            for issue in all_issues:
+                key = (issue.rule_id, issue.turn_index, issue.message)
+                if key not in seen:
+                    seen.add(key)
+                    unique_issues.append(issue)
+
+            score = self._evaluator.score(unique_issues)
+            passed = not any(i.severity == "critical" for i in unique_issues)
+
+            db.close()
+            return ScenarioResult(
+                scenario=scenario,
+                passed=passed,
+                score=score,
+                issues=unique_issues,
+                turns=turn_records,
+            )
+
+    def run_all(self, scenarios: list[DialogueScenario]) -> list[ScenarioResult]:
+        return [self.run_scenario(s) for s in scenarios]

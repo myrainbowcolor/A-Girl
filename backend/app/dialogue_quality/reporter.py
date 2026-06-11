@@ -2,121 +2,145 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-@dataclass
-class FailureRecord:
-  scenario_id: str
-  scenario_title: str
-  scene: str
-  background: str
-  mindset: str
-  emotion: str
-  relationship: str
-  duration: str
-  turn_index: int
-  user_text: str
-  reply: str
-  failed_checks: list[dict]
-  tags: list[str]
-  notes: str = ""
-  llm_provider: str = "mock"
+from .runner import ScenarioResult
 
 
-@dataclass
-class QualityReport:
-  generated_at: str
-  llm_provider: str
-  total_scenarios: int
-  total_turns: int
-  passed_turns: int
-  failed_turns: int
-  failures: list[FailureRecord] = field(default_factory=list)
-  summary_by_owner: dict[str, int] = field(default_factory=dict)
-
-  @property
-  def pass_rate(self) -> float:
-    if self.total_turns == 0:
-      return 1.0
-    return self.passed_turns / self.total_turns
+def _default_report_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "reports" / "dialogue_quality"
 
 
-def build_summary(failures: list[FailureRecord]) -> dict[str, int]:
-  counts: dict[str, int] = {}
-  for f in failures:
-    for chk in f.failed_checks:
-      owner = chk.get("owner_hint", "unknown")
-      counts[owner] = counts.get(owner, 0) + 1
-  return dict(sorted(counts.items(), key=lambda x: -x[1]))
+class DialogueQualityReporter:
+    def __init__(self, report_dir: Path | None = None) -> None:
+        self.report_dir = report_dir or _default_report_dir()
+        self.report_dir.mkdir(parents=True, exist_ok=True)
 
+    def write_run_report(
+        self,
+        results: list[ScenarioResult],
+        *,
+        llm_name: str = "mock",
+    ) -> Path:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        payload = {
+            "generated_at": ts,
+            "llm": llm_name,
+            "summary": self._summary(results),
+            "scenarios": [self._scenario_payload(r) for r in results],
+            "failures": [self._failure_payload(r) for r in results if r.issues],
+        }
+        latest = self.report_dir / "latest.json"
+        stamped = self.report_dir / f"run_{ts}.json"
+        text = json.dumps(payload, ensure_ascii=False, indent=2)
+        latest.write_text(text, encoding="utf-8")
+        stamped.write_text(text, encoding="utf-8")
 
-def write_report(report: QualityReport, path: Path) -> None:
-  path.parent.mkdir(parents=True, exist_ok=True)
-  payload = {
-    "generated_at": report.generated_at,
-    "llm_provider": report.llm_provider,
-    "total_scenarios": report.total_scenarios,
-    "total_turns": report.total_turns,
-    "passed_turns": report.passed_turns,
-    "failed_turns": report.failed_turns,
-    "pass_rate": round(report.pass_rate, 4),
-    "summary_by_owner": report.summary_by_owner,
-    "failures": [asdict(f) for f in report.failures],
-  }
-  path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        failures_path = self.report_dir / "failures.jsonl"
+        with failures_path.open("a", encoding="utf-8") as fh:
+            for r in results:
+                if not r.issues:
+                    continue
+                line = json.dumps(self._failure_payload(r), ensure_ascii=False)
+                fh.write(line + "\n")
 
+        self._write_markdown(results, llm_name)
+        return latest
 
-def write_markdown_summary(report: QualityReport, path: Path) -> None:
-  """给开发人员阅读的简要 Markdown 摘要。"""
-  lines = [
-    "# 对话质量测试报告",
-    "",
-    f"- 生成时间：{report.generated_at}",
-    f"- LLM：`{report.llm_provider}`",
-    f"- 场景数：{report.total_scenarios}",
-    f"- 轮次通过率：{report.passed_turns}/{report.total_turns} "
-    f"（{report.pass_rate * 100:.1f}%）",
-    "",
-  ]
-  if report.summary_by_owner:
-    lines.append("## 问题归属统计")
-    lines.append("")
-    for owner, cnt in report.summary_by_owner.items():
-      lines.append(f"- `{owner}`：{cnt} 项")
-    lines.append("")
+    def _summary(self, results: list[ScenarioResult]) -> dict:
+        total = len(results)
+        failed = sum(1 for r in results if r.issues)
+        critical = sum(len(r.critical_issues) for r in results)
+        major = sum(len(r.major_issues) for r in results)
+        avg_score = sum(r.score for r in results) / total if total else 0.0
+        return {
+            "total_scenarios": total,
+            "scenarios_with_issues": failed,
+            "critical_issue_count": critical,
+            "major_issue_count": major,
+            "average_score": round(avg_score, 1),
+        }
 
-  if report.failures:
-    lines.append("## 待修复项")
-    lines.append("")
-    for i, f in enumerate(report.failures, 1):
-      lines.append(f"### {i}. [{f.scenario_id}] {f.scenario_title} · 第 {f.turn_index + 1} 轮")
-      lines.append("")
-      lines.append(
-        f"**维度**：场景={f.scene} | 背景={f.background} | 心态={f.mindset} | "
-        f"情绪={f.emotion} | 关系={f.relationship} | 时长={f.duration}"
-      )
-      lines.append("")
-      lines.append(f"**用户**：{f.user_text}")
-      lines.append("")
-      lines.append(f"**回复**：{f.reply}")
-      lines.append("")
-      for chk in f.failed_checks:
-        lines.append(
-          f"- ❌ `{chk['name']}`（{chk['severity']}）— {chk['message']} "
-          f"→ 建议 `{chk['owner_hint']}` 跟进"
-        )
-      if f.notes:
-        lines.append(f"- 备注：{f.notes}")
-      lines.append("")
-  else:
-    lines.append("全部轮次通过当前启发式规则。")
-    lines.append("")
+    @staticmethod
+    def _scenario_payload(result: ScenarioResult) -> dict:
+        s = result.scenario
+        return {
+            "id": s.id,
+            "name": s.name,
+            "scene": s.scene,
+            "background": s.background,
+            "mindset": s.mindset,
+            "emotion": s.emotion,
+            "relationship": s.relationship,
+            "duration": s.duration,
+            "description": s.description,
+            "passed": result.passed,
+            "score": result.score,
+            "issues": [asdict(i) for i in result.issues],
+            "turns": [asdict(t) for t in result.turns],
+        }
 
-  path.write_text("\n".join(lines), encoding="utf-8")
+    @staticmethod
+    def _failure_payload(result: ScenarioResult) -> dict:
+        s = result.scenario
+        return {
+            "scenario_id": s.id,
+            "scenario_name": s.name,
+            "scene": s.scene,
+            "background": s.background,
+            "mindset": s.mindset,
+            "emotion": s.emotion,
+            "relationship": s.relationship,
+            "duration": s.duration,
+            "score": result.score,
+            "issues": [asdict(i) for i in result.issues],
+            "transcript": [
+                {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
+                for t in result.turns
+            ],
+            "developer_notes": (
+                "请对照 issues 中的 rule_id 修复对话编排、提示词或 mock/LLM 回复策略。"
+                "修复后重新运行 scripts/run_dialogue_quality.py 验证。"
+            ),
+        }
 
+    def _write_markdown(self, results: list[ScenarioResult], llm_name: str) -> None:
+        lines = [
+            "# 对话质量评测报告",
+            "",
+            f"- LLM：`{llm_name}`",
+            f"- 场景数：{len(results)}",
+            f"- 有问题场景：{sum(1 for r in results if r.issues)}",
+            "",
+            "## 需开发人员跟进",
+            "",
+        ]
+        problem_results = [r for r in results if r.issues]
+        if not problem_results:
+            lines.append("_本次全部场景通过启发式检查。_")
+        else:
+            for r in problem_results:
+                s = r.scenario
+                lines.append(f"### {s.id} · {s.name}")
+                lines.append(
+                    f"- 维度：场景={s.scene} | 背景={s.background} | "
+                    f"心态={s.mindset} | 情绪={s.emotion} | "
+                    f"关系={s.relationship} | 时长={s.duration}"
+                )
+                lines.append(f"- 得分：{r.score}")
+                for issue in r.issues:
+                    turn = f"（第 {issue.turn_index + 1} 轮）" if issue.turn_index is not None else ""
+                    lines.append(f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}")
+                lines.append("")
+                lines.append("<details><summary>对话记录</summary>")
+                lines.append("")
+                for t in r.turns:
+                    lines.append(f"**用户**：{t.user_text}")
+                    lines.append(f"**NPC**：{t.reply}")
+                    lines.append("")
+                lines.append("</details>")
+                lines.append("")
 
-def utc_now_iso() -> str:
-  return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (self.report_dir / "latest.md").write_text("\n".join(lines), encoding="utf-8")

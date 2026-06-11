@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""运行对话质量场景测试并生成失败报告。
+"""运行对话质量评测并输出失败记录。
 
-用法（在 backend 目录）：
+用法：
+  cd backend
   python scripts/run_dialogue_quality.py
-  python scripts/run_dialogue_quality.py --out reports
-
-输出：
-  reports/dialogue-quality-failures.json  — 机器可读，供 issue 机器人导入
-  reports/dialogue-quality-report.md      — 开发人员阅读摘要
+  python scripts/run_dialogue_quality.py --strict   # 有问题时 exit 1
 """
 from __future__ import annotations
 
@@ -17,44 +14,66 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import get_settings
-from app.dialogue_quality.runner import run_and_write_reports
-from app.llm import build_llm_provider
+from app.dialogue_quality import (
+    DialogueQualityReporter,
+    DialogueQualityRunner,
+    all_scenarios,
+)
+from app.llm import MockLLMProvider
 
 
 def main() -> int:
-  parser = argparse.ArgumentParser(description="A-Girl 对话质量场景测试")
-  parser.add_argument(
-    "--out", default="reports", help="报告输出目录（相对 backend/）"
-  )
-  args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="A-Girl 对话拟真度质量评测")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="存在 critical/major 问题时返回非零退出码",
+    )
+    parser.add_argument(
+        "--scenario",
+        action="append",
+        dest="scenario_ids",
+        help="仅运行指定场景 id，可重复传入",
+    )
+    args = parser.parse_args()
 
-  settings = get_settings()
-  llm = build_llm_provider(settings)
-  out_dir = Path(__file__).resolve().parent.parent / args.out
+    scenarios = all_scenarios()
+    if args.scenario_ids:
+        wanted = set(args.scenario_ids)
+        scenarios = [s for s in scenarios if s.id in wanted]
+        missing = wanted - {s.id for s in scenarios}
+        if missing:
+            print(f"未找到场景：{', '.join(sorted(missing))}", file=sys.stderr)
+            return 2
 
-  report = run_and_write_reports(out_dir, settings, llm)
+    llm = MockLLMProvider()
+    runner = DialogueQualityRunner(llm=llm)
+    results = runner.run_all(scenarios)
+    report_path = DialogueQualityReporter().write_run_report(results, llm_name=llm.name)
 
-  print(f"LLM: {report.llm_provider}")
-  print(f"场景: {report.total_scenarios} | 轮次: {report.total_turns}")
-  print(f"通过: {report.passed_turns} | 失败: {report.failed_turns}")
-  print(f"通过率: {report.pass_rate * 100:.1f}%")
-  print(f"JSON: {out_dir / 'dialogue-quality-failures.json'}")
-  print(f"Markdown: {out_dir / 'dialogue-quality-report.md'}")
+    summary = DialogueQualityReporter()._summary(results)
+    print(f"评测完成：{summary['total_scenarios']} 场景，"
+          f"{summary['scenarios_with_issues']} 个有问题，"
+          f"平均分 {summary['average_score']}")
+    print(f"报告：{report_path}")
+    print(f"Markdown：{report_path.parent / 'latest.md'}")
+    print(f"失败流水：{report_path.parent / 'failures.jsonl'}")
 
-  if report.summary_by_owner:
-    print("\n问题归属：")
-    for owner, cnt in report.summary_by_owner.items():
-      print(f"  {owner}: {cnt}")
+    for r in results:
+        if not r.issues:
+            continue
+        print(f"\n[{r.scenario.id}] {r.scenario.name} — 得分 {r.score}")
+        for issue in r.issues:
+            turn = f" turn={issue.turn_index}" if issue.turn_index is not None else ""
+            print(f"  - {issue.severity} {issue.rule_id}{turn}: {issue.message}")
 
-  # 有 critical 失败时返回非零，便于 CI 告警
-  critical = 0
-  for f in report.failures:
-    for chk in f.failed_checks:
-      if chk.get("severity") == "critical":
-        critical += 1
-  return 1 if critical > 0 else 0
+    if args.strict:
+        if any(r.critical_issues or r.major_issues for r in results):
+            return 1
+    elif any(r.critical_issues for r in results):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-  raise SystemExit(main())
+    raise SystemExit(main())
