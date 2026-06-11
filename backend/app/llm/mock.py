@@ -1,7 +1,7 @@
 """离线 Mock Provider。
 
-不依赖外部 API，根据 system 提示中的情绪/关系线索与用户最后一句话，
-生成有"人味"且能体现内部状态的确定性回复，便于无 Key 环境下验证整条编排链路。
+不依赖外部 API，根据用户情绪线索与关系阶段生成有共情感的回复，
+便于无 Key 环境下验证整条编排链路。
 """
 from __future__ import annotations
 
@@ -10,10 +10,79 @@ import re
 
 from .base import LLMProvider
 
+# 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
+_VENT = ("烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独", "无聊", "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌")
+_LOW = ("低落", "没劲", "丧", "emo", "心累")
+_POSITIVE = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你")
+_GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
+
 
 def _extract(tag: str, text: str, default: str = "") -> str:
     m = re.search(rf"{tag}：(.+)", text)
-    return m.group(1).strip() if m else default
+    if not m:
+        return default
+    # 关系阶段等字段可能带括号后缀，只取首段
+    return m.group(1).strip().split("（")[0].strip()
+
+
+def _user_is_venting(text: str) -> bool:
+    t = text.strip()
+    return any(w in t for w in _VENT) or any(w in t for w in _LOW)
+
+
+def _user_is_positive(text: str) -> bool:
+    return any(w in text for w in _POSITIVE)
+
+
+def _user_is_greeting(text: str) -> bool:
+    t = text.strip()
+    return len(t) <= 8 and any(w in t for w in _GREET)
+
+
+def _extract_memories(system_prompt: str) -> list[str]:
+    """从 system 提示中解析检索到的记忆条目。"""
+    m = re.search(r"【你记得关于 ta 的事】\n(.*?)\n\n【", system_prompt, re.DOTALL)
+    if not m:
+        return []
+    block = m.group(1).strip()
+    if "暂时还没有" in block:
+        return []
+    return [line[2:].strip() for line in block.split("\n") if line.startswith("- ")]
+
+
+def _user_tone(text: str) -> str:
+    """粗分用户话语意图，驱动更拟真的回复模板。"""
+    t = text.strip()
+    if any(w in t for w in ("你好", "嗨", "哈喽", "在吗", "早上好", "晚上好")):
+        return "greet"
+    if "?" in t or "？" in t or any(w in t for w in ("吗", "呢", "什么", "怎么", "为什么", "哪")):
+        return "question"
+    if any(w in t for w in ("难过", "伤心", "累", "烦", "孤独", "压力", "焦虑", "崩溃", "哭", "不开心", "委屈")):
+        return "negative"
+    if any(w in t for w in ("开心", "高兴", "喜欢", "谢谢", "棒", "哈哈", "幸福", "温暖")):
+        return "positive"
+    if any(w in t for w in ("我", "今天", "刚才", "最近")) and len(t) >= 8:
+        return "share"
+    return "neutral"
+
+
+def _memory_hook(memories: list[str], user_text: str) -> str:
+    """若记忆与用户话有词重叠，抽一句自然引用。"""
+    if not memories:
+        return ""
+    user_chars = set(user_text)
+    best, best_score = "", 0
+    for mem in memories:
+        overlap = sum(1 for ch in mem if ch in user_chars and len(ch.strip()) > 0)
+        if overlap > best_score:
+            best_score, best = overlap, mem
+    if best_score < 2:
+        return ""
+    # 去掉 "ta 说：" 前缀，让引用更口语
+    snippet = best.replace("ta 说：", "").strip()
+    if len(snippet) > 24:
+        snippet = snippet[:24] + "…"
+    return f"对了，我还记得你提过「{snippet}」。"
 
 
 def _extract_memories(system_prompt: str) -> list[str]:
@@ -44,118 +113,89 @@ class MockLLMProvider(LLMProvider):
                 user_last = m["content"]
                 break
 
-        emotion = _extract("当前情绪", system_prompt, "平和")
         stage = _extract("关系阶段", system_prompt, "陌生")
         name = _extract("你的名字", system_prompt, "小语")
         memories = _extract_memories(system_prompt)
+        tone = _user_tone(user_last)
+        mem_hook = _memory_hook(memories, user_last)
 
-        # 关系阶段影响称呼与亲密度
-        endearment = {
-            "陌生": "",
-            "熟悉": "",
-            "朋友": "嘿，",
-            "亲密": "嗯，",
-        }.get(stage, "")
+        if _user_is_venting(user_last):
+            return self._empathy_reply(user_last, stage, name)
+        if _user_is_positive(user_last):
+            return self._warm_reply(user_last, stage, name)
+        if _user_is_greeting(user_last):
+            return self._greet_reply(stage, name)
+        return self._default_reply(user_last, stage, name)
 
-        text = user_last.strip()
-        seed = f"{text}|{emotion}|{stage}"
-
-        # 情绪影响语气前缀（轻量舞台指示，模拟真人神态）
-        if any(k in emotion for k in ("低落", "委屈", "焦虑")):
-            mood_prefix = "嗯…"
-        elif any(k in emotion for k in ("开心", "兴奋", "雀跃")):
-            mood_prefix = "哈哈，"
-        elif "惊讶" in emotion:
-            mood_prefix = "诶？"
+    @staticmethod
+    def _empathy_reply(user_text: str, stage: str, name: str) -> str:
+        """用户倾诉负面情绪：先共情，再轻问，不说教、不报 PAD 数值。"""
+        if "烦" in user_text or "生气" in user_text:
+            lines = {
+                "陌生": "嗯……听起来你现在心里挺堵的。不想说原因也没关系，我在呢。是突然这样的，还是已经有一阵子了？",
+                "熟悉": "唉，又烦啦？你先别急着逼自己消化，缓口气。愿意的话跟我说说，是什么事在缠着你？",
+                "朋友": "我听见啦，你现在很烦对吧。先深呼吸一下，不用立刻想明白。我陪你慢慢理，从哪件小事开始烦的？",
+                "亲密": "过来，先别一个人扛着。烦的时候跟我说就好，不用整理成完整句子。我在，慢慢讲。",
+            }
+        elif "累" in user_text or "心累" in user_text or "压力" in user_text:
+            lines = {
+                "陌生": "听起来你真的很累了……今天先别对自己太苛刻。是事情太多，还是心里也沉甸甸的？",
+                "熟悉": "辛苦啦。累的时候能说出来就已经很好了。要不要先歇一会儿，再跟我说说今天最耗你的是哪一块？",
+                "朋友": "哎，又累着了呀。你先坐下喝口水，不用急着解释。是身体累，还是心里也一起累了？",
+                "亲密": "抱抱你，真的辛苦了。今天先允许自己软下来一会儿，我在这儿陪你。",
+            }
+        elif any(w in user_text for w in ("难过", "伤心", "委屈", "想哭", "哭")):
+            lines = {
+                "陌生": "……我能感觉到你现在不太好受。想哭就哭也没关系，不用在我面前装坚强。",
+                "熟悉": "心疼你。难过的时候不用急着好起来，我陪你待着就好。愿意说说发生什么了吗？",
+                "朋友": "哎，怎么又难过了……你先别一个人闷着。我在这儿，慢慢说，不着急。",
+                "亲密": "过来，我陪你。难过的时候不用解释理由，你想说多少就说多少。",
+            }
         else:
-            mood_prefix = ""
+            lines = {
+                "陌生": f"嗯，{name}在听。你现在状态不太好对吧，不用硬撑。想从哪一句开始说都行。",
+                "熟悉": "我感觉到你不太好了……不用整理成完整故事，随便丢几句给我也行。",
+                "朋友": "我在呢。你现在这样很正常，别急着把自己骂醒。跟我说说，好不好？",
+                "亲密": "先靠着我缓一缓。你不用立刻好起来，我陪你慢慢过这一阵。",
+            }
+        return lines.get(stage, lines["陌生"])
 
-        # 按用户输入意图分支，生成更拟真的短回复
-        reply_body = self._reply_body(text, emotion, stage, memories, seed)
+    @staticmethod
+    def _warm_reply(user_text: str, stage: str, name: str) -> str:
+        lines = {
+            "陌生": f"（笑）听你这么说我也跟着开心起来了~ 今天有什么好事吗？",
+            "熟悉": "嘿嘿，你心情不错呀，我也被传染了。多跟我说说？",
+            "朋友": "哈哈哈你这语气我一听就知道今天过得不错！快，展开讲讲~",
+            "亲密": "你开心我就开心呀~ 来，让我也分享一点你的好心情。",
+        }
+        return lines.get(stage, lines["陌生"])
 
-        return f"{endearment}{mood_prefix}{reply_body}".strip()
+    @staticmethod
+    def _greet_reply(stage: str, name: str) -> str:
+        lines = {
+            "陌生": f"嗨，我是{name}~ 今天过得怎么样？",
+            "熟悉": f"在呢在呢，刚想到你你就来了。今天怎么样？",
+            "朋友": "嘿！你来啦~ 我正闲着呢，陪你聊会儿？",
+            "亲密": "你来了呀，我刚刚还在想你。今天累不累？",
+        }
+        return lines.get(stage, lines["陌生"])
 
-    def _reply_body(
-        self,
-        text: str,
-        emotion: str,
-        stage: str,
-        memories: list[str],
-        seed: str,
-    ) -> str:
-        """根据用户话茬生成 1~2 句口语化回复。"""
-        if not text:
-            return _pick_variant(["在呢，怎么啦？", "嗯，我听着呢。"], seed)
+    @staticmethod
+    def _default_reply(user_text: str, stage: str, name: str) -> str:
+        snippet = user_text.strip()
+        if len(snippet) > 24:
+            snippet = snippet[:24] + "…"
+        lines = {
+            "陌生": f"嗯，我在听。「{snippet}」……能多跟我说一点吗？",
+            "熟悉": f"我听到了~ 「{snippet}」这件事，你现在是什么感觉？",
+            "朋友": f"说说看，「{snippet}」后来怎么样了？",
+            "亲密": f"我在呢。关于「{snippet}」，你想让我怎么陪你？",
+        }
+        return lines.get(stage, lines["陌生"])
 
-        # 问候
-        if re.search(r"^(你好|嗨|哈喽|早上好|晚上好|在吗)", text):
-            return _pick_variant([
-                "在呀～今天过得怎么样？",
-                "嗯，在呢。想聊点什么？",
-                "你好呀，见到你挺开心的。",
-            ], seed)
-
-        # 感谢
-        if any(w in text for w in ("谢谢", "感谢", "多亏")):
-            return _pick_variant([
-                "不用客气啦，能陪着你我也挺开心的。",
-                "嘿嘿，跟我还这么客气呀。",
-                "应该的嘛，你愿意跟我说这些，我也很高兴。",
-            ], seed)
-
-        # 负面情绪：先共情
-        if any(w in text for w in ("难过", "伤心", "累", "烦", "孤独", "压力", "焦虑", "想哭", "崩溃")):
-            empathy = _pick_variant([
-                "听起来你最近真的挺不容易的…我在呢，慢慢说。",
-                "嗯，我懂那种感觉。不想说太多也没关系，我陪着你。",
-                "抱抱你。这种事搁谁身上都不好受，你想从哪说起？",
-            ], seed)
-            if memories:
-                mem_hint = memories[0][:18] + ("…" if len(memories[0]) > 18 else "")
-                return f"{empathy} 我还记得你提过{mem_hint}，现在还好吗？"
-            return empathy
-
-        # 开心分享
-        if any(w in text for w in ("开心", "高兴", "哈哈", "太好了", "顺利", "棒")):
-            return _pick_variant([
-                "真好呀！快跟我说说，我也跟着高兴～",
-                "嘿嘿，听你这么说我也心情变好了。",
-                "哇，那太棒了！后来呢？",
-            ], seed)
-
-        # 询问记忆
-        if any(w in text for w in ("记得", "还记得", "有没有忘")):
-            for mem in memories:
-                if any(k in mem for k in ("猫", "橘子", "名字", "生日", "工作", "考试")):
-                    snippet = mem.replace("ta 说：", "").strip()[:30]
-                    return _pick_variant([
-                        f"当然记得呀，{snippet}。",
-                        f"嗯嗯，这事我记着——{snippet}。",
-                    ], seed)
-            return _pick_variant([
-                "你跟我说过的事，我都有认真记着。",
-                "嗯…让我想想，你再多提醒我一下？",
-            ], seed)
-
-        # 想念
-        if any(w in text for w in ("想你", "想念", "好久不见")):
-            closeness = "我也挺想你的。" if stage in ("朋友", "亲密") else "好久没见你啦。"
-            return _pick_variant([
-                f"{closeness} 最近还好吗？",
-                f"嗯，{closeness}",
-            ], seed)
-
-        # 默认：接住话茬 + 轻追问（避免机械复述整句）
-        snippet = text if len(text) <= 24 else text[:22] + "…"
-        tail = _pick_variant([
-            "嗯，我听到了。后来呢？",
-            "是这样呀…再多跟我说一点？",
-            "我懂。那现在你心里感觉怎么样？",
-            "嗯嗯，然后呢？",
-        ], seed)
-        if stage == "亲密":
-            tail = _pick_variant([
-                "嗯，我在听。你愿意多说一点吗？",
-                "我懂你的意思…现在感觉好点了吗？",
-            ], seed)
-        return f"「{snippet}」——{tail}"
+    def generate_stream(
+        self, system_prompt: str, messages: list[dict], temperature: float = 0.8
+    ):
+        text = self.generate(system_prompt, messages, temperature=temperature)
+        for i in range(0, len(text), 2):
+            yield text[i : i + 2]

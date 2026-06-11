@@ -11,11 +11,13 @@ import base64
 import io
 import struct
 
-from .base import STTProvider, TTSProvider, TTSResult
-from .lipsync import generate_lipsync
+from dataclasses import asdict
+
+from .base import STTProvider, TTSProvider, TTSResult, VoiceStyle
+from .lipsync import generate_lipsync, generate_visemes
 
 _SAMPLE_RATE = 16000
-_MS_PER_CHAR = 140  # 估算每字朗读时长
+_MS_PER_CHAR = 140  # 估算每字朗读时长（基线，未计语速）
 
 
 def _silent_wav(duration_ms: int, sample_rate: int = _SAMPLE_RATE) -> bytes:
@@ -38,8 +40,12 @@ class MockTTSProvider(TTSProvider):
     def name(self) -> str:
         return "mock"
 
-    def synthesize(self, text: str, voice: str | None = None) -> TTSResult:
-        duration_ms = max(300, len(text) * _MS_PER_CHAR)
+    def synthesize(
+        self, text: str, voice: str | None = None, style: VoiceStyle | None = None
+    ) -> TTSResult:
+        style = style or VoiceStyle()
+        # 语速影响时长（rate 越大越短）
+        duration_ms = max(300, int(len(text) * _MS_PER_CHAR / max(0.3, style.rate)))
         wav = _silent_wav(duration_ms)
         return TTSResult(
             audio_base64=base64.b64encode(wav).decode("ascii"),
@@ -47,6 +53,8 @@ class MockTTSProvider(TTSProvider):
             duration_ms=duration_ms,
             provider=self.name,
             lipsync=generate_lipsync(text, duration_ms),
+            visemes=generate_visemes(text, duration_ms),
+            style=asdict(style),
         )
 
 

@@ -20,6 +20,9 @@ class EmotionOut(BaseModel):
 class RelationshipOut(BaseModel):
     affinity: float
     stage: str
+    health_score: float = 0.0
+    summary: str = ""
+    trend: str = "new"
 
 
 class AvatarOut(BaseModel):
@@ -35,6 +38,8 @@ class TtsOut(BaseModel):
     duration_ms: int
     provider: str
     lipsync: list[dict] = []
+    visemes: list[dict] = []
+    style: dict | None = None
 
 
 class ChatResponse(BaseModel):
@@ -47,11 +52,15 @@ class ChatResponse(BaseModel):
     safety_category: str | None = None
     llm: str
     tts: TtsOut | None = None
+    user_sentiment_label: str = ""
 
 
 class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1)
     voice: str | None = None
+    # 可选：直接给情绪让语音带风格（缺省 neutral）
+    pleasure: float | None = None
+    arousal: float | None = None
 
 
 class SttRequest(BaseModel):
@@ -64,18 +73,31 @@ class SttResponse(BaseModel):
     provider: str
 
 
+class ConsentRequest(BaseModel):
+    user_id: str
+    age: int = Field(..., ge=0, le=120)
+
+
+class ConsentResponse(BaseModel):
+    ok: bool
+    reason: str | None = None
+
+
 class ProactiveResponse(BaseModel):
     should_reach_out: bool
     trigger: str | None = None
     reason: str | None = None
     message: str | None = None
     avatar: AvatarOut | None = None
+    emotion: EmotionOut | None = None
+    relationship: RelationshipOut | None = None
     tts: TtsOut | None = None
 
 
 class StateResponse(BaseModel):
     emotion: EmotionOut
     relationship: RelationshipOut
+    user_sentiment_label: str = ""
 
 
 class PersonaOut(BaseModel):

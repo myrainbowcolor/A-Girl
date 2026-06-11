@@ -85,43 +85,56 @@ class ProactivityEngine:
                     True, "event", f"重要事件到点：{ev.label}", msg, event_id=ev.id
                 )
 
+        # 2) 首次来访：尚无对话记录 → 主动问候
+        if not self._db.has_chat_history(user_id):
+            name = self._persona.name
+            return ProactiveResult(
+                True,
+                "welcome",
+                "首次来访",
+                f"嗨，我是{name}~ 今天想聊点什么？我会慢慢听你说。",
+            )
+
         meta = self._db.get_user_meta(user_id)
         if not meta or meta.last_interaction_at <= 0:
             return ProactiveResult(False)
 
         idle = now - meta.last_interaction_at
 
-        # 2) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
+        # 3) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
-            name = self._persona.name
-            msgs = [
-                f"上次聊完我有点惦记你…{name} 在呢，现在心里好受一点了吗？",
-                "嗯，后来有没有稍微轻松些？不想说也没关系，我在这儿。",
-                "我一直在想你说的事…现在还好吗？",
-            ]
-            idx = int(meta.last_interaction_at) % len(msgs)
-            return ProactiveResult(True, "emotion", "上次互动情绪低落", msgs[idx])
+            return ProactiveResult(
+                True, "emotion", "上次互动情绪低落",
+                f"上次聊天时你好像有点低落，我后来还一直想着你呢。"
+                f"现在好点了吗？想说的话我都在听。"
+            )
 
-        # 3) 时间触发：长时间未互动
+        # 4) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
-            name = self._persona.name
-            msgs = [
-                f"好久没聊啦，{name} 有点想你了～最近过得怎么样？",
-                "诶，你是不是忙去了？有空的话来跟我说说话呀。",
-                "突然想到你，就来打个招呼。最近有什么开心或烦心的事吗？",
-            ]
-            idx = int(idle // 3600) % len(msgs)
-            return ProactiveResult(True, "idle", f"已闲置约 {hours} 小时", msgs[idx])
+            return ProactiveResult(
+                True, "idle", f"已闲置约 {hours} 小时",
+                f"好久没找我聊天啦，有点想你～最近过得怎么样？"
+                f"随便说点小事也行，我在。"
+            )
 
         return ProactiveResult(False)
 
     def _event_message(self, ev: Event) -> str:
         name = self._persona.name
         templates = {
-            "birthday": f"今天是特别的日子吧？生日快乐呀！🎂 {name} 祝你新的一岁顺顺利利～",
-            "interview": "今天是不是有面试呀？深呼吸，做你自己就很好。结束了记得跟我说说感觉～",
-            "exam": "考试加油！不管结果怎样，你都已经很努力了。考完来跟我聊聊？",
-            "other": "你之前提过的事，是不是今天到啦？我第一时间来给你打气～",
+            "birthday": (
+                f"今天是特别的日子吧？生日快乐呀！🎂 "
+                f"有没有给自己留一点放松的时间？{name} 替你开心～"
+            ),
+            "interview": (
+                "今天是不是有面试呀？深呼吸一下，做你自己就很好。"
+                "不管结果怎样，我都替你加油。"
+            ),
+            "exam": (
+                "考试的日子到啦，加油！"
+                "尽力就好，结果出来之前先别跟自己较劲，你已经很努力了。"
+            ),
+            "other": "你之前提过的事，今天是不是到啦？想第一时间来给你鼓鼓劲～",
         }
         return templates.get(ev.kind, templates["other"])

@@ -13,14 +13,15 @@
     body {
       margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: linear-gradient(160deg, #f4ecf7, #e8dff0); color: var(--text);
-      height: 100vh; display: flex; align-items: center; justify-content: center;
+      height: 100vh; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
     }
     .app {
-      width: 920px; max-width: 96vw; height: 88vh; background: var(--panel);
+      width: 920px; max-width: 96vw; height: 88vh; max-height: 88vh; background: var(--panel);
       border-radius: 20px; box-shadow: 0 20px 60px rgba(120, 80, 150, 0.18);
       display: grid; grid-template-columns: 1fr 280px; overflow: hidden;
     }
-    .chat { display: flex; flex-direction: column; min-width: 0; }
+    .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
     .chat-header {
       padding: 16px 20px; border-bottom: 1px solid #eee; display: flex;
       align-items: center; gap: 12px;
@@ -33,23 +34,29 @@
     }
     .chat-header .name { font-weight: 600; font-size: 16px; }
     .chat-header .sub { font-size: 12px; color: var(--muted); }
-    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .messages {
+      flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+      overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    }
     .msg { max-width: 72%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
     .msg.user { align-self: flex-end; background: var(--user); border-bottom-right-radius: 4px; }
     .msg.npc { align-self: flex-start; background: var(--npc); border-bottom-left-radius: 4px; }
     .msg.crisis { background: #ffe2e2; border: 1px solid #ffb3b3; }
-    .composer { display: flex; gap: 10px; padding: 16px; border-top: 1px solid #eee; }
-    .composer input {
+    .composer { display: flex; gap: 10px; padding: 16px; border-top: 1px solid #eee; flex-shrink: 0; align-items: flex-end; }
+    .composer textarea {
       flex: 1; padding: 12px 14px; border: 1px solid #e0d4ea; border-radius: 12px;
-      font-size: 14px; outline: none;
+      font-size: 14px; outline: none; resize: none; min-height: 44px; max-height: 120px;
+      font-family: inherit; line-height: 1.5;
     }
-    .composer input:focus { border-color: var(--accent); }
+    .composer textarea:focus { border-color: var(--accent); }
     .composer button {
       padding: 0 22px; border: none; border-radius: 12px; background: var(--accent);
       color: #fff; font-size: 14px; cursor: pointer; transition: background .2s;
     }
     .composer button:hover { background: var(--accent-dark); }
-    .composer button:disabled { opacity: .5; cursor: not-allowed; }
+    .msg.typing { color: var(--muted); font-style: italic; }
+    .composer-hint { font-size: 11px; color: #aaa; padding: 0 16px 10px; flex-shrink: 0; }
     .panel { background: #faf6fc; border-left: 1px solid #efe6f5; padding: 20px; overflow-y: auto; }
     .panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); letter-spacing: 1px; }
     .stat { margin-bottom: 18px; }
@@ -59,11 +66,29 @@
     .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #e0a8d8); transition: width .4s; }
     .mem-list { list-style: none; padding: 0; margin: 0; }
     .mem-list li { font-size: 12px; color: #5a4d66; padding: 6px 8px; background: #fff; border-radius: 8px; margin-bottom: 6px; }
-    #face ellipse, #face path, #face line, #face g { transition: transform .35s ease, ry .35s ease, opacity .35s ease; }
-    #cheekL, #cheekR { transition: opacity .4s ease; }
+    @keyframes comfort-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    #face.anim-comfort { animation: comfort-pulse 1.1s ease-in-out 2; transform-origin: center center; }
   </style>
 </head>
 <body>
+  <div id="ageGate" style="display:none;position:fixed;inset:0;background:rgba(60,40,80,.55);
+       z-index:99;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 30px;width:340px;text-align:center;
+         box-shadow:0 20px 60px rgba(120,80,150,.3);">
+      <div style="font-size:18px;font-weight:600;color:#3a2e42;margin-bottom:8px;">开始前，先确认一下年龄</div>
+      <div style="font-size:13px;color:#8a7d96;margin-bottom:16px;">
+        这是一个面向未成年人也安全的陪伴助手，我们需要你的年龄来提供合适的保护。</div>
+      <input id="ageInput" type="number" min="1" max="120" placeholder="请输入你的年龄"
+             style="width:100%;padding:10px 12px;border:1px solid #e0d4ea;border-radius:10px;font-size:14px;outline:none;" />
+      <div id="ageErr" style="color:#d05a6e;font-size:12px;min-height:16px;margin:6px 0;"></div>
+      <button id="ageSubmit" style="width:100%;padding:11px;border:none;border-radius:10px;
+              background:#b07cc6;color:#fff;font-size:14px;cursor:pointer;">确认并开始</button>
+    </div>
+  </div>
+
   <div class="app">
     <div class="chat">
       <div class="chat-header">
@@ -74,8 +99,9 @@
         </div>
       </div>
       <div class="messages" id="messages"></div>
+      <div class="composer-hint">连发多条会先合并，停 2 秒后再回复 · Shift+Enter 换行</div>
       <div class="composer">
-        <input id="input" type="text" placeholder="和 ta 说点什么…" autocomplete="off" />
+        <textarea id="input" rows="2" placeholder="和 ta 说点什么…（想说几句就停一下，小语会等你说完）"></textarea>
         <button id="send">发送</button>
       </div>
     </div>
@@ -90,8 +116,8 @@
           <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
           <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
           <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
-          <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35"/>
-          <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.35"/>
+          <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
+          <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
           <path id="mouth" d="" fill="#c0506e"/>
         </svg>
         <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
@@ -116,103 +142,270 @@
         <div class="k">亲密度</div>
         <div class="bar"><span id="affinityBar" style="width:5%"></span></div>
       </div>
+      <div class="stat">
+        <div class="k">关系健康度</div>
+        <div class="bar"><span id="healthBar" style="width:0%"></span></div>
+        <div class="v" id="healthScore" style="font-size:12px;margin-top:4px;color:#8a7d96;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">关系趋势</div>
+        <div class="v" id="relTrend" style="font-size:13px;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">关系归纳</div>
+        <div class="v" id="relSummary" style="font-size:12px;font-weight:400;line-height:1.5;color:#5a4d66;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">本轮情感</div>
+        <div class="v" id="userSentiment" style="font-size:13px;">—</div>
+      </div>
       <h3 style="margin-top:24px;">本轮回忆起</h3>
       <ul class="mem-list" id="memList"><li style="color:#aaa;">暂无</li></ul>
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #efe6f5;">
+        <div style="font-size:11px;color:#aaa;margin-bottom:8px;" id="userIdHint">本地身份</div>
+        <button id="resetIdentity" type="button" style="width:100%;padding:8px 10px;border:1px solid #e0d4ea;
+                border-radius:10px;background:#fff;color:#8a7d96;font-size:12px;cursor:pointer;">
+          重新开始（清除本地身份）
+        </button>
+      </div>
     </div>
   </div>
 
   <script>
-    const userId = "demo-user";
+    // URL ?reset=1 时自动清除本地身份（便于一键重置）
+    if (new URLSearchParams(location.search).get("reset") === "1") {
+      localStorage.removeItem("agirl-user-id");
+      history.replaceState(null, "", location.pathname);
+    }
+
+    const userId = (() => {
+      let id = localStorage.getItem("agirl-user-id");
+      if (!id) {
+        id = "user-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now());
+        localStorage.setItem("agirl-user-id", id);
+      }
+      return id;
+    })();
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("input");
     const sendBtn = document.getElementById("send");
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      });
+    }
 
     function addMessage(text, who, crisis) {
       const div = document.createElement("div");
       div.className = "msg " + (who === "user" ? "user" : "npc") + (crisis ? " crisis" : "");
       div.textContent = text;
       messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      scrollToBottom();
+      return div;
+    }
+
+    let typingEl = null;
+    function showTyping(label) {
+      removeTyping();
+      typingEl = addMessage(label, "npc");
+      typingEl.classList.add("typing");
+    }
+    function removeTyping() {
+      if (typingEl) { typingEl.remove(); typingEl = null; }
+    }
+
+    // 合并连发：停 COMPOSE_MS 后再一次性请求，避免每句都打断
+    const COMPOSE_MS = 2000;
+    let pendingTexts = [];
+    let composeTimer = null;
+    let isReplying = false;
+
+    function scheduleFlush() {
+      if (composeTimer) clearTimeout(composeTimer);
+      showTyping("小语在听…");
+      composeTimer = setTimeout(flushPending, COMPOSE_MS);
+    }
+
+    function queueUserMessage(text) {
+      pendingTexts.push(text);
+      scheduleFlush();
+    }
+
+    async function flushPending() {
+      composeTimer = null;
+      if (!pendingTexts.length || isReplying) return;
+      const combined = pendingTexts.join("\n");
+      pendingTexts = [];
+      removeTyping();
+      isReplying = true;
+      sendBtn.disabled = true;
+      const bubble = addMessage("", "npc");
+      try {
+        const r = await fetch("/api/chat/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, message: combined })
+        });
+        if (r.status === 403) {
+          bubble.remove();
+          showAgeGate();
+          addMessage("（请先完成年龄确认，我才能陪你聊天~）", "npc");
+          return;
+        }
+        if (!r.ok) {
+          bubble.remove();
+          addMessage("（服务异常 HTTP " + r.status + "，请刷新后重试）", "npc");
+          return;
+        }
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+          for (const block of blocks) {
+            for (const line of block.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const ev = JSON.parse(line.slice(6));
+              if (ev.type === "meta") {
+                updatePanel(ev);
+                if (ev.is_crisis) bubble.classList.add("crisis");
+              } else if (ev.type === "token") {
+                bubble.textContent += ev.text;
+                scrollToBottom();
+              } else if (ev.type === "done") {
+                bubble.textContent = ev.reply;
+                updatePanel(ev);
+                scrollToBottom();
+                maybeSpeak(ev.reply);
+              } else if (ev.type === "error") {
+                throw new Error(ev.message || "stream error");
+              }
+            }
+          }
+        }
+        if (!bubble.textContent) bubble.textContent = "…";
+      } catch (e) {
+        if (bubble.parentNode && !bubble.textContent) bubble.remove();
+        setConnStatus(false, "无法连接后端");
+        addMessage("（无法连接后端 API 或流式中断，请刷新后重试）", "npc");
+      } finally {
+        isReplying = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+        if (pendingTexts.length) scheduleFlush();
+      }
+    }
+
+    function send() {
+      const text = inputEl.value.trim();
+      if (!text) return;
+      addMessage(text, "user");
+      inputEl.value = "";
+      inputEl.style.height = "auto";
+      queueUserMessage(text);
+    }
+
+    function sendNow() {
+      const text = inputEl.value.trim();
+      if (text) {
+        addMessage(text, "user");
+        inputEl.value = "";
+        inputEl.style.height = "auto";
+        pendingTexts.push(text);
+      }
+      if (composeTimer) { clearTimeout(composeTimer); composeTimer = null; }
+      if (isReplying) {
+        if (pendingTexts.length) showTyping("小语在听…");
+        return;
+      }
+      flushPending();
     }
 
     // expression -> 数字人面部参数（与后端 Live2D 预设对应）
     const EXPR_FACE = {
-      "微笑": { form: 0.85, brow: 0.15, eye: 0.92, cheek: 0.35 },
-      "大笑": { form: 1.0, brow: 0.35, eye: 0.62, cheek: 0.65 },
-      "难过": { form: -0.75, brow: -0.55, eye: 0.58, cheek: 0.0 },
-      "担心": { form: -0.35, brow: -0.75, eye: 0.95, cheek: 0.05 },
-      "惊讶": { form: 0.05, brow: 0.75, eye: 1.05, cheek: 0.12 },
-      "平静": { form: 0.12, brow: 0.0, eye: 0.9, cheek: 0.0 }
+      "微笑": { form: 0.8, brow: 0.2, eye: 1.0, cheek: 0.55, eyeSmile: 0.45 },
+      "大笑": { form: 1.0, brow: 0.4, eye: 0.68, cheek: 0.85, eyeSmile: 0.75 },
+      "难过": { form: -0.7, brow: -0.5, eye: 0.58, cheek: 0.0, eyeSmile: 0.0 },
+      "担心": { form: -0.35, brow: -0.75, eye: 1.05, cheek: 0.0, eyeSmile: 0.0 },
+      "惊讶": { form: 0.0, brow: 0.75, eye: 1.18, cheek: 0.15, eyeSmile: 0.0 },
+      "平静": { form: 0.15, brow: 0.0, eye: 1.0, cheek: 0.1, eyeSmile: 0.08 }
     };
     let currentExpr = "平静";
-    let currentIntensity = 0.35;
+    let faceIntensity = 0.5;
+    let faceBlend = { ...EXPR_FACE["平静"] };
+    let faceTarget = { ...EXPR_FACE["平静"] };
+    let blinkUntil = 0;
+    let mouthOpenOverride = 0;
 
-    function intensityCurve(raw) {
-      const x = Math.max(0, Math.min(1, raw || 0));
-      return x * x * (3 - 2 * x);
-    }
-
-    function setFace(expr, mouthOpen, intensity) {
-      const base = EXPR_FACE[expr] || EXPR_FACE["平静"];
-      const k = intensityCurve(intensity != null ? intensity : currentIntensity);
+    // mouthOpen: 0~1 张口度；wide: -1(圆/窄) ~ 1(扁/宽)，来自 viseme
+    function setFace(expr, mouthOpen, wide) {
+      const f = EXPR_FACE[expr] || EXPR_FACE["平静"];
       mouthOpen = mouthOpen || 0;
-      const f = {
-        form: base.form * k,
-        brow: base.brow * k,
-        eye: base.eye + (1 - base.eye) * (1 - k) * 0.15,
-        cheek: (base.cheek || 0) * k
-      };
+      wide = (wide === undefined || wide === null) ? 0 : wide;
       // 眼睛开合
       const ry = 12 * f.eye;
       document.getElementById("eyeL").setAttribute("ry", ry);
       document.getElementById("eyeR").setAttribute("ry", ry);
-      // 眉毛升降
-      const browDy = -f.brow * 6;
+      const browDy = -f.brow * 6 * k;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
-      // 脸颊红晕随强度变化
-      const cheekOp = 0.15 + f.cheek * 0.75;
-      document.getElementById("cheekL").setAttribute("opacity", cheekOp);
-      document.getElementById("cheekR").setAttribute("opacity", cheekOp);
-      // 嘴巴：corner 控制嘴角(笑/撇)，上下唇中点随 mouthOpen 张开/闭合
-      const cx = 100, w = 30, midY = 148;
-      const cornerY = midY - f.form * 10;
-      const upperMidY = midY - mouthOpen * 28;
-      const lowerMidY = midY + mouthOpen * 28;
+      // 嘴宽：viseme 的 wide 让嘴更扁(宽)或更圆(窄)
+      const w = 30 + wide * 12;
+      const cx = 100, midY = 148;
+      const cornerY = midY - f.form * 10;        // 嘴角上扬(笑)或下撇
+      const upperMidY = midY - mouthOpen * 28;    // 上唇中点
+      const lowerMidY = midY + mouthOpen * 28;    // 下唇中点
       const d = `M ${cx - w} ${cornerY} Q ${cx} ${upperMidY} ${cx + w} ${cornerY}`
               + ` Q ${cx} ${lowerMidY} ${cx - w} ${cornerY} Z`;
       const mouth = document.getElementById("mouth");
       mouth.setAttribute("d", d);
       mouth.setAttribute("fill", mouthOpen > 0.1 ? "#a83a58" : "#c0506e");
     }
-    setFace("平静", 0, 0.35);
+    setFace("平静", 0, 0);
 
     let lipsyncRAF = null;
-    function playLipsync(track) {
+    // 优先使用 viseme 序列（含 open+wide 口型），否则回退到张口度轨迹
+    function playLipsync(track, visemes) {
       if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
-      if (!track || !track.length) { setFace(currentExpr, 0, currentIntensity); return; }
+      const useViseme = visemes && visemes.length;
+      const frames = useViseme ? visemes : track;
+      if (!frames || !frames.length) { setFace(currentExpr, 0, 0); return; }
       const start = performance.now();
       function step(nowT) {
         const t = nowT - start;
-        // 找到当前时间对应的关键帧（线性查找，轨迹很短）
-        let v = 0;
-        for (let i = 0; i < track.length; i++) {
-          if (track[i].t <= t) v = track[i].v; else break;
+        let cur = frames[0];
+        for (let i = 0; i < frames.length; i++) {
+          if (frames[i].t <= t) cur = frames[i]; else break;
         }
-        const last = track[track.length - 1].t;
-        setFace(currentExpr, v, currentIntensity);
+        const last = frames[frames.length - 1].t;
+        if (useViseme) setFace(currentExpr, cur.open, cur.wide);
+        else setFace(currentExpr, cur.v, 0);
         if (t < last) lipsyncRAF = requestAnimationFrame(step);
-        else setFace(currentExpr, 0, currentIntensity);
+        else setFace(currentExpr, 0, 0);
       }
       lipsyncRAF = requestAnimationFrame(step);
     }
 
     function updatePanel(data) {
+      if (data.emotion) lastEmotion = { pleasure: data.emotion.pleasure, arousal: data.emotion.arousal };
       document.getElementById("emotionLabel").textContent = data.emotion.label;
       document.getElementById("pleasureBar").style.width = ((data.emotion.pleasure + 1) / 2 * 100) + "%";
       const stageCn = { stranger: "陌生", acquainted: "熟悉", friend: "朋友", close: "亲密" };
       document.getElementById("stage").textContent = stageCn[data.relationship.stage] || data.relationship.stage;
       document.getElementById("affinityBar").style.width = data.relationship.affinity + "%";
+      const trendCn = { warming: "升温 ↑", stable: "稳定 →", cooling: "降温 ↓", new: "初识 ·" };
+      const rel = data.relationship || {};
+      const health = rel.health_score != null ? rel.health_score : 0;
+      document.getElementById("healthBar").style.width = health + "%";
+      document.getElementById("healthScore").textContent = health ? (health.toFixed(0) + " / 100") : "—";
+      document.getElementById("relTrend").textContent = trendCn[rel.trend] || rel.trend || "—";
+      document.getElementById("relSummary").textContent = rel.summary || "—";
+      document.getElementById("userSentiment").textContent = data.user_sentiment_label || "—";
       const memList = document.getElementById("memList");
       if (data.retrieved_memories && data.retrieved_memories.length) {
         memList.innerHTML = data.retrieved_memories.map(m => `<li>${m}</li>`).join("");
@@ -222,66 +415,157 @@
       // 数字人表情随情绪变化
       if (data.avatar) {
         currentExpr = data.avatar.expression;
-        currentIntensity = data.avatar.intensity != null ? data.avatar.intensity : 0.5;
-        setFace(currentExpr, 0, currentIntensity);
-        const pct = Math.round(intensityCurve(currentIntensity) * 100);
+        setFace(currentExpr, 0, 0);
+        const face = document.getElementById("face");
+        face.classList.remove("anim-comfort");
+        if (data.avatar.animation === "comfort") face.classList.add("anim-comfort");
         document.getElementById("faceExpr").textContent =
-          data.avatar.expression + " · " + data.avatar.animation + " · 强度 " + pct + "%";
+          data.avatar.expression + " · " + data.avatar.animation
+          + " · 强度 " + Math.round(faceIntensity * 100) + "%";
       }
     }
 
+    let lastEmotion = { pleasure: 0, arousal: 0 };
     async function maybeSpeak(text) {
+      if (!text || !text.trim()) return;
       if (!document.getElementById("voiceToggle").checked) return;
       try {
         const r = await fetch("/api/tts", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text })
+          body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
         });
         const data = await r.json();
         const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
         audio.play().catch(() => {});
-        playLipsync(data.lipsync);   // 口型同步动画
+        playLipsync(data.lipsync, data.visemes);   // viseme 口型同步动画
       } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
     }
 
-    async function loadPersona() {
-      try {
-        const r = await fetch("/api/persona");
-        const p = await r.json();
-        document.getElementById("npcName").textContent = p.name;
-        document.getElementById("npcSub").textContent = p.backstory.slice(0, 18) + "…";
-        document.getElementById("avatar").textContent = p.name[0];
-        document.getElementById("npcName").dataset.name = p.name;
-      } catch (e) { document.getElementById("npcSub").textContent = "在线"; }
+    function setConnStatus(ok, detail) {
+      const sub = document.getElementById("npcSub");
+      sub.textContent = ok ? detail : ("连接异常 · " + detail);
+      sub.style.color = ok ? "" : "#d05a6e";
     }
 
-    async function send() {
-      const text = inputEl.value.trim();
-      if (!text) return;
-      addMessage(text, "user");
-      inputEl.value = "";
-      sendBtn.disabled = true;
-      try {
-        const r = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, message: text })
-        });
-        const data = await r.json();
-        addMessage(data.reply, "npc", data.is_crisis);
-        updatePanel(data);
-        maybeSpeak(data.reply);
-      } catch (e) {
-        addMessage("（网络出错了…）", "npc");
-      } finally {
-        sendBtn.disabled = false;
-        inputEl.focus();
+    async function checkBackend() {
+      const r = await fetch("/health", { cache: "no-store" });
+      if (!r.ok) throw new Error("health " + r.status);
+      return r.json();
+    }
+
+    async function loadPersona() {
+      const r = await fetch("/api/persona", { cache: "no-store" });
+      if (!r.ok) throw new Error("persona " + r.status);
+      const p = await r.json();
+      document.getElementById("npcName").textContent = p.name;
+      document.getElementById("npcSub").textContent = p.backstory.slice(0, 18) + "…";
+      document.getElementById("avatar").textContent = p.name[0];
+      document.getElementById("npcName").dataset.name = p.name;
+      document.getElementById("npcSub").style.color = "";
+    }
+
+    // ── 年龄确认门 ──
+    function showAgeGate() { document.getElementById("ageGate").style.display = "flex"; }
+    async function submitAge() {
+      const age = parseInt(document.getElementById("ageInput").value, 10);
+      if (!age || age < 1) { document.getElementById("ageErr").textContent = "请输入有效年龄"; return; }
+      const r = await fetch("/api/consent", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, age })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        document.getElementById("ageGate").style.display = "none";
+        addMessage("（已完成年龄确认，我会用适合你的方式陪你聊天~）", "npc");
+        subscribeProactive();
+        tryProactiveWelcome();
+      } else {
+        document.getElementById("ageErr").textContent = d.reason || "确认失败";
       }
     }
 
-    sendBtn.addEventListener("click", send);
-    inputEl.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
-    loadPersona();
+    async function streamNpcMessage(text, panelData) {
+      const bubble = addMessage("", "npc");
+      if (panelData && panelData.is_crisis) bubble.classList.add("crisis");
+      for (let i = 0; i < text.length; i += 1) {
+        bubble.textContent += text[i];
+        scrollToBottom();
+        await new Promise(res => setTimeout(res, 18));
+      }
+      if (panelData) updatePanel(panelData);
+      maybeSpeak(text);
+    }
+
+    async function tryProactiveWelcome() {
+      if (sessionStorage.getItem("agirl-welcomed-" + userId)) return;
+      try {
+        const r = await fetch("/api/proactive/" + encodeURIComponent(userId), { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d.should_reach_out && d.message) {
+          sessionStorage.setItem("agirl-welcomed-" + userId, "1");
+          const panel = {
+            emotion: d.emotion, relationship: d.relationship,
+            avatar: d.avatar, retrieved_memories: []
+          };
+          await streamNpcMessage(d.message, panel);
+        }
+      } catch (_) {}
+    }
+
+    // ── 主动关心 SSE 订阅 ──
+    function subscribeProactive() {
+      try {
+        const es = new EventSource("/api/stream/" + encodeURIComponent(userId));
+        es.onmessage = (ev) => {
+          try {
+            const item = JSON.parse(ev.data);
+            if (item && item.message) {
+              streamNpcMessage("💜 " + item.message, {
+                avatar: item.avatar, emotion: null, relationship: null
+              });
+            }
+          } catch (_) {}
+        };
+      } catch (_) {}
+    }
+
+    async function init() {
+      try {
+        await checkBackend();
+        await loadPersona();
+        const r = await fetch("/api/consent/" + encodeURIComponent(userId), { cache: "no-store" });
+        if (!r.ok) throw new Error("consent " + r.status);
+        const s = await r.json();
+        if (s.required && !s.has_consent) showAgeGate();
+        else {
+          subscribeProactive();
+          await tryProactiveWelcome();
+        }
+      } catch (e) {
+        setConnStatus(false, "后端未连接");
+        addMessage("（页面已打开，但未连上后端。Cursor 用户：检查 Ports 里 8011 是否 Forwarded；或在本机运行 uvicorn 后刷新）", "npc");
+      }
+    }
+
+    sendBtn.addEventListener("click", sendNow);
+    inputEl.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    inputEl.addEventListener("input", () => {
+      inputEl.style.height = "auto";
+      inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+    });
+    document.getElementById("ageSubmit").addEventListener("click", submitAge);
+    document.getElementById("userIdHint").textContent = "本地身份：" + userId.slice(0, 18) + (userId.length > 18 ? "…" : "");
+    document.getElementById("resetIdentity").addEventListener("click", () => {
+      if (confirm("清除本地身份并重新开始？\n\n将分配新 ID，不再使用旧记忆（需重新确认年龄）。")) {
+        localStorage.removeItem("agirl-user-id");
+        sessionStorage.removeItem("agirl-welcomed-" + userId);
+        location.reload();
+      }
+    });
+    init();
   </script>
 </body>
 </html>

@@ -78,11 +78,21 @@ python scripts/verify_lipsync.py
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/chat` | 发送消息，返回回复 + 情绪/关系/回忆 + 数字人表情 |
-| POST | `/api/tts` | 文本转语音（含口型轨迹 lipsync） |
+| POST | `/api/chat` | 发送消息，返回回复 + 情绪/关系/回忆 + 数字人表情（需先通过年龄确认） |
+| POST | `/api/tts` | 文本转语音（含口型轨迹 lipsync + viseme 序列 + 情绪化风格） |
 | POST | `/api/stt` | 语音转文本 |
+| POST | `/api/consent` | 年龄确认门（未确认前 `/api/chat` 返回 403） |
+| GET | `/api/consent/{user_id}` | 查询是否已确认年龄 |
+| GET | `/api/audit/{user_id}` | 家长可见安全审计日志 |
+| GET | `/api/stream/{user_id}` | SSE 主动推送实时流 |
 | GET | `/api/proactive/{user_id}` | 主动关心检查/投递 |
 | GET | `/api/state/{user_id}` | 查询情绪与关系状态 |
 | GET | `/api/memory/{user_id}` | 查询记忆列表 |
 | GET | `/api/persona` | 查询当前人设 |
 | GET | `/health` | 健康检查 |
+
+### 未成年人合规与主动推送
+
+- 年龄确认门默认开启（`AGIRL_REQUIRE_AGE_GATE=true`），可设最小年龄 `AGIRL_MIN_AGE`。
+- 安全事件（危机/成人/暴力/隐私）写入家长可见审计日志（`AGIRL_AUDIT_LOG_PATH`）。
+- 主动关心可通过 SSE（前端 `EventSource`）或 webhook（`AGIRL_PUSH_WEBHOOK_URL`）推送。

@@ -1,39 +1,12 @@
 """情绪评估（appraisal）与关系演化。
 
-骨架阶段用轻量词典做情感倾向分析，驱动 PAD 情绪更新与关系亲密度变化；
-生产期可替换为模型化的情感分析，接口保持不变。
+支持词典 / LLM / 混合情感分析，并用大五人格调制情绪传导与关系演化。
 """
 from __future__ import annotations
 
-from ..domain import EmotionState, Relationship
-
-# 轻量中文情感词典（骨架用，可替换为模型）
-_POSITIVE = {
-    "喜欢", "开心", "高兴", "爱", "谢谢", "感谢", "想你", "想念", "好棒", "厉害",
-    "温暖", "幸福", "哈哈", "棒", "可爱", "陪", "在乎", "甜", "笑", "舒服", "安心",
-    "治愈", "期待", "满足", "放松", "顺利", "真好", "太好了", "感动", "被理解",
-}
-_NEGATIVE = {
-    "难过", "伤心", "累", "烦", "讨厌", "孤独", "痛苦", "失望", "生气", "委屈",
-    "压力", "焦虑", "崩溃", "哭", "无聊", "糟糕", "不开心", "想哭", "绝望", "迷茫",
-    "无助", "害怕", "紧张", "失眠", "委屈", "心累", "emo", "低落", "难受", "烦死了",
-}
-_HIGH_AROUSAL = {
-    "兴奋", "激动", "生气", "崩溃", "焦虑", "愤怒", "害怕", "惊喜", "紧张", "慌",
-    "超级", "太", "真的", "！！",
-}
-# 语气缓和词：降低激活度，让情绪起伏更贴近真人
-_LOW_AROUSAL = {"嗯", "好吧", "算了", "随便", "还好", "一般", "慢慢", "静静"}
-
-
-def analyze_sentiment(text: str) -> float:
-    """返回 [-1, 1] 的情感倾向。"""
-    pos = sum(1 for w in _POSITIVE if w in text)
-    neg = sum(1 for w in _NEGATIVE if w in text)
-    total = pos + neg
-    if total == 0:
-        return 0.0
-    return max(-1.0, min(1.0, (pos - neg) / total))
+from ..domain import EmotionState, Persona, Relationship
+from ..llm.base import LLMProvider
+from .analyzer import SentimentResult, analyze_text
 
 
 def _clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
@@ -43,45 +16,63 @@ def _clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 class EmotionEngine:
     def __init__(
         self,
-        decay: float = 0.6,           # 情绪向基线回落系数（越大越"稳"）
+        decay: float = 0.6,
         baseline_pleasure: float = 0.15,
-        appraisal_gain: float = 0.5,  # 用户情绪对 NPC 情绪的传导强度
+        appraisal_gain: float = 0.5,
     ) -> None:
         self._decay = decay
         self._baseline_p = baseline_pleasure
         self._gain = appraisal_gain
 
-    def appraise(self, emotion: EmotionState, user_text: str) -> tuple[EmotionState, float]:
-        """根据用户输入更新情绪，返回(新情绪, 情感倾向值)。"""
-        sentiment = analyze_sentiment(user_text)
-        arousal_signal = 0.5 if any(w in user_text for w in _HIGH_AROUSAL) else 0.0
-        if any(w in user_text for w in _LOW_AROUSAL):
-            arousal_signal -= 0.25
-        # 感叹号与"哈哈"叠加：兴奋感更强；省略号则偏沉静
-        if "！" in user_text or "!" in user_text:
-            arousal_signal += 0.15
-        if "…" in user_text or "..." in user_text:
-            arousal_signal -= 0.1
+    def appraise(
+        self,
+        emotion: EmotionState,
+        user_text: str,
+        persona: Persona | None = None,
+        llm: LLMProvider | None = None,
+        sentiment_mode: str = "lexicon",
+    ) -> tuple[EmotionState, float, SentimentResult]:
+        """根据用户输入更新情绪，返回(新情绪, 情感倾向值, 分析详情)。"""
+        result = analyze_text(user_text, llm=llm, mode=sentiment_mode)
+        sentiment = result.sentiment
+        arousal_signal = result.arousal_boost
 
-        # 愉悦度：先向基线回落，再叠加本轮情感传导
-        new_p = self._decay * emotion.pleasure + (1 - self._decay) * self._baseline_p
-        new_p += self._gain * sentiment
+        decay = self._decay
+        baseline_p = self._baseline_p
+        gain = self._gain
 
-        # 激活度：情绪强度越大（无论正负）越高，强情绪词额外加成
-        arousal_target = max(0.0, abs(sentiment) + arousal_signal)
-        new_a = self._decay * emotion.arousal + (1 - self._decay) * arousal_target
+        if persona:
+            # 大五人格调制：外向→基线更暖；宜人性→共情传导更强；神经质→波动更大
+            baseline_p += (persona.extraversion - 0.5) * 0.12
+            gain *= 0.85 + persona.agreeableness * 0.35
+            if sentiment < 0:
+                gain *= 1.0 + persona.agreeableness * 0.25
+            decay *= 1.0 - (persona.neuroticism - 0.5) * 0.18
+            if persona.neuroticism > 0.55 and sentiment < 0:
+                arousal_signal = min(1.0, arousal_signal + 0.15)
 
-        # 支配度：用户倾诉脆弱时 NPC 更"接住"对方（略偏顺从/关怀）
-        dominance_signal = -0.15 if sentiment < -0.2 else 0.05
-        new_d = self._decay * emotion.dominance + (1 - self._decay) * dominance_signal
+        new_p = decay * emotion.pleasure + (1 - decay) * baseline_p
+        new_p += gain * sentiment
+
+        new_a = decay * emotion.arousal + (1 - decay) * (abs(sentiment) + arousal_signal)
+        new_d = decay * emotion.dominance
 
         return EmotionState(
             pleasure=_clamp(new_p), arousal=_clamp(new_a), dominance=_clamp(new_d)
-        ), sentiment
+        ), sentiment, result
 
-    def update_relationship(self, rel: Relationship, sentiment: float) -> Relationship:
-        """正向互动累积亲密度，负向小幅消耗；亲密度变化是慢变量。"""
-        delta = 1.2 * sentiment + 0.4  # 每轮基础正向 +0.4，模拟"陪伴本身在加深关系"
+    def update_relationship(
+        self,
+        rel: Relationship,
+        sentiment: float,
+        persona: Persona | None = None,
+    ) -> Relationship:
+        """正向互动累积亲密度；大五宜人性/外向性加速 bonding。"""
+        delta = 1.2 * sentiment + 0.4
+        if persona:
+            delta *= 0.85 + persona.agreeableness * 0.3
+            delta += (persona.extraversion - 0.5) * 0.2
+            delta += persona.conscientiousness * 0.08
         new_aff = max(0.0, min(100.0, rel.affinity + delta))
         new_rel = Relationship(affinity=new_aff, stage=rel.stage)
         new_rel.recompute_stage()
