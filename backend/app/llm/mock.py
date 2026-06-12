@@ -175,6 +175,11 @@ def _scene_reply(
 
     # 问候
     if re.search(r"^(你好|嗨|哈喽|hello|hi)", text, re.I):
+        if any(w in text for w in ("第一次", "初次", "刚来")):
+            return (
+                f"{mood}欢迎呀～不用拘束，随便聊点什么都行。"
+                f"我是{name}，慢慢听你说。"
+            )
         if stage == "亲密":
             return f"{dear}{mood}你来啦，我正想着你呢～今天怎么样呀？"
         if stage == "朋友":
@@ -496,11 +501,28 @@ def _scene_reply(
             return f"{dear}{mood}好呀，我随时都在～你想聊的时候来找我就行，我很开心你愿意再来。"
         return f"{mood}嗯嗯，欢迎随时来找我聊，能陪着你我也挺高兴的。"
 
-    # 极简回复
+    # 极简回复（多轮轮换措辞，避免机械重复）
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
-        if stage in ("朋友", "亲密"):
-            return f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。"
-        return f"{mood}嗯，我听着呢。你愿意多说一点的时候，我都在。"
+        short_opts = {
+            "陌生": [
+                f"{mood}嗯，我听着呢。你愿意多说一点的时候，我都在。",
+                f"{mood}好，不着急。想开口了随时跟我讲。",
+            ],
+            "熟悉": [
+                f"{dear}{mood}嗯嗯，我懂。接着说也行，安静待着也行。",
+                f"{dear}{mood}好，我陪着。你想聊的时候叫我。",
+            ],
+            "朋友": [
+                f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。",
+                f"{dear}{mood}好呀，我听着。今天是不是有点累？",
+                f"{dear}{mood}嗯嗯，不用勉强自己说。我在这儿。",
+            ],
+            "亲密": [
+                f"{dear}{mood}嗯，我哪儿也不去。想说话就说，不想说就靠一会儿。",
+                f"{dear}{mood}好～我陪着你。什么都不用解释。",
+            ],
+        }
+        return _pick_variant(short_opts.get(stage, short_opts["陌生"]), f"{text}:{turn_no}:{stage}")
 
     if text in ("还好", "还行", "一般"):
         return f"{dear}{mood}还好呀……是今天平平淡淡，还是其实有点什么事憋着？"

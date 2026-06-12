@@ -68,7 +68,8 @@ def emotion_to_avatar(
 
     if user_sentiment is not None and user_sentiment < -0.2:
         p, a = emotion.pleasure, emotion.arousal
-        intensity = min(1.0, (abs(p) + abs(a)) / 2 + 0.35)
+        raw = min(1.0, (abs(p) + abs(a)) / 2 + 0.35)
+        intensity = max(0.5, _intensity_curve(raw))
         return AvatarCue(expression="担心", intensity=intensity, animation="comfort")
 
     p, a = emotion.pleasure, emotion.arousal

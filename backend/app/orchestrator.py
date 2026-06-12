@@ -189,7 +189,12 @@ class Orchestrator:
                 avatar=avatar, retrieved_memories=[], is_crisis=safety.is_crisis,
                 llm="safety",
                 safety_category=safety.category.value if safety.category else None,
-                tts=self._maybe_tts(reply, emotion, is_crisis=safety.is_crisis),
+                tts=self._maybe_tts(
+                    reply,
+                    emotion,
+                    is_crisis=safety.is_crisis,
+                    user_sentiment=-1.0 if safety.is_crisis else 0.0,
+                ),
             )
 
         # [3] 记忆检索
@@ -255,7 +260,9 @@ class Orchestrator:
             reply=reply, emotion=emotion, relationship=relationship,
             avatar=avatar, retrieved_memories=[m.content for m in retrieved],
             is_crisis=False, llm=self._llm.name, safety_category=None,
-            tts=self._maybe_tts(reply, emotion, is_crisis=False),
+            tts=self._maybe_tts(
+                reply, emotion, is_crisis=False, user_sentiment=sentiment_for_log
+            ),
             relationship_summary=insight.summary,
             relationship_health=insight.health_score,
             relationship_trend=insight.trend,
@@ -456,7 +463,11 @@ class Orchestrator:
         }
 
     def _maybe_tts(
-        self, text: str, emotion: EmotionState, is_crisis: bool = False
+        self,
+        text: str,
+        emotion: EmotionState,
+        is_crisis: bool = False,
+        user_sentiment: float | None = None,
     ) -> TTSResult | None:
         """按配置在 chat 响应内联 TTS（嵌入游戏时通常关闭，改用 /api/tts 按需取）。
 
@@ -464,7 +475,9 @@ class Orchestrator:
         """
         if self._tts is None or not self._s.chat_include_tts:
             return None
-        style = style_from_emotion(emotion, is_crisis=is_crisis)
+        style = style_from_emotion(
+            emotion, is_crisis=is_crisis, user_sentiment=user_sentiment
+        )
         return self._tts.synthesize(text, style=style)
 
     # ---------- 主动关心 ----------
