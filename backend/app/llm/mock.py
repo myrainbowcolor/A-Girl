@@ -108,14 +108,33 @@ def _clean_label(raw: str) -> str:
     return raw.split("（")[0].strip()
 
 
-def _mood_prefix(emotion: str) -> str:
+def _mood_prefix(emotion: str, seed: str = "") -> str:
+    key = seed or emotion
     if any(w in emotion for w in ("低落", "委屈", "焦虑")):
-        return "（轻轻叹了口气）"
+        return _pick_variant(
+            ("（轻轻叹了口气）", "（声音放轻了些）", "（安静了一会儿）"),
+            key + ":sad",
+        )
     if any(w in emotion for w in ("开心", "兴奋", "满足")):
-        return "（眼睛亮了起来）"
+        return _pick_variant(
+            ("（眼睛亮了起来）", "（忍不住弯了弯嘴角）", "（语气轻快起来）"),
+            key + ":happy",
+        )
     if "平和" in emotion:
         return ""
-    return "（微微歪头）"
+    return _pick_variant(("（微微歪头）", "（认真听着）"), key + ":neutral")
+
+
+def _scene_mood(emotion: str, user_text: str) -> str:
+    """用户倾诉时优先用安抚神态，避免 NPC 内在开心时却「弯嘴角」。"""
+    if _user_is_venting(user_text) or any(
+        w in user_text for w in ("累", "辛苦", "撑", "难过", "烦", "孤独", "空")
+    ):
+        return _pick_variant(
+            ("（轻轻叹了口气）", "（声音放轻了些）", "（安静了一会儿）"),
+            user_text + ":comfort",
+        )
+    return _mood_prefix(emotion, user_text)
 
 
 def _endearment(stage: str) -> str:
@@ -150,7 +169,7 @@ def _scene_reply(
     """按用户意图匹配场景化回复；未命中返回 None 走通用模板。"""
     text = user_last.strip()
     dear = _endearment(stage)
-    mood = _mood_prefix(emotion)
+    mood = _scene_mood(emotion, text)
     prior = _prior_assistant(messages or [])
     turn_no = _user_turn_count(messages or [])
 
@@ -161,6 +180,24 @@ def _scene_reply(
         if stage == "朋友":
             return f"{dear}{mood}嗨！又见面啦，最近忙不忙？"
         return f"{mood}你好呀，我是{name}，很高兴认识你～"
+
+    # 加班 / 下班疲惫
+    if any(w in text for w in ("加班", "下班", "十点", "很晚", "熬夜")) and any(
+        w in text for w in ("累", "烦", "辛苦", "熬", "撑")
+    ):
+        return (
+            f"{dear}{mood}加班熬到这么晚，真的辛苦你了……"
+            f"今天先别跟自己较劲，缓口气再说好不好？"
+        )
+
+    # 育儿 / 哄娃疲惫
+    if any(w in text for w in ("哄娃", "带娃", "神兽", "孩子闹")) and any(
+        w in text for w in ("累", "辛苦", "撑", "心累", "好累")
+    ):
+        return (
+            f"{dear}{mood}一边上班一边顾娃，真的太耗你了……"
+            f"你先歇会儿，我陪着你。今天最累的是哪一会儿？"
+        )
 
     # 用户在问 NPC 在做什么
     if any(w in text for w in ("你在干嘛", "在干嘛", "干什么")):
@@ -488,7 +525,7 @@ def _fallback_reply(
     memories: list[str],
 ) -> str:
     dear = _endearment(stage)
-    mood = _mood_prefix(emotion)
+    mood = _mood_prefix(emotion, user_last)
     snippet = user_last.strip()
     if len(snippet) > 20:
         snippet = snippet[:20] + "…"
@@ -503,16 +540,29 @@ def _fallback_reply(
         )
 
     templates = {
-        "陌生": f"{mood}嗯，我在听呢。{snippet}——后来呢，发生什么了？",
-        "熟悉": f"{dear}{mood}嗯嗯，我懂你的意思。{snippet}，然后呢？",
-        "朋友": (
-            f"{dear}{mood}嗯，{snippet}……我听着呢，慢慢说。"
+        "陌生": [
+            f"{mood}嗯，我在听呢——后来呢，发生什么了？",
+            f"{mood}嗯……你愿意多说一点吗？我听着。",
+        ],
+        "熟悉": [
+            f"{dear}{mood}嗯嗯，我懂。然后呢？",
+            f"{dear}{mood}嗯，接着说，我听着呢。",
+        ],
+        "朋友": [
+            f"{dear}{mood}嗯……我听着呢，慢慢说。"
             if is_heavy
-            else f"{dear}{mood}嘿，{snippet}，后来怎么样了？"
-        ),
-        "亲密": f"{dear}{mood}嗯，我在听～关于这个，你想让我怎么陪你？",
+            else f"{dear}{mood}嘿，后来怎么样了？",
+            f"{dear}{mood}我在呢，你继续说。"
+            if is_heavy
+            else f"{dear}{mood}嗯嗯，然后呢？",
+        ],
+        "亲密": [
+            f"{dear}{mood}嗯，我在听～你想让我怎么陪你？",
+            f"{dear}{mood}说吧，我哪儿也不去。",
+        ],
     }
-    return templates.get(stage, templates["陌生"])
+    options = templates.get(stage, templates["陌生"])
+    return _pick_variant(options, user_last + stage)
 
 
 class MockLLMProvider(LLMProvider):

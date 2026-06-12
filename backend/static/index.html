@@ -129,6 +129,8 @@
           <g id="browR"><line x1="114" y1="74" x2="142" y2="74" stroke="#8a5a9a" stroke-width="5" stroke-linecap="round"/></g>
           <ellipse id="eyeL" cx="72" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
           <ellipse id="eyeR" cx="128" cy="98" rx="9" ry="12" fill="#5a3a6a"/>
+          <path id="smileEyeL" d="M 60 96 Q 72 90 84 96" fill="none" stroke="#5a3a6a" stroke-width="3.5" stroke-linecap="round" opacity="0"/>
+          <path id="smileEyeR" d="M 116 96 Q 128 90 140 96" fill="none" stroke="#5a3a6a" stroke-width="3.5" stroke-linecap="round" opacity="0"/>
           <ellipse id="cheekL" cx="64" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
           <ellipse id="cheekR" cx="136" cy="125" rx="11" ry="7" fill="#ffc2dd" opacity="0.5"/>
           <path id="mouth" d="" fill="#c0506e"/>
@@ -397,6 +399,8 @@
       const browDy = -f.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
+      const tilt = f.brow < -0.2 ? -2.5 : (smileK > 0.4 ? 1.5 : 0);
+      document.getElementById("face").setAttribute("transform", `rotate(${tilt} 100 105)`);
       const cheekOp = Math.min(0.85, 0.08 + f.cheek * 0.9);
       document.getElementById("cheekL").setAttribute("opacity", cheekOp);
       document.getElementById("cheekR").setAttribute("opacity", cheekOp);
