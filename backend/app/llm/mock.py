@@ -242,6 +242,25 @@ def _scene_reply(
             return f"{dear}{mood}是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？"
         return f"{dear}{mood}嗯嗯，听起来今天还不错～后来呢，有什么让你印象深的事吗？"
 
+    # 加班 / 工作压力
+    if any(w in text for w in ("加班", "996", "KPI", "开会到")) or (
+        "下班" in text and any(w in text for w in ("累", "烦", "十点", "九点", "很晚", "好晚"))
+    ):
+        if stage == "陌生":
+            return (
+                f"{mood}又熬到这么晚呀，真的辛苦你了。"
+                f"不用急着讲细节，我在这儿陪着你。"
+            )
+        if stage == "熟悉":
+            return (
+                f"{dear}{mood}又加班啦？听着就累……"
+                f"先缓口气，是事情堆太多，还是纯粹耗到这么晚？"
+            )
+        return (
+            f"{dear}{mood}又加班到这么晚，心疼你。"
+            f"今天最耗你的是哪一块，跟我说说？"
+        )
+
     # 失眠 / 反复想事
     if any(w in text for w in ("失眠", "睡不着", "脑子停", "越躺越清醒")):
         return (
