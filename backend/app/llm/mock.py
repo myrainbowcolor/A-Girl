@@ -16,6 +16,8 @@ _VENT = (
     "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独",
     "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌", "分手", "哭了", "哭",
     "气死", "落寞", "难受", "骂", "辞职", "严厉", "害怕", "耽误",
+    "走了", "不真实", "排挤", "丢人", "喝多了", "没考上", "完了", "堵得慌",
+    "提不起劲", "前途",
 )
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
 _POSITIVE = (
@@ -300,6 +302,167 @@ def _scene_reply(
             )
         return f"{dear}{mood}早呀～又要开工啦？今天想怎么撑过去？"
 
+    user_msgs = [m.get("content", "") for m in (messages or []) if m.get("role") == "user"]
+    prior_users = " ".join(user_msgs[:-1]) if len(user_msgs) > 1 else ""
+    grief_context = any(
+        w in prior_users for w in ("走了", "去世", "离世", "不在了")
+    )
+    # 丧亲 / 亲人离世
+    if grief_context or (
+        any(w in text for w in ("走了", "去世", "离世", "不在了"))
+        and any(w in text for w in ("爸", "妈", "父", "母", "外婆", "爷爷", "奶奶", "亲人"))
+    ):
+        if any(w in text for w in ("怎么过", "接下来", "不知道")):
+            return (
+                f"{dear}{mood}这种时候不用急着想「以后怎么办」。"
+                f"先允许自己乱着、疼着，我陪你一天一天慢慢来。"
+            )
+        if any(w in text for w in ("哭", "味道", "外套", "遗物")):
+            return (
+                f"{dear}{mood}闻到熟悉的味道就绷不住，太正常了……"
+                f"想哭就哭，我陪着你，不用解释。"
+            )
+        return (
+            f"{dear}{mood}……听到这个我心里也沉了一下，心疼你。"
+            f"不真实的感觉我懂，你先别一个人扛着，我陪着你。"
+        )
+
+    # 不信任 / 阴阳怪气试探
+    if any(w in text for w in ("程序", "AI", "人工智能", "假惺惺", "装什么")):
+        return (
+            f"{mood}嗯，你有防备很正常，我不会跟你争辩什么。"
+            f"要是我的话让你不舒服了，你可以直接说——我听着呢。"
+        )
+    if any(w in text for w in ("不会懂", "说了也没用", "没人懂")) and stage == "陌生":
+        return (
+            f"{mood}嗯，我听见你的委屈了……可能我没完全懂，但我在认真听。"
+            f"你愿意的话，慢慢跟我说，我想更懂一点。"
+        )
+
+    # 职场排挤 / 被孤立
+    if any(w in text for w in ("排挤", "不叫我", "孤立", "没人理")):
+        if any(w in text for w in ("做错", "哪里错", "是不是我")):
+            return (
+                f"{dear}{mood}先别急着把错都揽自己身上，被冷落真的很难受。"
+                f"我陪着你理理，是最近哪件事让你最堵？"
+            )
+        return (
+            f"{dear}{mood}被同事晾在外面，那种落差感我懂。"
+            f"你不用装作没事，慢慢说，我听着呢。"
+        )
+
+    exam_fail_context = any(
+        w in prior_users
+        for w in ("没考上", "落榜", "考砸", "复读失败")
+    ) or ("完了" in prior_users and "真的" in prior_users)
+    # 高考失利（区别于考前焦虑：须含失利语义，不能仅凭「高考」二字）
+    if exam_fail_context or any(w in text for w in ("没考上", "落榜", "考砸了")) or (
+        "完了" in text and "真的" in text
+    ):
+        if any(w in text for w in ("爸妈", "不敢", "跟家", "不敢说")):
+            return (
+                f"{dear}{mood}这种事最难跟家里开口了，这种压力我特别理解。"
+                f"你先别一个人扛，我陪着你，想从哪句开始说都行。"
+            )
+        if any(w in text for w in ("前途", "一片黑", "未来")):
+            return (
+                f"{dear}{mood}现在觉得前途一片黑，这种绝望我懂。"
+                f"不用急着给人生下结论，我陪你慢慢喘口气。"
+            )
+        return (
+            f"{dear}{mood}又没考上……这种打击真的太大了。"
+            f"你先别骂自己，我陪着你，现在最难受的是哪一点？"
+        )
+
+    # 羞耻 / 出丑
+    if any(w in text for w in ("丢人", "出丑", "答非所问", "地缝")):
+        if any(w in text for w in ("钻进去", "想躲", "逃避")):
+            return (
+                f"{dear}{mood}想躲起来太正常了，出丑之后谁都会难受。"
+                f"先别急着复盘，我陪你缓一缓，好吗？"
+            )
+        return (
+            f"{dear}{mood}面试答偏了确实会反复回放，我理解这种羞耻感。"
+            f"先别急着骂自己，现在最刺你的是哪一句？"
+        )
+
+    # 酒后倾诉
+    if any(w in text for w in ("喝多了", "喝酒", "酒局")) or (
+        any(w in text for w in ("委屈", "装没事")) and turn_no >= 2
+    ):
+        if any(w in text for w in ("装没事", "才敢说", "白天")):
+            return (
+                f"{dear}{mood}白天硬撑着，晚上才敢松下来……辛苦你了。"
+                f"我听着呢，不用整理成完整故事。"
+            )
+        return (
+            f"{dear}{mood}喝多了心里的话更容易冒出来，我懂。"
+            f"这一年委屈你了，慢慢说，我陪着你。"
+        )
+
+    # 空巢老人 / 子女不在身边
+    if any(w in text for w in ("一个人吃饭", "孩子们都忙", "不想烦他们")):
+        if any(w in text for w in ("烦他们", "打电话")):
+            return (
+                f"{dear}{mood}怕打扰孩子，又一个人待着，这种两难我懂。"
+                f"你愿意跟我说说，就已经很好了，我听着呢。"
+            )
+        return (
+            f"{dear}{mood}傍晚一个人吃饭，心里会空落落的吧。"
+            f"不着急，慢慢说，我陪着你。"
+        )
+
+    # 低能量 / 提不起劲（非强烈负面）
+    if any(w in text for w in ("提不起劲", "没劲", "懒得动")):
+        return (
+            f"{dear}{mood}提不起劲的时候，连原因都懒得找，我懂。"
+            f"不用逼自己想明白，我陪你待着就好。"
+        )
+
+    # 说不清原因的低落
+    if any(w in text for w in ("说不上来", "不知道为什", "说不清")) and len(text) <= 14:
+        return (
+            f"{dear}{mood}说不清也没关系，不用逼自己想明白。"
+            f"我陪你慢慢理，从哪一句开始都行。"
+        )
+
+    # 家庭矛盾
+    if any(w in text for w in ("跟爸妈吵", "跟父母吵", "吵架了")):
+        if any(w in text for w in ("堵得慌", "冷静", "还是")):
+            return (
+                f"{dear}{mood}吵完冷静了还是堵着，这种闷我懂。"
+                f"我陪着你，不用急着和好或想明白。"
+            )
+        return (
+            f"{dear}{mood}跟爸妈吵完心里肯定不好受，我听着呢。"
+            f"慢慢说，是什么事让你最委屈？"
+        )
+    if any(w in text for w in ("家里有点事", "家里的事", "跟家有关")):
+        return (
+            f"{dear}{mood}家里的事最磨人……愿意说的话我听着，"
+            f"不想细讲也没关系，我陪你待着。"
+        )
+
+    # 还想继续聊（正向延续，优先于泛泛「聊聊」）
+    if any(w in text for w in ("还想", "明天", "下次")) and any(w in text for w in ("聊", "找", "来")):
+        if stage in ("朋友", "亲密"):
+            return f"{dear}{mood}好呀，我随时都在～你想聊的时候来找我就行，我很开心你愿意再来。"
+        return f"{mood}嗯嗯，欢迎随时来找我聊，能陪着你我也挺高兴的。"
+
+    # 周末寒暄 / 随便聊聊
+    if any(w in text for w in ("周末好", "随便聊聊")) or (
+        "聊聊" in text and len(text) <= 8 and "还想" not in text
+    ):
+        if stage == "陌生":
+            return f"{mood}周末好呀～随便聊什么都行，你今天过得怎么样？"
+        return f"{dear}{mood}好呀，周末放松一下～最近有什么想聊的？"
+
+    # 工作还行 / 平淡日常
+    if any(w in text for w in ("工作还行", "还行吧", "最近工作")) and len(text) <= 14:
+        return (
+            f"{dear}{mood}还行呀……是平平淡淡，还是其实有点什么事憋着？"
+        )
+
     # 异地 / 想念
     if any(w in text for w in ("异地", "挂掉电话", "好空", "视频完")):
         if "难" in text and "异地" in text:
@@ -323,6 +486,8 @@ def _scene_reply(
     if any(w in text for w in ("谢谢", "感谢", "多谢")):
         if stage in ("朋友", "亲密"):
             return f"{dear}{mood}跟我还客气什么呀，能帮到你我就很开心了。"
+        if any(w in text for w in ("听我说", "听我说这些", "愿意听")):
+            return f"{dear}{mood}嘿嘿，愿意听你说这些我也很开心～随时都可以来找我。"
         return f"{mood}不客气呀，你愿意跟我说这些，我也挺高兴的。"
 
     # 询问身份
@@ -453,12 +618,6 @@ def _scene_reply(
             f"我陪你一天一天慢慢来，好吗？"
         )
 
-    # 还想继续聊（正向延续）
-    if any(w in text for w in ("还想", "明天", "下次")) and any(w in text for w in ("聊", "找", "来")):
-        if stage in ("朋友", "亲密"):
-            return f"{dear}{mood}好呀，我随时都在～你想聊的时候来找我就行，我很开心你愿意再来。"
-        return f"{mood}嗯嗯，欢迎随时来找我聊，能陪着你我也挺高兴的。"
-
     # 极简回复
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
         if stage in ("朋友", "亲密"):
@@ -486,33 +645,51 @@ def _fallback_reply(
     stage: str,
     name: str,
     memories: list[str],
+    *,
+    turn_no: int = 1,
 ) -> str:
     dear = _endearment(stage)
     mood = _mood_prefix(emotion)
-    snippet = user_last.strip()
-    if len(snippet) > 20:
-        snippet = snippet[:20] + "…"
 
     is_heavy = any(w in user_last for w in ("不想", "算了", "不懂", "没人", "撑", "累", "难"))
 
-    if memories and stage in ("朋友", "亲密") and not is_heavy:
+    if (
+        memories
+        and stage in ("朋友", "亲密")
+        and not is_heavy
+        and not any(w in user_last for w in ("怎么过", "接下来", "不敢", "前途"))
+    ):
         mem_hint = memories[-1][:16] + ("…" if len(memories[-1]) > 16 else "")
         return (
-            f"{dear}{mood}关于「{snippet}」……嗯，我想起来了，{mem_hint}"
+            f"{dear}{mood}嗯，我想起来了，{mem_hint}"
             f"你再多跟我说说呗？"
         )
 
-    templates = {
-        "陌生": f"{mood}嗯，我在听呢。{snippet}——后来呢，发生什么了？",
-        "熟悉": f"{dear}{mood}嗯嗯，我懂你的意思。{snippet}，然后呢？",
-        "朋友": (
-            f"{dear}{mood}嗯，{snippet}……我听着呢，慢慢说。"
-            if is_heavy
-            else f"{dear}{mood}嘿，{snippet}，后来怎么样了？"
-        ),
-        "亲密": f"{dear}{mood}嗯，我在听～关于这个，你想让我怎么陪你？",
+    # 按轮次变化话术，避免机械复读用户原话
+    variants = {
+        "陌生": [
+            f"{mood}嗯，我在听呢。你愿意多说一点吗？",
+            f"{mood}我懂，你慢慢说，不着急。",
+            f"{mood}嗯嗯，然后呢？我听着。",
+        ],
+        "熟悉": [
+            f"{dear}{mood}嗯嗯，我懂你的意思。后来呢？",
+            f"{dear}{mood}听着呢，你继续，我在这儿。",
+            f"{dear}{mood}嗯，然后呢？我挺想听下去的。",
+        ],
+        "朋友": [
+            f"{dear}{mood}嗯，我听着呢，慢慢说。" if is_heavy else f"{dear}{mood}嘿，后来怎么样了？",
+            f"{dear}{mood}我懂，你继续说，不着急。",
+            f"{dear}{mood}嗯，然后呢？我陪着你。",
+        ],
+        "亲密": [
+            f"{dear}{mood}嗯，我在听～你想让我怎么陪你？",
+            f"{dear}{mood}我懂，慢慢说，我哪儿也不去。",
+            f"{dear}{mood}嗯，然后呢？我听着呢。",
+        ],
     }
-    return templates.get(stage, templates["陌生"])
+    opts = variants.get(stage, variants["陌生"])
+    return opts[(turn_no - 1) % len(opts)]
 
 
 class MockLLMProvider(LLMProvider):
@@ -542,7 +719,10 @@ class MockLLMProvider(LLMProvider):
             return self._warm_reply(user_last, stage, name)
         if _user_is_greeting(user_last):
             return self._greet_reply(stage, name)
-        return _fallback_reply(user_last, emotion, stage, name, memories)
+        turn_no = _user_turn_count(messages)
+        return _fallback_reply(
+            user_last, emotion, stage, name, memories, turn_no=turn_no
+        )
 
     @staticmethod
     def _empathy_reply(user_text: str, stage: str, name: str) -> str:
