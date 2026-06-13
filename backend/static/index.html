@@ -343,12 +343,12 @@
 
     // expression -> 数字人面部参数（与后端 Live2D 预设对应）
     const EXPR_FACE = {
-      "微笑": { form: 0.8, brow: 0.2, eye: 1.0, cheek: 0.55, eyeSmile: 0.45 },
-      "大笑": { form: 1.0, brow: 0.4, eye: 0.68, cheek: 0.85, eyeSmile: 0.75 },
-      "难过": { form: -0.7, brow: -0.5, eye: 0.58, cheek: 0.0, eyeSmile: 0.0 },
-      "担心": { form: -0.35, brow: -0.75, eye: 1.05, cheek: 0.0, eyeSmile: 0.0 },
-      "惊讶": { form: 0.0, brow: 0.75, eye: 1.18, cheek: 0.15, eyeSmile: 0.0 },
-      "平静": { form: 0.15, brow: 0.0, eye: 1.0, cheek: 0.1, eyeSmile: 0.08 }
+      "微笑": { form: 0.85, brow: 0.2, eye: 1.0, cheek: 0.45, eyeSmile: 0.5 },
+      "大笑": { form: 1.0, brow: 0.4, eye: 0.68, cheek: 0.7, eyeSmile: 0.85 },
+      "难过": { form: -0.75, brow: -0.55, eye: 0.58, cheek: 0.0, eyeSmile: 0.0 },
+      "担心": { form: -0.4, brow: -0.8, eye: 1.05, cheek: 0.0, eyeSmile: 0.0 },
+      "惊讶": { form: 0.0, brow: 0.85, eye: 1.15, cheek: 0.12, eyeSmile: 0.0 },
+      "平静": { form: 0.2, brow: 0.0, eye: 1.0, cheek: 0.08, eyeSmile: 0.1 }
     };
     let currentExpr = "平静";
     let faceIntensity = 0.5;
@@ -399,7 +399,7 @@
       const browDy = -f.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
-      const tilt = f.brow < -0.2 ? -2.5 : (smileK > 0.4 ? 1.5 : 0);
+      const tilt = f.brow < -0.2 ? -2.5 : ((f.eyeSmile || 0) > 0.4 ? 1.5 : 0);
       document.getElementById("face").setAttribute("transform", `rotate(${tilt} 100 105)`);
       const cheekOp = Math.min(0.85, 0.08 + f.cheek * 0.9);
       document.getElementById("cheekL").setAttribute("opacity", cheekOp);

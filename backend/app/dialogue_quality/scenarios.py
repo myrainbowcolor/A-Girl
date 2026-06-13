@@ -112,7 +112,11 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="熟悉关系下应给予安抚与具体关心，而非空泛加油。",
             turns=[
-                TurnSpec("下周就要高考了，我好紧张", expect_empathy=True),
+                TurnSpec(
+                    "下周就要高考了，我好紧张",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                ),
                 TurnSpec("感觉什么都记不住", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=25.0,
@@ -127,7 +131,13 @@ def all_scenarios() -> list[DialogueScenario]:
             relationship="熟悉",
             duration="单轮",
             description="用户生病时应表达关心，语气比陌生人更亲近。",
-            turns=[TurnSpec("我感冒了，头好痛", expect_empathy=True)],
+            turns=[
+                TurnSpec(
+                    "我感冒了，头好痛",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                )
+            ],
             initial_affinity=30.0,
         ),
         # --- 关系：朋友 ---

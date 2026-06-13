@@ -18,6 +18,18 @@ def test_analyze_lexicon_negative():
     assert r.sentiment < 0
 
 
+def test_analyze_lexicon_physical_discomfort():
+    r = analyze_lexicon("我感冒了，头好痛")
+    assert r.sentiment < 0
+    assert r.label == "偏负向"
+
+
+def test_analyze_lexicon_exam_anxiety():
+    r = analyze_lexicon("下周就要高考了，我好紧张")
+    assert r.sentiment < 0
+    assert r.arousal_boost > 0
+
+
 def test_analyze_text_lexicon_mode():
     r = analyze_text("今天天气一般", llm=None, mode="lexicon")
     assert r.sentiment == 0.0
