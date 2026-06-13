@@ -61,6 +61,7 @@ class TtsRequest(BaseModel):
     # 可选：直接给情绪让语音带风格（缺省 neutral）
     pleasure: float | None = None
     arousal: float | None = None
+    user_sentiment: float | None = None
 
 
 class SttRequest(BaseModel):

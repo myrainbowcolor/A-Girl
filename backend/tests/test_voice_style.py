@@ -1,4 +1,5 @@
 from app.domain import EmotionState
+from app.emotion.analyzer import analyze_lexicon
 from app.voice import MockTTSProvider, VoiceStyle, style_from_emotion
 from app.voice.lipsync import VISEME_SHAPES, generate_visemes, text_to_visemes
 
@@ -24,6 +25,21 @@ def test_crisis_style_gentle():
 def test_style_bounds():
     s = style_from_emotion(EmotionState(pleasure=1.0, arousal=1.0))
     assert 0.6 <= s.rate <= 1.4 and 0.7 <= s.pitch <= 1.35
+
+
+def test_user_distress_softens_voice():
+    s = style_from_emotion(
+        EmotionState(pleasure=0.4, arousal=0.3),
+        user_sentiment=-0.8,
+    )
+    assert s.style == "gentle"
+    assert s.rate < 1.0
+    assert s.volume < 1.0
+
+
+def test_analyze_lexicon_lonely():
+    r = analyze_lexicon("过年一个人，有点落寞")
+    assert r.sentiment < 0
 
 
 def test_tts_carries_style_and_visemes():

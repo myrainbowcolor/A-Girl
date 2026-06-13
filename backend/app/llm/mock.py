@@ -262,6 +262,14 @@ def _scene_reply(
         )
 
     # 失眠 / 反复想事
+    if any(w in text for w in ("孤独", "落寞", "一个人")) and any(
+        w in text for w in ("睡不着", "失眠", "凌晨", "夜深", "半夜")
+    ):
+        return (
+            f"{dear}{mood}凌晨还醒着，又有点孤独……这种感觉真的不好受。"
+            f"我陪着你，不用非得聊什么，想说就说。"
+        )
+
     if any(w in text for w in ("失眠", "睡不着", "脑子停", "越躺越清醒")):
         return (
             f"{dear}{mood}失眠的时候脑子特别吵，我懂这种难受。"

@@ -189,7 +189,9 @@ class Orchestrator:
                 avatar=avatar, retrieved_memories=[], is_crisis=safety.is_crisis,
                 llm="safety",
                 safety_category=safety.category.value if safety.category else None,
-                tts=self._maybe_tts(reply, emotion, is_crisis=safety.is_crisis),
+                tts=self._maybe_tts(
+                    reply, emotion, is_crisis=safety.is_crisis, user_sentiment=-1.0 if safety.is_crisis else 0.0
+                ),
             )
 
         # [3] 记忆检索
@@ -255,7 +257,7 @@ class Orchestrator:
             reply=reply, emotion=emotion, relationship=relationship,
             avatar=avatar, retrieved_memories=[m.content for m in retrieved],
             is_crisis=False, llm=self._llm.name, safety_category=None,
-            tts=self._maybe_tts(reply, emotion, is_crisis=False),
+            tts=self._maybe_tts(reply, emotion, is_crisis=False, user_sentiment=sentiment_for_log),
             relationship_summary=insight.summary,
             relationship_health=insight.health_score,
             relationship_trend=insight.trend,
@@ -287,10 +289,14 @@ class Orchestrator:
                 )
             self._record_interaction(user_id, time.time(), -1.0 if safety.is_crisis else 0.0)
             avatar = emotion_to_avatar(emotion, is_crisis=safety.is_crisis)
-            yield self._stream_meta(emotion, relationship, avatar, [], safety.is_crisis)
+            yield self._stream_meta(
+                emotion, relationship, avatar, [], safety.is_crisis,
+                user_sentiment=-1.0 if safety.is_crisis else 0.0,
+            )
             yield {"type": "token", "text": reply}
             yield self._stream_done(
-                reply, emotion, relationship, avatar, [], safety.is_crisis, "safety", None
+                reply, emotion, relationship, avatar, [], safety.is_crisis, "safety", None,
+                user_sentiment=-1.0 if safety.is_crisis else 0.0,
             )
             return
 
@@ -326,6 +332,7 @@ class Orchestrator:
             False,
             sentiment_label=sentiment_label,
             meta_ctx=meta_ctx,
+            user_sentiment=sentiment_for_log,
         )
 
         parts: list[str] = []
@@ -364,6 +371,7 @@ class Orchestrator:
             [m.content for m in retrieved], False, self._llm.name, None,
             sentiment_label=sentiment_label,
             insight=insight,
+            user_sentiment=sentiment_for_log,
         )
 
     @staticmethod
@@ -391,6 +399,7 @@ class Orchestrator:
         is_crisis: bool,
         sentiment_label: str = "",
         meta_ctx: UserMeta | None = None,
+        user_sentiment: float = 0.0,
     ) -> dict[str, Any]:
         health = meta_ctx.relationship_health if meta_ctx else 0.0
         summary = meta_ctx.relationship_summary if meta_ctx else ""
@@ -413,6 +422,7 @@ class Orchestrator:
             "retrieved_memories": memories,
             "is_crisis": is_crisis,
             "user_sentiment_label": sentiment_label,
+            "user_sentiment": user_sentiment,
         }
 
     @staticmethod
@@ -427,6 +437,7 @@ class Orchestrator:
         safety_category: str | None,
         sentiment_label: str = "",
         insight: RelationshipInsight | None = None,
+        user_sentiment: float = 0.0,
     ) -> dict[str, Any]:
         health = insight.health_score if insight else 0.0
         summary = insight.summary if insight else ""
@@ -453,10 +464,15 @@ class Orchestrator:
             "llm": llm,
             "safety_category": safety_category,
             "user_sentiment_label": sentiment_label,
+            "user_sentiment": user_sentiment,
         }
 
     def _maybe_tts(
-        self, text: str, emotion: EmotionState, is_crisis: bool = False
+        self,
+        text: str,
+        emotion: EmotionState,
+        is_crisis: bool = False,
+        user_sentiment: float | None = None,
     ) -> TTSResult | None:
         """按配置在 chat 响应内联 TTS（嵌入游戏时通常关闭，改用 /api/tts 按需取）。
 
@@ -464,7 +480,7 @@ class Orchestrator:
         """
         if self._tts is None or not self._s.chat_include_tts:
             return None
-        style = style_from_emotion(emotion, is_crisis=is_crisis)
+        style = style_from_emotion(emotion, is_crisis=is_crisis, user_sentiment=user_sentiment)
         return self._tts.synthesize(text, style=style)
 
     # ---------- 主动关心 ----------
