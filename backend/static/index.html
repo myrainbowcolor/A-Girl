@@ -124,6 +124,7 @@
         <label style="font-size:12px;color:#8a7d96;display:block;margin-top:8px;cursor:pointer;">
           <input type="checkbox" id="voiceToggle" checked /> 语音朗读 + 口型同步
         </label>
+        <div id="voiceHint" style="font-size:11px;color:#aaa;margin-top:4px;">加载中…</div>
       </div>
       <h3>内在状态</h3>
       <div class="stat">
@@ -281,7 +282,7 @@
                 bubble.textContent = ev.reply;
                 updatePanel(ev);
                 scrollToBottom();
-                maybeSpeak(ev.reply);
+                await maybeSpeak(ev.reply);
               } else if (ev.type === "error") {
                 throw new Error(ev.message || "stream error");
               }
@@ -365,15 +366,59 @@
     }
     setFace("平静", 0, 0);
 
+    // ── 语音与口型同步 ──
+    const VISEME_SHAPES = {
+      REST: { open: 0, wide: 0 }, MBP: { open: 0, wide: 0.1 },
+      A: { open: 0.85, wide: 0.2 }, E: { open: 0.5, wide: 0.8 },
+      I: { open: 0.3, wide: 0.9 }, O: { open: 0.7, wide: -0.6 }, U: { open: 0.35, wide: -0.9 }
+    };
+    const CJK_VISEME_RING = ["A", "O", "E", "I", "U"];
+    let ttsProviderName = "mock";
+    let speechSession = 0;
     let lipsyncRAF = null;
-    // 优先使用 viseme 序列（含 open+wide 口型），否则回退到张口度轨迹
-    function playLipsync(track, visemes) {
+
+    if (window.speechSynthesis) {
+      speechSynthesis.addEventListener("voiceschanged", () => { /* 预加载音色 */ });
+    }
+
+    function visemeForChar(ch) {
+      if (/[\u4e00-\u9fff]/.test(ch)) return CJK_VISEME_RING[ch.charCodeAt(0) % CJK_VISEME_RING.length];
+      const l = ch.toLowerCase();
+      if ("aeiou".includes(l)) return { a: "A", e: "E", i: "I", o: "O", u: "U" }[l];
+      if ("mbp".includes(l)) return "MBP";
+      return null;
+    }
+
+    function scaleVisemeTimeline(visemes, targetMs) {
+      if (!visemes || !visemes.length || !targetMs) return visemes;
+      const srcMax = visemes[visemes.length - 1].t || 1;
+      if (srcMax <= 0) return visemes;
+      const scale = targetMs / srcMax;
+      return visemes.map(f => ({ ...f, t: Math.round(f.t * scale) }));
+    }
+
+    function pickZhVoice() {
+      if (!window.speechSynthesis) return null;
+      const voices = speechSynthesis.getVoices();
+      return voices.find(v => /^zh/i.test(v.lang)) || voices.find(v => v.lang.includes("CN")) || null;
+    }
+
+    function stopSpeechAndLipsync() {
+      speechSession += 1;
+      if (window.speechSynthesis) speechSynthesis.cancel();
+      if (lipsyncRAF) { cancelAnimationFrame(lipsyncRAF); lipsyncRAF = null; }
+      setFace(currentExpr, 0, 0);
+    }
+
+    function playLipsync(track, visemes, startAt) {
       if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
       const useViseme = visemes && visemes.length;
       const frames = useViseme ? visemes : track;
       if (!frames || !frames.length) { setFace(currentExpr, 0, 0); return; }
-      const start = performance.now();
+      const start = startAt || performance.now();
+      const session = speechSession;
       function step(nowT) {
+        if (session !== speechSession) return;
         const t = nowT - start;
         let cur = frames[0];
         for (let i = 0; i < frames.length; i++) {
@@ -383,9 +428,80 @@
         if (useViseme) setFace(currentExpr, cur.open, cur.wide);
         else setFace(currentExpr, cur.v, 0);
         if (t < last) lipsyncRAF = requestAnimationFrame(step);
-        else setFace(currentExpr, 0, 0);
+        else { lipsyncRAF = null; setFace(currentExpr, 0, 0); }
       }
       lipsyncRAF = requestAnimationFrame(step);
+    }
+
+    function estimateSpeechMs(text) {
+      const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+      const other = text.length - cjk;
+      return Math.max(600, cjk * 165 + other * 80);
+    }
+
+    function speakWithBrowser(text, visemes, durationMs) {
+      return new Promise(resolve => {
+        if (!window.speechSynthesis) { resolve(false); return; }
+        stopSpeechAndLipsync();
+        const session = speechSession;
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = "zh-CN";
+        u.rate = 1.0;
+        u.pitch = 1.08;
+        const voice = pickZhVoice();
+        if (voice) u.voice = voice;
+        const estMs = durationMs || estimateSpeechMs(text);
+        const scaled = scaleVisemeTimeline(visemes, estMs);
+        u.onstart = () => {
+          if (session !== speechSession) return;
+          playLipsync(null, scaled, performance.now());
+        };
+        u.onend = () => {
+          if (session !== speechSession) return;
+          if (lipsyncRAF) { cancelAnimationFrame(lipsyncRAF); lipsyncRAF = null; }
+          setFace(currentExpr, 0, 0);
+          resolve(true);
+        };
+        u.onerror = () => resolve(false);
+        speechSynthesis.speak(u);
+      });
+    }
+
+    async function maybeSpeak(text) {
+      if (!text || !text.trim()) return;
+      if (!document.getElementById("voiceToggle").checked) return;
+      try {
+        const r = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
+        });
+        if (!r.ok) {
+          await speakWithBrowser(text, null, estimateSpeechMs(text));
+          return;
+        }
+        const data = await r.json();
+        const isMock = !data.provider || data.provider === "mock";
+        if (isMock) {
+          await speakWithBrowser(text, data.visemes, data.duration_ms || estimateSpeechMs(text));
+          return;
+        }
+        stopSpeechAndLipsync();
+        const session = speechSession;
+        const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
+        const dur = data.duration_ms || estimateSpeechMs(text);
+        const scaled = scaleVisemeTimeline(data.visemes, dur);
+        audio.onplay = () => {
+          if (session !== speechSession) return;
+          playLipsync(data.lipsync, scaled, performance.now());
+        };
+        audio.onended = () => {
+          if (session !== speechSession) return;
+          setFace(currentExpr, 0, 0);
+        };
+        await audio.play();
+      } catch (e) {
+        await speakWithBrowser(text, null, estimateSpeechMs(text));
+      }
     }
 
     function updatePanel(data) {
@@ -422,20 +538,6 @@
     }
 
     let lastEmotion = { pleasure: 0, arousal: 0 };
-    async function maybeSpeak(text) {
-      if (!text || !text.trim()) return;
-      if (!document.getElementById("voiceToggle").checked) return;
-      try {
-        const r = await fetch("/api/tts", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
-        });
-        const data = await r.json();
-        const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
-        audio.play().catch(() => {});
-        playLipsync(data.lipsync, data.visemes);   // viseme 口型同步动画
-      } catch (e) { /* 忽略语音错误，不影响文本对话 */ }
-    }
 
     function setConnStatus(ok, detail) {
       const sub = document.getElementById("npcSub");
@@ -483,13 +585,15 @@
     async function streamNpcMessage(text, panelData) {
       const bubble = addMessage("", "npc");
       if (panelData && panelData.is_crisis) bubble.classList.add("crisis");
+      if (panelData) updatePanel(panelData);
+      const speakTask = maybeSpeak(text);
+      const msPerChar = Math.max(35, Math.min(100, estimateSpeechMs(text) / Math.max(1, text.length)));
       for (let i = 0; i < text.length; i += 1) {
         bubble.textContent += text[i];
         scrollToBottom();
-        await new Promise(res => setTimeout(res, 18));
+        await new Promise(res => setTimeout(res, msPerChar));
       }
-      if (panelData) updatePanel(panelData);
-      maybeSpeak(text);
+      await speakTask;
     }
 
     async function tryProactiveWelcome() {
@@ -528,7 +632,14 @@
 
     async function init() {
       try {
-        await checkBackend();
+        const health = await checkBackend();
+        ttsProviderName = health.tts || "mock";
+        const hint = document.getElementById("voiceHint");
+        if (hint) {
+          hint.textContent = ttsProviderName === "mock"
+            ? "当前使用浏览器内置语音朗读（mock 模式无真实音频）"
+            : "使用云端 TTS：" + ttsProviderName;
+        }
         await loadPersona();
         const r = await fetch("/api/consent/" + encodeURIComponent(userId), { cache: "no-store" });
         if (!r.ok) throw new Error("consent " + r.status);
