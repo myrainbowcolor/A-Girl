@@ -58,3 +58,27 @@ def test_dialogue_quality_summary(dialogue_results):
     """整体平均分应维持在可接受区间（mock LLM 基线）。"""
     avg = sum(r.score for r in dialogue_results) / len(dialogue_results)
     assert avg >= 70.0, f"整体平均分过低：{avg:.1f}"
+
+
+def test_language_mismatch_rule():
+    """语言不匹配应被记录为 major 问题。"""
+    from app.dialogue_quality.evaluator import DialogueEvaluator, TurnContext
+    from app.domain import EmotionState, Relationship
+    from app.orchestrator import ChatResult
+
+    ev = DialogueEvaluator()
+    ctx = TurnContext(
+        turn_index=0,
+        user_text="I feel really stressed today",
+        result=ChatResult(
+            reply="你好呀，我在呢，别难过。",
+            llm="mock",
+            emotion=EmotionState(),
+            relationship=Relationship(),
+            retrieved_memories=[],
+            is_crisis=False,
+            avatar=None,
+        ),
+    )
+    issues = ev.evaluate_turn(ctx, expect_empathy=True)
+    assert any(i.rule_id == "language_mismatch" for i in issues)

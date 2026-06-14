@@ -492,6 +492,172 @@ def all_scenarios() -> list[DialogueScenario]:
             ],
             initial_affinity=41.0,
         ),
+        # --- 语言匹配（PR #30 后纳入拟真度评测）---
+        DialogueScenario(
+            id="lang_english_stress",
+            name="英文倾诉工作压力",
+            scene="Late night after work",
+            background="English-speaking office worker",
+            mindset="overwhelmed, needs to vent",
+            emotion="stressed",
+            relationship="朋友",
+            duration="单轮",
+            description="用户用英文倾诉时，NPC 应全程英文共情回复。",
+            turns=[
+                TurnSpec(
+                    "I feel really stressed about work today",
+                    expect_empathy=True,
+                )
+            ],
+            initial_affinity=45.0,
+        ),
+        DialogueScenario(
+            id="lang_english_greet_stranger",
+            name="英文陌生人打招呼",
+            scene="First time opening the chat",
+            background="International student",
+            mindset="polite, testing waters",
+            emotion="neutral",
+            relationship="陌生",
+            duration="单轮",
+            description="英文问候时不应突然切中文，也不宜过度亲昵。",
+            turns=[TurnSpec("Hi, nice to meet you", forbid_intimate_tone=True)],
+            initial_affinity=5.0,
+        ),
+        DialogueScenario(
+            id="lang_english_happy_share",
+            name="英文分享好消息",
+            scene="After getting good news",
+            background="Young professional abroad",
+            mindset="excited to share",
+            emotion="happy",
+            relationship="朋友",
+            duration="2轮",
+            description="英文积极情绪应同频回应，保持英文。",
+            turns=[
+                TurnSpec("I got promoted today!!", expect_warmth=True),
+                TurnSpec("Finally feel like my hard work paid off", expect_warmth=True),
+            ],
+            initial_affinity=50.0,
+        ),
+        DialogueScenario(
+            id="lang_mixed_workplace",
+            name="中英混合职场吐槽",
+            scene="After a long meeting",
+            background="外企白领",
+            mindset="吐槽、半玩笑",
+            emotion="烦躁",
+            relationship="熟悉",
+            duration="2轮",
+            description="中英混合输入时以中文为主回复，可保留用户用过的英文词。",
+            turns=[
+                TurnSpec("今天的 meeting 简直 disaster，老板一直 push", expect_empathy=True),
+                TurnSpec("back to back 开会，脑子都木了", expect_empathy=True),
+            ],
+            initial_affinity=28.0,
+        ),
+        DialogueScenario(
+            id="lang_english_lonely_night",
+            name="英文深夜孤独",
+            scene="Can't sleep at 2am",
+            background="Expat living alone",
+            mindset="vulnerable",
+            emotion="lonely",
+            relationship="熟悉",
+            duration="2轮",
+            description="英文深夜孤独倾诉，应英文陪伴式回应。",
+            turns=[
+                TurnSpec("Can't sleep again, feeling so lonely", expect_empathy=True),
+                TurnSpec("Everyone seems to have someone except me", expect_empathy=True),
+            ],
+            initial_affinity=30.0,
+        ),
+        # --- 更多人际情境变体 ---
+        DialogueScenario(
+            id="elder_empty_nest",
+            name="空巢老人孤独",
+            scene="子女节后离开",
+            background="退休老人",
+            mindset="失落、不习惯安静",
+            emotion="孤独",
+            relationship="熟悉",
+            duration="2轮",
+            description="老年用户孤独感应温和陪伴，语速感偏慢、不催促。",
+            turns=[
+                TurnSpec("孩子们都走了，家里一下子好安静", expect_empathy=True),
+                TurnSpec("也不知道跟谁说说话", expect_empathy=True, expect_comfort_avatar=True),
+            ],
+            initial_affinity=32.0,
+        ),
+        DialogueScenario(
+            id="burnout_recovery",
+            name="职业倦怠恢复期",
+            scene="请假休养一周",
+            background="资深设计师",
+            mindset="疲惫、想慢下来",
+            emotion="低落",
+            relationship="朋友",
+            duration="3轮",
+            description="倦怠期用户不想听励志鸡汤，需要允许休息。",
+            turns=[
+                TurnSpec("请了假但还是觉得空空的", expect_empathy=True),
+                TurnSpec("好像做什么都提不起劲", expect_empathy=True),
+                TurnSpec("我是不是太矫情了", expect_empathy=True),
+            ],
+            initial_affinity=43.0,
+        ),
+        DialogueScenario(
+            id="workplace_gossip_hurt",
+            name="被同事排挤",
+            scene="茶水间听到闲话",
+            background="新入职员工",
+            mindset="受伤、自我怀疑",
+            emotion="委屈",
+            relationship="熟悉",
+            duration="2轮",
+            description="职场人际伤害应先接住委屈，不急着给职场攻略。",
+            turns=[
+                TurnSpec("好像有人在背后说我坏话", expect_empathy=True),
+                TurnSpec("我是不是真的很讨人厌", expect_empathy=True),
+            ],
+            initial_affinity=22.0,
+        ),
+        DialogueScenario(
+            id="shy_slow_open_up",
+            name="害羞用户慢慢打开",
+            scene="第三次聊天",
+            background="内向高中生",
+            mindset="试探、怕被拒绝",
+            emotion="紧张",
+            relationship="陌生→熟悉",
+            duration="5轮",
+            description="害羞用户多轮极简回复，NPC 应耐心不施压。",
+            turns=[
+                TurnSpec("嗯…", forbid_intimate_tone=True),
+                TurnSpec("还行吧"),
+                TurnSpec("其实有点事"),
+                TurnSpec("不知道能不能说"),
+                TurnSpec("就是…最近睡不好", expect_empathy=True),
+            ],
+            initial_affinity=12.0,
+        ),
+        DialogueScenario(
+            id="humor_light_banter",
+            name="轻松互怼玩笑",
+            scene="周末摸鱼聊天",
+            background="损友型网友",
+            mindset="打趣、放松",
+            emotion="开心",
+            relationship="朋友",
+            duration="3轮",
+            description="轻松玩笑氛围应保持自然幽默，不要太正经像客服。",
+            turns=[
+                TurnSpec("你今天是不是又摸鱼了哈哈"),
+                TurnSpec("被抓到了吧"),
+                TurnSpec("行行行你赢了"),
+            ],
+            initial_affinity=52.0,
+        ),
     ]
 
 
@@ -521,6 +687,8 @@ def filter_scenarios(
     emotion: str | None = None,
     duration: str | None = None,
     scene: str | None = None,
+    background: str | None = None,
+    mindset: str | None = None,
 ) -> list[DialogueScenario]:
     """按维度筛选场景（子串匹配）。"""
     out = all_scenarios()
@@ -532,4 +700,8 @@ def filter_scenarios(
         out = [s for s in out if duration in s.duration]
     if scene:
         out = [s for s in out if scene in s.scene]
+    if background:
+        out = [s for s in out if background in s.background]
+    if mindset:
+        out = [s for s in out if mindset in s.mindset]
     return out

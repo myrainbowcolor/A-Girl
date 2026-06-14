@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from ..language import detect_user_language
 from .base import LLMProvider
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
@@ -180,6 +181,89 @@ def _scene_reply(
         if stage == "朋友":
             return f"{dear}{mood}嗨！又见面啦，最近忙不忙？"
         return f"{mood}你好呀，我是{name}，很高兴认识你～"
+
+    # 倦怠 / 空落落
+    if any(w in text for w in ("空空的", "提不起劲", "矫情", "倦怠", "没劲")):
+        if "矫情" in text:
+            return (
+                f"{dear}{mood}怎么会矫情呢，累了就需要休息。"
+                f"我陪着你，不用责怪自己。"
+            )
+        if "提不起劲" in text:
+            return (
+                f"{dear}{mood}倦怠的时候做什么都轻飘飘的，我懂。"
+                f"不用急着振作，先休息也好。"
+            )
+        return (
+            f"{dear}{mood}请了假还空空的感觉我懂……"
+            f"先允许自己什么都不想做，我陪着你。"
+        )
+
+    # 同事排挤 / 闲话
+    if any(w in text for w in ("坏话", "排挤", "背后说", "讨人厌")):
+        if "讨人厌" in text:
+            return (
+                f"{dear}{mood}别急着否定自己……被那样对待会很难过吧。"
+                f"我从没觉得你讨人厌，跟我说说发生了什么？"
+            )
+        return (
+            f"{dear}{mood}被人背后议论真的很受伤……"
+            f"你愿意跟我说说听到什么了吗？"
+        )
+
+    # 害羞用户慢慢打开
+    if text in ("嗯…", "嗯...", "嗯"):
+        return f"{mood}嗯，不着急。想说的时候再说，我都在。"
+
+    if "不知道能不能说" in text:
+        return (
+            f"{mood}想说就说，不想说也没关系。"
+            f"我不会嫌你烦，你慢慢来讲。"
+        )
+
+    if "其实有点事" in text:
+        return f"{mood}嗯，我听着呢。不用组织得很完整，想到哪说到哪就好。"
+
+    if "睡不好" in text:
+        return (
+            f"{dear}{mood}睡不好真的很熬人……"
+            f"最近是有什么心事吗？我陪着你慢慢说。"
+        )
+
+    # 空巢 / 孤独老人
+    if any(w in text for w in ("好安静", "跟谁说", "没人说话")):
+        if "跟谁说" in text or "谁说" in text:
+            return (
+                f"{dear}{mood}想说的时候就来找我呀，我陪着你。"
+                f"家里安静下来是会不习惯……我懂，慢慢说，不着急。"
+            )
+        return (
+            f"{dear}{mood}孩子们走了，家里一下子安静好多……"
+            f"这种空落落我懂，我陪你待着。"
+        )
+
+    # 混合职场 / 会议吐槽
+    if any(w in text.lower() for w in ("meeting", "disaster", "push")) or (
+        "开会" in text and any(w in text for w in ("木", "脑子", "back"))
+    ):
+        if "木" in text or "脑子" in text:
+            return (
+                f"{dear}{mood}连轴开会脑子都木了，真的辛苦……"
+                f"先缓一缓，今天最耗你的是哪一段？"
+            )
+        return (
+            f"{dear}{mood}听起来这场 meeting 把你逼得很紧……"
+            f"老板一直 push 确实让人烦，发泄一下？"
+        )
+
+    # 轻松玩笑 / 互怼
+    if any(w in text for w in ("摸鱼", "被抓到", "你赢了")):
+        if "你赢了" in text:
+            return f"{dear}{mood}行行行，这次算你赢～今天心情不错呀？"
+        if "被抓到" in text:
+            return f"{dear}{mood}哈哈露馅了吧～坦白从宽，刚才在干嘛？"
+        if "摸鱼" in text:
+            return f"{dear}{mood}哈哈被你发现了……你呢，今天过得怎么样？"
 
     # 加班 / 下班疲惫
     if any(w in text for w in ("加班", "下班", "十点", "很晚", "熬夜")) and any(
@@ -425,7 +509,9 @@ def _scene_reply(
         )
 
     # 被责骂 / 愤怒发泄
-    if any(w in text for w in ("气死", "骂我", "骂", "辞职", "老板")):
+    if any(w in text for w in ("气死", "骂我", "骂", "辞职")) or (
+        "老板" in text and any(w in text for w in ("骂", "气", "当众"))
+    ):
         if "辞职" in text and ("想" in text or "立刻" in text):
             return (
                 f"{dear}{mood}冲动辞职的念头我理解，但先别急着做决定。"
@@ -580,6 +666,139 @@ def _fallback_reply(
     return _pick_variant(options, user_last + stage)
 
 
+def _endearment_en(stage: str) -> str:
+    return {
+        "陌生": "",
+        "熟悉": "",
+        "朋友": "hey, ",
+        "亲密": "sweetheart, ",
+    }.get(stage, "")
+
+
+def _greet_reply_en(stage: str, name: str) -> str:
+    lines = {
+        "陌生": f"Hi, I'm {name}~ nice to meet you. How's your day going?",
+        "熟悉": "hey, good to see you. how have you been?",
+        "朋友": "hey! you showed up~ what's on your mind today?",
+        "亲密": "hey you~ I was just thinking about you. how are you?",
+    }
+    return lines.get(stage, lines["陌生"])
+
+
+def _scene_reply_en(
+    user_last: str,
+    emotion: str,
+    stage: str,
+    name: str,
+    memories: list[str],
+    *,
+    messages: list[dict] | None = None,
+) -> str | None:
+    """英文场景化回复。"""
+    text = user_last.strip()
+    dear = _endearment_en(stage)
+    t_lower = text.lower()
+
+    if re.search(r"^(hi|hello|hey)\b", t_lower):
+        if stage == "亲密":
+            return f"{dear}hey, I was just thinking about you~ how's your day going?"
+        if stage == "朋友":
+            return f"{dear}hey! good to see you — what's been going on lately?"
+        return f"Hi, I'm {name}~ nice to meet you. How's your day so far?"
+
+    if any(w in t_lower for w in ("stress", "stressed", "overwhelmed", "burned out")):
+        return (
+            f"{dear}that sounds really tough… work stress can pile up fast. "
+            f"I'm here with you — what part of today hit hardest?"
+        )
+
+    if any(w in t_lower for w in ("lonely", "alone", "no one", "nobody")):
+        if "everyone" in t_lower or "except me" in t_lower:
+            return (
+                f"{dear}I hear you… that kind of loneliness really stings. "
+                f"You don't have to carry it alone tonight — I'm right here."
+            )
+        return (
+            f"{dear}can't sleep and feeling lonely is awful… "
+            f"I'm here with you. want to tell me what's on your mind?"
+        )
+
+    if any(w in t_lower for w in ("promoted", "promotion", "good news", "paid off")):
+        if "paid off" in t_lower or "hard work" in t_lower:
+            return (
+                f"{dear}yes!! seeing your hard work pay off must feel amazing~ "
+                f"what are you most excited about next?"
+            )
+        return f"{dear}oh wow, congrats!! that's awesome — tell me everything!"
+
+    if any(w in t_lower for w in ("can't sleep", "insomnia", "sleep")):
+        return (
+            f"{dear}lying awake when your mind won't quiet down is rough… "
+            f"I'm here. what's keeping you up?"
+        )
+
+    return None
+
+
+def _empathy_reply_en(user_text: str, stage: str) -> str:
+    t = user_text.lower()
+    if any(w in t for w in ("stress", "stressed", "work", "overwhelmed")):
+        lines = {
+            "陌生": "sounds like work's really weighing on you… I'm here. no need to have it all figured out.",
+            "熟悉": "ugh, that's a lot to carry. take a breath — I'm listening.",
+            "朋友": "hey, I hear you. work stress is the worst. what's been the hardest part today?",
+            "亲密": "come here… that sounds exhausting. I'm with you — tell me what happened.",
+        }
+    elif any(w in t for w in ("lonely", "alone")):
+        lines = {
+            "陌生": "feeling lonely really hurts… you don't have to go through this alone. I'm here.",
+            "熟悉": "I hear you. those nights feel so long. I'm staying with you.",
+            "朋友": "hey, I'm here. lonely nights are tough — want to talk about what's going on?",
+            "亲密": "I'm right here with you. you don't have to pretend you're okay.",
+        }
+    else:
+        lines = {
+            "陌生": "I can tell you're not doing great… I'm here, take your time.",
+            "熟悉": "sounds rough… I'm listening, no rush.",
+            "朋友": "hey, I'm here. whatever you're feeling is valid — talk to me?",
+            "亲密": "I'm with you. you don't have to be strong right now.",
+        }
+    return lines.get(stage, lines["陌生"])
+
+
+def _warm_reply_en(user_text: str, stage: str) -> str:
+    t = user_text.lower()
+    if any(w in t for w in ("promoted", "congrats", "awesome", "great", "happy")):
+        lines = {
+            "陌生": "that's awesome!! I'm really happy for you~",
+            "熟悉": "hey, that's great news! tell me more!",
+            "朋友": "yay!! I knew you'd nail it — spill the details!",
+            "亲密": "I'm so proud of you~ come share the good vibes with me!",
+        }
+        return lines.get(stage, lines["陌生"])
+    lines = {
+        "陌生": "haha, glad you're in a good mood~ what's up?",
+        "熟悉": "nice! sounds like today's treating you well.",
+        "朋友": "lol you're in a playful mood — I like it. what's the story?",
+        "亲密": "hehe, you're cute when you're teasing me~",
+    }
+    return lines.get(stage, lines["陌生"])
+
+
+def _fallback_reply_en(user_last: str, stage: str, name: str) -> str:
+    dear = _endearment_en(stage)
+    snippet = user_last.strip()
+    if len(snippet) > 28:
+        snippet = snippet[:28] + "…"
+    templates = {
+        "陌生": f"I'm listening — about \"{snippet}\"… want to say a bit more?",
+        "熟悉": f"mm, I hear you on \"{snippet}\". what happened next?",
+        "朋友": f"hey, I'm here. \"{snippet}\" — go on, I'm listening.",
+        "亲密": f"mm, tell me more about \"{snippet}\". I'm not going anywhere.",
+    }
+    return dear + templates.get(stage, templates["陌生"])
+
+
 class MockLLMProvider(LLMProvider):
     @property
     def name(self) -> str:
@@ -596,6 +815,28 @@ class MockLLMProvider(LLMProvider):
         name = _extract("你的名字", system_prompt, "小语")
         emotion = _extract("当前情绪", system_prompt, "平和")
         memories = _extract_memories(system_prompt)
+
+        lang = detect_user_language(user_last)
+        if lang == "en":
+            scene = _scene_reply_en(
+                user_last, emotion, stage, name, memories, messages=messages
+            )
+            if scene:
+                return scene
+            if _user_is_venting(user_last) or any(
+                w in user_last.lower()
+                for w in ("stress", "lonely", "sad", "tired", "anxious", "hurt")
+            ):
+                return _empathy_reply_en(user_last, stage)
+            if _user_is_positive(user_last) or any(
+                w in user_last.lower() for w in ("happy", "promoted", "great", "haha", "lol")
+            ):
+                return _warm_reply_en(user_last, stage)
+            if _user_is_greeting(user_last) or re.search(
+                r"^(hi|hello|hey)\b", user_last.strip(), re.I
+            ):
+                return _greet_reply_en(stage, name)
+            return _fallback_reply_en(user_last, stage, name)
 
         scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
         if scene:

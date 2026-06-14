@@ -27,6 +27,7 @@ RULE_FIX_HINTS: dict[str, str] = {
     "mechanical_echo": "避免「用户原话+然后呢」式接话，改为自然延展",
     "questionnaire_mode": "减少连续追问，穿插共情或自我暴露",
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
+    "language_mismatch": "language.py + persona 语言指令；mock/LLM 按用户语言回复",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
 }

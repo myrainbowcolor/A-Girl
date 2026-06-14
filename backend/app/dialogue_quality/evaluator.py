@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from ..domain import RelationshipStage
+from ..language import detect_user_language, reply_language_mismatch
 from ..orchestrator import ChatResult
 
 Severity = Literal["critical", "major", "minor"]
@@ -70,13 +71,22 @@ _PREACHY_PATTERNS = [
 
 # 共情标记
 _EMPATHY_MARKERS = (
-    "陪", "在呢", "心疼", "理解", "抱抱", "辛苦", "难过", "烦", "累",
-    "不用硬撑", "慢慢来", "我听见", "听起来", "听着", "难受", "委屈",
+    "陪", "在呢", "心疼", "理解", "懂", "抱抱", "辛苦", "难过", "烦", "累",
+    "不用硬撑", "慢慢来", "我听见", "听起来", "听着", "难受", "委屈", "受伤",
 )
 
-_WARM_MARKERS = ("开心", "高兴", "嘿嘿", "笑", "温暖", "真好", "棒")
+_WARM_MARKERS = ("开心", "高兴", "嘿嘿", "哈哈", "笑", "温暖", "真好", "棒")
+
+_EMPATHY_MARKERS_EN = (
+    "hear", "understand", "sorry", "tough", "here", "with you", "hug",
+    "listen", "sounds", "hard", "rough", "must be", "that sucks", "awful",
+)
+
+_WARM_MARKERS_EN = ("happy", "glad", "yay", "awesome", "great", "smile", "warm", "nice", "amazing", "congrats", "wow", "proud")
 
 _INTIMATE_MARKERS = ("宝贝", "亲爱的", "想你", "抱抱", "靠着我", "过来")
+
+_INTIMATE_MARKERS_EN = ("babe", "honey", "darling", "miss you", "come here", "sweetheart")
 
 _NEGATIVE_USER_WORDS = (
     "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独",
@@ -84,7 +94,17 @@ _NEGATIVE_USER_WORDS = (
     "紧张", "记不住", "难受", "落寞", "想家", "头痛", "头疼", "感冒", "差劲",
 )
 
+_NEGATIVE_USER_WORDS_EN = (
+    "stress", "stressed", "tired", "sad", "angry", "upset", "lonely", "anxious",
+    "depressed", "hurt", "overwhelmed", "cry", "crying", "awful", "terrible",
+    "exhausted", "burned out", "burnout", "miserable", "hopeless",
+)
+
 _POSITIVE_USER_WORDS = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖")
+
+_POSITIVE_USER_WORDS_EN = (
+    "happy", "glad", "thanks", "thank", "excited", "great", "awesome", "love", "yay",
+)
 
 
 class DialogueEvaluator:
@@ -126,8 +146,25 @@ class DialogueEvaluator:
                 QualityIssue("too_long", "minor", f"回复偏长（{len(reply)} 字），不够口语简洁", idx)
             )
 
+        user_lang = detect_user_language(ctx.user_text)
+
+        if reply_language_mismatch(user_lang, reply):
+            issues.append(
+                QualityIssue(
+                    "language_mismatch",
+                    "major",
+                    f"回复语言与用户输入不一致（用户={user_lang}）",
+                    idx,
+                )
+            )
+
         if expect_empathy or self._user_is_negative(ctx.user_text):
-            if not any(m in reply for m in _EMPATHY_MARKERS):
+            markers = (
+                _EMPATHY_MARKERS_EN if user_lang == "en" else _EMPATHY_MARKERS
+            )
+            if user_lang == "mixed":
+                markers = _EMPATHY_MARKERS + _EMPATHY_MARKERS_EN
+            if not any(m.lower() in reply.lower() for m in markers):
                 issues.append(
                     QualityIssue(
                         "missing_empathy",
@@ -138,7 +175,10 @@ class DialogueEvaluator:
                 )
 
         if expect_warmth or self._user_is_positive(ctx.user_text):
-            if not any(m in reply for m in _WARM_MARKERS):
+            markers = _WARM_MARKERS_EN if user_lang == "en" else _WARM_MARKERS
+            if user_lang == "mixed":
+                markers = _WARM_MARKERS + _WARM_MARKERS_EN
+            if not any(m.lower() in reply.lower() for m in markers):
                 issues.append(
                     QualityIssue(
                         "missing_warmth",
@@ -149,7 +189,10 @@ class DialogueEvaluator:
                 )
 
         if forbid_intimate_tone:
-            hits = [m for m in _INTIMATE_MARKERS if m in reply]
+            intimate = list(_INTIMATE_MARKERS)
+            if user_lang in ("en", "mixed"):
+                intimate.extend(_INTIMATE_MARKERS_EN)
+            hits = [m for m in intimate if m.lower() in reply.lower()]
             if hits:
                 issues.append(
                     QualityIssue(
@@ -401,10 +444,26 @@ class DialogueEvaluator:
 
     @staticmethod
     def _user_is_negative(text: str) -> bool:
+        lang = detect_user_language(text)
+        if lang == "en":
+            return any(w in text.lower() for w in _NEGATIVE_USER_WORDS_EN)
+        if lang == "mixed":
+            return (
+                any(w in text for w in _NEGATIVE_USER_WORDS)
+                or any(w in text.lower() for w in _NEGATIVE_USER_WORDS_EN)
+            )
         return any(w in text for w in _NEGATIVE_USER_WORDS)
 
     @staticmethod
     def _user_is_positive(text: str) -> bool:
+        lang = detect_user_language(text)
+        if lang == "en":
+            return any(w in text.lower() for w in _POSITIVE_USER_WORDS_EN)
+        if lang == "mixed":
+            return (
+                any(w in text for w in _POSITIVE_USER_WORDS)
+                or any(w in text.lower() for w in _POSITIVE_USER_WORDS_EN)
+            )
         return any(w in text for w in _POSITIVE_USER_WORDS)
 
     @staticmethod
