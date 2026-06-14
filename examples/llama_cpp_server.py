@@ -17,6 +17,7 @@ _DEFAULT_GGUF = os.environ.get(
 _THREADS = int(os.environ.get("LLAMA_THREADS", "4"))
 _CTX = int(os.environ.get("LLAMA_CTX", "2048"))
 _MAX_TOKENS = int(os.environ.get("LLAMA_MAX_TOKENS", "180"))
+_REPEAT_PENALTY = float(os.environ.get("LLAMA_REPEAT_PENALTY", "1.12"))
 
 
 @lru_cache
@@ -47,19 +48,23 @@ def _chunk(content: str, model: str) -> str:
 async def chat_completions(req: Request):
     body = await req.json()
     messages = body.get("messages", [])
-    temperature = float(body.get("temperature", 0.8))
+    temperature = float(body.get("temperature", 0.72))
     model = body.get("model", "llama3")
     stream = bool(body.get("stream"))
     llm = _llm()
+    gen_kw = dict(
+        temperature=temperature,
+        max_tokens=int(body.get("max_tokens", _MAX_TOKENS)),
+        repeat_penalty=_REPEAT_PENALTY,
+    )
 
     if stream:
 
         def gen():
             for chunk in llm.create_chat_completion(
                 messages=messages,
-                temperature=temperature,
-                max_tokens=int(body.get("max_tokens", _MAX_TOKENS)),
                 stream=True,
+                **gen_kw,
             ):
                 choices = chunk.get("choices") or []
                 if not choices:
@@ -74,8 +79,7 @@ async def chat_completions(req: Request):
 
     result = llm.create_chat_completion(
         messages=messages,
-        temperature=temperature,
-        max_tokens=int(body.get("max_tokens", _MAX_TOKENS)),
+        **gen_kw,
     )
     content = result["choices"][0]["message"]["content"]
     return {

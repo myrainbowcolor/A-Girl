@@ -25,7 +25,7 @@ def enforce_memory_honesty(
     memories: list,
     user_texts: list[str],
     *,
-    fallback: str = "嗯，我在听。你愿意多跟我说说现在的事吗？我不乱猜，以免记错~",
+    fallback: str = "嗯，我在听。你先慢慢说，不用急着讲清楚~",
 ) -> str:
     """若回复声称记得用户说过某事，但语料库中无依据，则去掉幻觉句或回退。
 

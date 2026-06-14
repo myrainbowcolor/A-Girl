@@ -51,7 +51,7 @@ _RELATIVE_DATES = {
 @dataclass
 class ProactiveResult:
     should_reach_out: bool
-    trigger: str | None = None       # event | welcome | insight | emotion | idle
+    trigger: str | None = None       # event | welcome | insight | emotion | warm | idle
     reason: str | None = None        # 人类可读原因
     message: str | None = None       # 主动开场白
     event_id: int | None = None      # 若为事件触发，对应事件
@@ -119,20 +119,37 @@ class ProactivityEngine:
         emotion = self._db.get_emotion(user_id) or EmotionState()
         relationship = self._db.get_relationship(user_id) or Relationship()
 
+        if self._in_global_cooldown(meta, now):
+            return ProactiveResult(False)
+
         # 3) 洞察触发：基于行为/意图/状态分析
         insight_result = self._check_insight(user_id, meta, emotion, relationship, idle, now)
         if insight_result:
             return insight_result
 
-        # 4) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
-        if meta.last_sentiment <= -0.3 and idle >= 1800:
+        # 4) 情绪触发：上次互动情绪低落，且已过去一段时间
+        if (
+            meta.last_sentiment <= -0.28
+            and idle >= self._s.proactive_emotion_min_idle_seconds
+        ):
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
-                f"上次聊天时你好像有点低落，我后来还一直想着你呢。"
-                f"现在好点了吗？想说的话我都在听。"
+                "上次聊天时你好像有点低落，我后来还一直想着你呢。"
+                "现在好点了吗，想说的话我都在听。"
             )
 
-        # 5) 时间触发：长时间未互动
+        # 5) 轻问候：聊过几句后安静一会儿
+        if (
+            meta.interaction_count >= 2
+            and idle >= self._s.proactive_warm_idle_seconds
+            and idle < self._s.proactive_idle_seconds
+        ):
+            return ProactiveResult(
+                True, "warm", f"安静约 {int(idle // 60)} 分钟",
+                self._warm_message(relationship),
+            )
+
+        # 6) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
             return ProactiveResult(
@@ -142,6 +159,22 @@ class ProactivityEngine:
             )
 
         return ProactiveResult(False)
+
+    def _in_global_cooldown(self, meta: UserMeta, now: float) -> bool:
+        if meta.last_proactive_at <= 0:
+            return False
+        return (now - meta.last_proactive_at) < self._s.proactive_global_cooldown_seconds
+
+    def _warm_message(self, relationship: Relationship) -> str:
+        name = self._persona.name
+        stage = relationship.stage.value
+        templates = {
+            "stranger": f"嗨，我是{name}～刚刚想到你，在忙吗？",
+            "acquainted": f"诶，在吗？刚刚聊到一半的感觉，有点想你了。",
+            "friend": f"嘿，在干嘛呢？有一会儿没说话了，来戳你一下～",
+            "close": f"想你了呀……在忙还是偷偷摸鱼？跟我说说呗。",
+        }
+        return templates.get(stage, templates["stranger"])
 
     def _check_insight(
         self,
@@ -158,7 +191,11 @@ class ProactivityEngine:
             return None
         if meta.last_proactive_at > 0:
             since_proactive = now - meta.last_proactive_at
-            if since_proactive < self._s.proactive_insight_cooldown_seconds:
+            cooldown = min(
+                self._s.proactive_insight_cooldown_seconds,
+                self._s.proactive_global_cooldown_seconds,
+            )
+            if since_proactive < cooldown:
                 return None
 
         session_id = f"sess-{user_id}"

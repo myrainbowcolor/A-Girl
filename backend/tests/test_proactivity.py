@@ -5,7 +5,7 @@ import pytest
 
 from app.config import Settings
 from app.db import Database
-from app.domain import Message, Persona, UserMeta
+from app.domain import Message, Persona, Relationship, UserMeta
 from app.proactivity import ProactivityEngine, extract_events
 
 
@@ -15,11 +15,14 @@ def engine():
         db = Database(f.name)
         s = Settings(
             db_path=f.name,
-            proactive_idle_seconds=6 * 3600,
+            proactive_idle_seconds=45 * 60,
+            proactive_warm_idle_seconds=8 * 60,
+            proactive_emotion_min_idle_seconds=10 * 60,
+            proactive_global_cooldown_seconds=12 * 60,
             proactive_insight_enabled=True,
-            proactive_insight_min_idle_seconds=1800,
-            proactive_insight_cooldown_seconds=3600,
-            proactive_insight_min_confidence=0.55,
+            proactive_insight_min_idle_seconds=5 * 60,
+            proactive_insight_cooldown_seconds=15 * 60,
+            proactive_insight_min_confidence=0.48,
             user_insight_use_llm=False,
         )
         yield ProactivityEngine(db, s, Persona()), db, s
@@ -50,9 +53,26 @@ def test_idle_trigger(engine):
     eng, db, s = engine
     _seed_history(db)
     now = time.time()
-    db.save_user_meta(UserMeta("u1", last_interaction_at=now - 10 * 3600, last_sentiment=0.1))
+    db.save_user_meta(UserMeta("u1", last_interaction_at=now - s.proactive_idle_seconds - 60, last_sentiment=0.1))
     r = eng.check("u1", now=now)
     assert r.should_reach_out and r.trigger == "idle"
+    assert r.message
+
+
+def test_warm_trigger(engine):
+    eng, db, s = engine
+    _seed_history(db)
+    now = time.time()
+    db.save_user_meta(
+        UserMeta(
+            "u1",
+            last_interaction_at=now - 10 * 60,
+            last_sentiment=0.1,
+            interaction_count=3,
+        )
+    )
+    r = eng.check("u1", now=now)
+    assert r.should_reach_out and r.trigger == "warm"
     assert r.message
 
 
@@ -65,10 +85,10 @@ def test_no_trigger_when_recent(engine):
 
 
 def test_emotion_trigger(engine):
-    eng, db, _ = engine
+    eng, db, s = engine
     _seed_history(db)
     now = time.time()
-    db.save_user_meta(UserMeta("u1", last_interaction_at=now - 3600, last_sentiment=-0.6))
+    db.save_user_meta(UserMeta("u1", last_interaction_at=now - s.proactive_emotion_min_idle_seconds - 60, last_sentiment=-0.6))
     r = eng.check("u1", now=now)
     assert r.should_reach_out and r.trigger == "emotion"
 
@@ -97,7 +117,7 @@ def test_insight_trigger_comfort(engine):
 
 
 def test_insight_respects_cooldown(engine):
-    eng, db, _ = engine
+    eng, db, s = engine
     _seed_history(db)
     now = time.time()
     db.add_message(
@@ -116,6 +136,22 @@ def test_insight_respects_cooldown(engine):
     assert not r.should_reach_out or r.trigger != "insight"
 
 
+def test_global_cooldown_blocks_warm(engine):
+    eng, db, s = engine
+    _seed_history(db)
+    now = time.time()
+    db.save_user_meta(
+        UserMeta(
+            "u1",
+            last_interaction_at=now - 10 * 60,
+            last_sentiment=0.1,
+            interaction_count=3,
+            last_proactive_at=now - 120,
+        )
+    )
+    assert not eng.check("u1", now=now).should_reach_out
+
+
 def test_insight_skipped_when_idle_too_short(engine):
     eng, db, s = engine
     _seed_history(db)
@@ -124,17 +160,17 @@ def test_insight_skipped_when_idle_too_short(engine):
         Message(session_id="sess-u1", role="user", content="好烦", created_at=now - 100)
     )
     db.save_user_meta(
-        UserMeta("u1", last_interaction_at=now - 900, last_sentiment=-0.5, sentiment_ema=-0.4)
+        UserMeta("u1", last_interaction_at=now - 200, last_sentiment=-0.5, sentiment_ema=-0.4)
     )
     r = eng.check("u1", now=now)
     assert not r.should_reach_out or r.trigger != "insight"
 
 
 def test_event_trigger_has_priority(engine):
-    eng, db, _ = engine
+    eng, db, s = engine
     _seed_history(db)
     now = time.time()
-    db.save_user_meta(UserMeta("u1", last_interaction_at=now - 10 * 3600, last_sentiment=-0.9))
+    db.save_user_meta(UserMeta("u1", last_interaction_at=now - s.proactive_idle_seconds - 60, last_sentiment=-0.9))
     from app.domain import Event
     db.add_event(Event(user_id="u1", kind="interview", label="明天面试",
                         trigger_at=now, created_at=now))
