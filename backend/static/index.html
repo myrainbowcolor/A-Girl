@@ -636,9 +636,13 @@
         ttsProviderName = health.tts || "mock";
         const hint = document.getElementById("voiceHint");
         if (hint) {
-          hint.textContent = ttsProviderName === "mock"
-            ? "当前使用浏览器内置语音朗读（mock 模式无真实音频）"
-            : "使用云端 TTS：" + ttsProviderName;
+          if (ttsProviderName.startsWith("edge:")) {
+            hint.textContent = "免费 Edge 神经语音 · " + ttsProviderName.replace("edge:", "");
+          } else if (ttsProviderName === "mock") {
+            hint.textContent = "当前使用浏览器内置语音朗读（mock 模式无真实音频）";
+          } else {
+            hint.textContent = "使用 TTS：" + ttsProviderName;
+          }
         }
         await loadPersona();
         const r = await fetch("/api/consent/" + encodeURIComponent(userId), { cache: "no-store" });

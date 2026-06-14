@@ -25,13 +25,15 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 256
 
-    # 语音 provider：mock | openai_compatible（base_url 可指向自托管语音服务）
-    tts_provider: str = "mock"
+    # 语音 provider：mock | edge（免费） | openai_compatible
+    tts_provider: str = "edge"
     stt_provider: str = "mock"
     voice_base_url: str = "https://api.openai.com/v1"
     voice_api_key: str = ""
     tts_model: str = "tts-1"
     tts_voice: str = "alloy"
+    # Edge TTS 免费中文音色（晓晓=温柔女声，晓伊=活泼女声）
+    edge_tts_voice: str = "zh-CN-XiaoxiaoNeural"
     stt_model: str = "whisper-1"
     # 是否在 /api/chat 响应中内联 TTS 音频（嵌入游戏时可关以省带宽，改用 /api/tts 按需取）
     chat_include_tts: bool = False
