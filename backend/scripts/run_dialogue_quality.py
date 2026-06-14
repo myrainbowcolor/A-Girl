@@ -40,6 +40,8 @@ def main() -> int:
     parser.add_argument("--emotion", help="按情绪维度筛选（子串匹配）")
     parser.add_argument("--duration", help="按对话时长筛选（子串匹配）")
     parser.add_argument("--scene", help="按场景维度筛选（子串匹配）")
+    parser.add_argument("--background", help="按用户背景筛选（子串匹配）")
+    parser.add_argument("--mindset", help="按心态筛选（子串匹配）")
     args = parser.parse_args()
 
     scenarios = filter_scenarios(
@@ -47,6 +49,8 @@ def main() -> int:
         emotion=args.emotion,
         duration=args.duration,
         scene=args.scene,
+        background=args.background,
+        mindset=args.mindset,
     )
     if args.scenario_ids:
         wanted = set(args.scenario_ids)

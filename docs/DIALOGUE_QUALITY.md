@@ -22,7 +22,7 @@
 `DialogueEvaluator` 自动检查包括但不限于：
 
 - **critical**：空回复、机械/客服腔、PAD 数值泄露、危机未给热线、应拦截未拦截
-- **major**：负面情绪缺共情、陌生关系过度亲昵、表情与情绪不符、记忆未召回、**连续重复回复**、**机械复述用户原话**、**忽略用户直接提问**
+- **major**：负面情绪缺共情、陌生关系过度亲昵、表情与情绪不符、记忆未召回、**连续重复回复**、**机械复述用户原话**、**忽略用户直接提问**、**记忆格式泄露（如 ta 说：）**
 - **minor**：回复过长、积极情绪偏冷淡、**多轮问卷式追问**
 
 规则 ID 会写入报告，便于对应修改 `persona.py`、`mock.py`、编排逻辑或真实 LLM 提示词。
@@ -44,6 +44,7 @@ python scripts/run_dialogue_quality.py --scenario memory_pet_name
 # 按维度筛选（子串匹配）
 python scripts/run_dialogue_quality.py --relationship 朋友 --emotion 焦虑
 python scripts/run_dialogue_quality.py --duration 6轮 --scene 深夜
+python scripts/run_dialogue_quality.py --background 大学生 --mindset 害羞
 
 # pytest（默认无 critical 即通过，并写入报告）
 python -m pytest tests/test_dialogue_quality.py -v

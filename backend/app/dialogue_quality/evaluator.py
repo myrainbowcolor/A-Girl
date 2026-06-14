@@ -59,6 +59,13 @@ _ROBOTIC_PATTERNS = [
     r"亲密度\s*\d+\s*/\s*100",
 ]
 
+# 内部存储格式泄露到用户可见回复（不像真人说话）
+_MEMORY_FORMAT_LEAK = [
+    r"ta\s*说[：:]",
+    r"【关于\s*ta",
+    r"用户消息[：:]",
+]
+
 # 说教腔
 _PREACHY_PATTERNS = [
     r"你应该",
@@ -113,6 +120,17 @@ class DialogueEvaluator:
             if re.search(pat, reply, re.I):
                 issues.append(
                     QualityIssue("robotic_tone", "critical", f"出现机械话术：{pat}", idx)
+                )
+
+        for pat in _MEMORY_FORMAT_LEAK:
+            if re.search(pat, reply, re.I):
+                issues.append(
+                    QualityIssue(
+                        "memory_format_leak",
+                        "major",
+                        f"回复泄露记忆存储格式，不像真人：{pat}",
+                        idx,
+                    )
                 )
 
         for pat in _PREACHY_PATTERNS:

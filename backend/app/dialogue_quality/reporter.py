@@ -29,6 +29,7 @@ RULE_FIX_HINTS: dict[str, str] = {
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
+    "memory_format_leak": "记忆引用时去掉「ta 说：」等内部格式，改为口语复述（mock.py / persona / LLM 提示）",
 }
 
 

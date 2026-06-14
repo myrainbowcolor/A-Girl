@@ -492,6 +492,113 @@ def all_scenarios() -> list[DialogueScenario]:
             ],
             initial_affinity=41.0,
         ),
+        # --- 补充：背景 / 心态 / 时长变体 ---
+        DialogueScenario(
+            id="pet_loss_grief",
+            name="宠物离世悲伤",
+            scene="得知消息后深夜",
+            background="独居养宠人",
+            mindset="悲痛、无法接受",
+            emotion="悲伤",
+            relationship="朋友",
+            duration="3轮",
+            description="宠物去世需要温柔陪伴，不宜轻描淡写或急着劝「再养一只」。",
+            turns=[
+                TurnSpec("我的猫走了，今天离开的", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("家里突然安静了，好难受", expect_empathy=True),
+                TurnSpec("我是不是太矫情了", expect_empathy=True),
+            ],
+            initial_affinity=52.0,
+        ),
+        DialogueScenario(
+            id="elder_empty_nest",
+            name="空巢老人孤独",
+            scene="子女节后返程",
+            background="退休老人",
+            mindset="失落、怕打扰孩子",
+            emotion="落寞",
+            relationship="熟悉",
+            duration="2轮",
+            description="老人孤独感应被看见，语气尊重、耐心，不说教。",
+            turns=[
+                TurnSpec("孩子们都走了，家里又只剩我一个", expect_empathy=True),
+                TurnSpec("想打电话又怕打扰他们工作", expect_empathy=True, expect_comfort_avatar=True),
+            ],
+            initial_affinity=27.0,
+        ),
+        DialogueScenario(
+            id="rejection_awkward",
+            name="表白被拒后尴尬",
+            scene="被拒绝当晚",
+            background="大学生",
+            mindset="尴尬、自尊受挫",
+            emotion="委屈尴尬",
+            relationship="朋友",
+            duration="2轮",
+            description="被拒后的羞耻感需要被接住，不宜开玩笑或急着分析对错。",
+            turns=[
+                TurnSpec("今天表白被拒绝了，好丢人", expect_empathy=True),
+                TurnSpec("以后见到他都不知道怎么面对", expect_empathy=True),
+            ],
+            initial_affinity=43.0,
+        ),
+        DialogueScenario(
+            id="burnout_quiet",
+            name="职业倦怠沉默",
+            scene="连续加班一个月后",
+            background="设计师",
+            mindset="麻木、不想解释",
+            emotion="低落麻木",
+            relationship="熟悉",
+            duration="4轮",
+            description="倦怠用户话少时，应耐心陪伴而非连续追问。",
+            turns=[
+                TurnSpec("最近什么都不想做", expect_empathy=True),
+                TurnSpec("嗯"),
+                TurnSpec("就是累，说不太清"),
+                TurnSpec("算了"),
+            ],
+            initial_affinity=33.0,
+        ),
+        DialogueScenario(
+            id="extended_session_8",
+            name="八轮深度闲聊",
+            scene="周末午后长聊",
+            background="慢热型用户",
+            mindset="逐渐打开心扉",
+            emotion="中性→轻松",
+            relationship="陌生→朋友",
+            duration="8轮",
+            description="长对话中回复不应高度重复，亲密度应随正向互动上升。",
+            turns=[
+                TurnSpec("嗨，随便聊聊", forbid_intimate_tone=True),
+                TurnSpec("你喜欢什么类型的音乐"),
+                TurnSpec("我最近常听民谣"),
+                TurnSpec("有一首歌听了好多遍"),
+                TurnSpec("歌词挺戳人的"),
+                TurnSpec("和你聊感觉挺放松"),
+                TurnSpec("平时不太跟别人说这些"),
+                TurnSpec("谢谢你在听", expect_warmth=True),
+            ],
+            initial_affinity=8.0,
+            expectation=ScenarioExpectation(min_affinity_delta=4.0),
+        ),
+        DialogueScenario(
+            id="shy_first_share",
+            name="害羞首次敞开心扉",
+            scene="鼓起勇气第一次说心事",
+            background="高中生",
+            mindset="害羞、怕被拒绝",
+            emotion="紧张",
+            relationship="熟悉",
+            duration="2轮",
+            description="用户害羞试探时，应温和鼓励而非催促。",
+            turns=[
+                TurnSpec("有件事不知道能不能跟你说…", expect_empathy=True),
+                TurnSpec("我好像喜欢上了一个不太敢靠近的人", expect_empathy=True),
+            ],
+            initial_affinity=20.0,
+        ),
     ]
 
 
@@ -521,6 +628,8 @@ def filter_scenarios(
     emotion: str | None = None,
     duration: str | None = None,
     scene: str | None = None,
+    background: str | None = None,
+    mindset: str | None = None,
 ) -> list[DialogueScenario]:
     """按维度筛选场景（子串匹配）。"""
     out = all_scenarios()
@@ -532,4 +641,8 @@ def filter_scenarios(
         out = [s for s in out if duration in s.duration]
     if scene:
         out = [s for s in out if scene in s.scene]
+    if background:
+        out = [s for s in out if background in s.background]
+    if mindset:
+        out = [s for s in out if mindset in s.mindset]
     return out

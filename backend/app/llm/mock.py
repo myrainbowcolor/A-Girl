@@ -371,10 +371,11 @@ def _scene_reply(
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")
         sad_mem = next((m for m in reversed(memories) if any(w in m for w in sad_kw)), None)
         if sad_mem:
-            hint = sad_mem[:24] + ("…" if len(sad_mem) > 24 else "")
+            hint = sad_mem.replace("ta 说：", "").strip()
+            hint = hint[:24] + ("…" if len(hint) > 24 else "")
             return (
                 f"{dear}{mood}听起来你最近挺不容易的……"
-                f"我记得你提过{hint}，现在是不是又因为这件事难受了？"
+                f"我记得你提过「{hint}」，现在是不是又因为这件事难受了？"
                 f"慢慢说，我在这儿听着呢。"
             )
         return (
@@ -396,7 +397,7 @@ def _scene_reply(
     # 记忆相关
     if any(w in text for w in ("记得", "还记得", "有没有忘")):
         if memories:
-            mem = memories[0]
+            mem = memories[0].replace("ta 说：", "").strip()
             return f"{dear}{mood}当然记得呀，{mem}——你说的时候我都记在心里了。"
         return f"{mood}嗯……你跟我说过的事我都想好好记住，你再提醒我一下好不好？"
 

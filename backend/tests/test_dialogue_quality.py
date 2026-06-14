@@ -58,3 +58,27 @@ def test_dialogue_quality_summary(dialogue_results):
     """整体平均分应维持在可接受区间（mock LLM 基线）。"""
     avg = sum(r.score for r in dialogue_results) / len(dialogue_results)
     assert avg >= 70.0, f"整体平均分过低：{avg:.1f}"
+
+
+def test_memory_format_leak_detection():
+    """记忆存储格式不应出现在用户可见回复中。"""
+    from app.avatar import AvatarCue
+    from app.dialogue_quality.evaluator import DialogueEvaluator, TurnContext
+    from app.domain import EmotionState, Relationship
+    from app.orchestrator import ChatResult
+
+    ev = DialogueEvaluator()
+    rel = Relationship(affinity=40)
+    rel.recompute_stage()
+    result = ChatResult(
+        reply="当然记得呀，ta 说：我养了一只猫",
+        emotion=EmotionState(),
+        relationship=rel,
+        avatar=AvatarCue(expression="平静", intensity=0.5, animation="idle"),
+        retrieved_memories=[],
+        is_crisis=False,
+        llm="mock",
+    )
+    ctx = TurnContext(turn_index=0, user_text="你还记得吗", result=result)
+    issues = ev.evaluate_turn(ctx)
+    assert any(i.rule_id == "memory_format_leak" for i in issues)
