@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     proactive_insight_cooldown_seconds: int = 3600     # 洞察主动消息冷却 1 小时
     proactive_insight_min_confidence: float = 0.55
     user_insight_use_llm: bool = False                 # 对话路径用规则分析，避免额外 LLM
+    user_insight_history_limit: int = 40             # 洞察分析拉取的用户消息条数
+    user_insight_llm_every_n: int = 2                  # 启用 LLM 时每 N 次洞察做一次深描
+    user_insight_min_messages: int = 2                 # 至少 N 条用户消息才输出深度画像
 
     # 流式对话：done 事件前是否推迟反思/关系归纳等重型 LLM 任务到后台
     chat_defer_heavy_post: bool = True

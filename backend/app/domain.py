@@ -119,7 +119,11 @@ class UserMeta:
     user_behavior: str = ""           # 行为模式分析
     user_intent: str = ""             # 当前意图
     user_state: str = ""              # 当前状态
+    user_speaking_style: str = ""     # 说话方式（跨轮累积）
+    user_thought_pattern: str = ""    # 思想/思维倾向
+    user_profile_summary: str = ""    # 综合用户画像
     proactive_topic: str = ""         # 建议主动跟进话题
+    insight_turn_count: int = 0       # 洞察更新次数（LLM 深描节奏）
     last_insight_at: float = 0.0
     last_proactive_at: float = 0.0    # 上次主动消息时间（冷却）
 

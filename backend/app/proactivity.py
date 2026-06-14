@@ -162,7 +162,7 @@ class ProactivityEngine:
                 return None
 
         session_id = f"sess-{user_id}"
-        history = self._db.recent_messages(session_id, self._s.recent_messages_window)
+        history = self._db.recent_messages(session_id, self._s.user_insight_history_limit)
         user_lines = [m.content for m in history if m.role == "user"]
         if not user_lines:
             return None

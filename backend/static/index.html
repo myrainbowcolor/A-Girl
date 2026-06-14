@@ -198,7 +198,15 @@
       </div>
       <h3 style="margin-top:24px;">用户洞察</h3>
       <div id="userInsightHint" style="font-size:11px;color:#9a8aa6;margin-bottom:8px;line-height:1.4;">
-        聊过几轮后会在这里显示对你行为、意图和状态的归纳
+        多聊几轮后会归纳你的说话方式、思维倾向与行为模式
+      </div>
+      <div class="stat">
+        <div class="k">说话方式</div>
+        <div class="v" id="userSpeakingStyle" style="font-size:13px;font-weight:400;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">思想倾向</div>
+        <div class="v" id="userThoughtPattern" style="font-size:13px;font-weight:400;">—</div>
       </div>
       <div class="stat">
         <div class="k">行为模式</div>
@@ -211,6 +219,10 @@
       <div class="stat">
         <div class="k">当前状态</div>
         <div class="v" id="userState" style="font-size:13px;font-weight:400;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">综合画像</div>
+        <div class="v" id="userProfileSummary" style="font-size:12px;font-weight:400;line-height:1.5;color:#5a4d66;">—</div>
       </div>
       <div class="stat">
         <div class="k">建议跟进</div>
@@ -842,20 +854,31 @@
     }
 
     function updateUserInsight(insight) {
+      const ss = document.getElementById("userSpeakingStyle");
+      const tp = document.getElementById("userThoughtPattern");
       const b = document.getElementById("userBehavior");
       const i = document.getElementById("userIntent");
       const s = document.getElementById("userState");
+      const p = document.getElementById("userProfileSummary");
       const t = document.getElementById("proactiveTopic");
       const hint = document.getElementById("userInsightHint");
-      if (!insight || (!insight.behavior && !insight.intent && !insight.state)) {
+      const empty = !insight || (
+        !insight.behavior && !insight.intent && !insight.state
+        && !insight.speaking_style && !insight.thought_pattern
+      );
+      if (empty) {
         if (hint) hint.style.display = "";
-        b.textContent = i.textContent = s.textContent = t.textContent = "—";
+        ss.textContent = tp.textContent = b.textContent = i.textContent = s.textContent = "—";
+        p.textContent = t.textContent = "—";
         return;
       }
       if (hint) hint.style.display = "none";
+      ss.textContent = insight.speaking_style || "—";
+      tp.textContent = insight.thought_pattern || "—";
       b.textContent = insight.behavior || "—";
       i.textContent = insight.intent || "—";
       s.textContent = insight.state || "—";
+      p.textContent = insight.profile_summary || "（继续聊几轮后会生成综合画像）";
       t.textContent = insight.proactive_topic || "（暂无特定话题）";
     }
 

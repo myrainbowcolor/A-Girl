@@ -108,6 +108,10 @@ class Database:
             ("proactive_topic", "TEXT DEFAULT ''"),
             ("last_insight_at", "REAL DEFAULT 0"),
             ("last_proactive_at", "REAL DEFAULT 0"),
+            ("user_speaking_style", "TEXT DEFAULT ''"),
+            ("user_thought_pattern", "TEXT DEFAULT ''"),
+            ("user_profile_summary", "TEXT DEFAULT ''"),
+            ("insight_turn_count", "INTEGER DEFAULT 0"),
         ):
             if name not in cols:
                 self._conn.execute(f"ALTER TABLE user_meta ADD COLUMN {name} {typedef}")
@@ -249,6 +253,10 @@ class Database:
             proactive_topic=r["proactive_topic"] if "proactive_topic" in keys else "",
             last_insight_at=r["last_insight_at"] if "last_insight_at" in keys else 0.0,
             last_proactive_at=r["last_proactive_at"] if "last_proactive_at" in keys else 0.0,
+            user_speaking_style=r["user_speaking_style"] if "user_speaking_style" in keys else "",
+            user_thought_pattern=r["user_thought_pattern"] if "user_thought_pattern" in keys else "",
+            user_profile_summary=r["user_profile_summary"] if "user_profile_summary" in keys else "",
+            insight_turn_count=r["insight_turn_count"] if "insight_turn_count" in keys else 0,
         )
 
     def save_user_meta(self, meta: UserMeta) -> None:
@@ -258,8 +266,9 @@ class Database:
                 "user_id, last_interaction_at, last_sentiment, sentiment_ema,"
                 " interaction_count, relationship_summary, relationship_health,"
                 " user_behavior, user_intent, user_state, proactive_topic,"
-                " last_insight_at, last_proactive_at"
-                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
+                " user_speaking_style, user_thought_pattern, user_profile_summary,"
+                " insight_turn_count, last_insight_at, last_proactive_at"
+                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
                 " last_interaction_at=excluded.last_interaction_at,"
                 " last_sentiment=excluded.last_sentiment,"
                 " sentiment_ema=excluded.sentiment_ema,"
@@ -270,6 +279,10 @@ class Database:
                 " user_intent=excluded.user_intent,"
                 " user_state=excluded.user_state,"
                 " proactive_topic=excluded.proactive_topic,"
+                " user_speaking_style=excluded.user_speaking_style,"
+                " user_thought_pattern=excluded.user_thought_pattern,"
+                " user_profile_summary=excluded.user_profile_summary,"
+                " insight_turn_count=excluded.insight_turn_count,"
                 " last_insight_at=excluded.last_insight_at,"
                 " last_proactive_at=excluded.last_proactive_at",
                 (
@@ -284,6 +297,10 @@ class Database:
                     meta.user_intent,
                     meta.user_state,
                     meta.proactive_topic,
+                    meta.user_speaking_style,
+                    meta.user_thought_pattern,
+                    meta.user_profile_summary,
+                    meta.insight_turn_count,
                     meta.last_insight_at,
                     meta.last_proactive_at,
                 ),

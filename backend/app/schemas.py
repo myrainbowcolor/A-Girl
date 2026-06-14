@@ -99,6 +99,9 @@ class UserInsightOut(BaseModel):
     behavior: str = ""
     intent: str = ""
     state: str = ""
+    speaking_style: str = ""
+    thought_pattern: str = ""
+    profile_summary: str = ""
     proactive_topic: str = ""
     proactive_need: str = "none"
     confidence: float = 0.0

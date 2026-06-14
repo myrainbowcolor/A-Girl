@@ -91,24 +91,32 @@ class Orchestrator:
         emotion: EmotionState,
         relationship: Relationship,
     ) -> UserMeta:
-        """每轮对话后更新用户行为/意图/状态分析，返回更新后的 meta。"""
-        history = self._db.recent_messages(session_id, self._s.recent_messages_window)
+        """每轮对话后更新用户行为/意图/状态/说话方式/思想模式，返回更新后的 meta。"""
+        history = self._db.recent_messages(session_id, self._s.user_insight_history_limit)
         user_lines = [m.content for m in history if m.role == "user"]
+        next_turn = meta.insight_turn_count + 1
+        use_llm = self._s.user_insight_use_llm
+        if use_llm and self._s.user_insight_llm_every_n > 0:
+            use_llm = next_turn % self._s.user_insight_llm_every_n == 0
         analysis = analyze_user(
             user_lines,
             meta,
             emotion,
             relationship,
-            llm=self._llm if self._s.user_insight_use_llm else None,
+            llm=self._llm if use_llm else None,
             persona=self._persona,
-            use_llm=self._s.user_insight_use_llm,
+            use_llm=use_llm,
         )
         updated = replace(
             meta,
             user_behavior=analysis.behavior,
             user_intent=analysis.intent,
             user_state=analysis.state,
+            user_speaking_style=analysis.speaking_style,
+            user_thought_pattern=analysis.thought_pattern,
+            user_profile_summary=analysis.profile_summary,
             proactive_topic=analysis.topic_hint,
+            insight_turn_count=next_turn,
             last_insight_at=time.time(),
         )
         self._db.save_user_meta(updated)
@@ -592,6 +600,9 @@ class Orchestrator:
                 user_behavior=result.insight.behavior,
                 user_intent=result.insight.intent,
                 user_state=result.insight.state,
+                user_speaking_style=result.insight.speaking_style,
+                user_thought_pattern=result.insight.thought_pattern,
+                user_profile_summary=result.insight.profile_summary,
                 proactive_topic=result.insight.topic_hint,
             )
         self._db.save_user_meta(updated)
