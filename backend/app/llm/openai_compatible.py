@@ -12,6 +12,12 @@ import httpx
 from .base import LLMProvider
 
 
+def _http_timeout(seconds: float) -> httpx.Timeout:
+    """流式 LLM：连接限时，读响应放宽（等待首 token / 长生成）。"""
+    read = max(60.0, seconds)
+    return httpx.Timeout(connect=15.0, read=read, write=30.0, pool=15.0)
+
+
 class OpenAICompatibleLLMProvider(LLMProvider):
     def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 120.0) -> None:
         self._base_url = base_url.rstrip("/")
@@ -35,7 +41,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
         }
 
     def generate(self, system_prompt: str, messages: list[dict], temperature: float = 0.8) -> str:
-        with httpx.Client(timeout=self._timeout) as client:
+        with httpx.Client(timeout=_http_timeout(self._timeout)) as client:
             resp = client.post(
                 f"{self._base_url}/chat/completions",
                 json=self._payload(system_prompt, messages, temperature, stream=False),
@@ -49,7 +55,7 @@ class OpenAICompatibleLLMProvider(LLMProvider):
         self, system_prompt: str, messages: list[dict], temperature: float = 0.8
     ) -> Iterator[str]:
         pieces: list[str] = []
-        with httpx.Client(timeout=self._timeout) as client:
+        with httpx.Client(timeout=_http_timeout(self._timeout)) as client:
             with client.stream(
                 "POST",
                 f"{self._base_url}/chat/completions",

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
-    llm_timeout_seconds: float = 30.0
+    llm_timeout_seconds: float = 180.0   # 本地 Llama 首 token 可能较慢
 
     # Embedding provider：hash | openai_compatible
     embedding_provider: str = "hash"

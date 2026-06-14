@@ -157,7 +157,13 @@ def chat_stream(req: ChatRequest) -> StreamingResponse:
             for item in _orchestrator.chat_stream(req.user_id, session_id, req.message):
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         except Exception as exc:
-            err = {"type": "error", "message": str(exc)}
+            msg = str(exc).strip() or "unknown"
+            low = msg.lower()
+            if "timeout" in low or "timed out" in low:
+                msg = "LLM 响应超时（本地模型可能仍在加载），请稍后再试"
+            elif "connect" in low and "refused" in low:
+                msg = "LLM 服务未启动，请先运行 scripts/start-remote-llm.sh"
+            err = {"type": "error", "message": msg}
             yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
