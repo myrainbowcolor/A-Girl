@@ -29,6 +29,11 @@ RULE_FIX_HINTS: dict[str, str] = {
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
+    "emotional_mismatch": "mock/LLM 情绪分类需处理否定式（不开心/不高兴）；负面情绪勿走庆祝模板",
+    "insight_speaking_style": "user_insight.py analyze_speaking_style 或 orchestrator 洞察更新",
+    "insight_thought_pattern": "user_insight.py analyze_thought_pattern 跨轮归纳",
+    "insight_profile_empty": "user_insight.py build_profile_summary 达到 min_messages 后应生成画像",
+    "reply_too_long_for_brief_user": "persona/mock 对极简用户缩短回复，匹配对方节奏",
 }
 
 
@@ -147,6 +152,17 @@ class DialogueQualityReporter:
                 {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
                 for t in result.turns
             ],
+            "user_insight": (
+                {
+                    "speaking_style": result.insight.speaking_style,
+                    "thought_pattern": result.insight.thought_pattern,
+                    "profile_summary": result.insight.profile_summary,
+                    "behavior": result.insight.behavior,
+                    "intent": result.insight.intent,
+                }
+                if result.insight
+                else None
+            ),
             "developer_notes": (
                 "请对照 issues 中的 rule_id 与 fix_hint 修复对话编排、提示词或 mock/LLM 回复策略。"
                 "修复后重新运行 scripts/run_dialogue_quality.py 验证。"

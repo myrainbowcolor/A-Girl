@@ -34,6 +34,17 @@ class TurnContext:
 
 
 @dataclass
+class UserInsightSnapshot:
+    """场景结束时的用户洞察快照（供评测）。"""
+
+    speaking_style: str = ""
+    thought_pattern: str = ""
+    profile_summary: str = ""
+    behavior: str = ""
+    intent: str = ""
+
+
+@dataclass
 class ScenarioExpectation:
     """场景级期望（可选）。"""
 
@@ -44,6 +55,10 @@ class ScenarioExpectation:
     expect_safety_block: bool = False
     expect_memory_recall: bool = False
     relationship_stage: RelationshipStage | None = None
+    expect_speaking_style_substr: list[str] = field(default_factory=list)
+    expect_thought_pattern_substr: list[str] = field(default_factory=list)
+    expect_profile_nonempty: bool = False
+    max_reply_len_when_user_brief: int | None = None
 
 
 # 机械/客服腔 —— 真人很少这样说
@@ -76,7 +91,14 @@ _EMPATHY_MARKERS = (
 
 _WARM_MARKERS = ("开心", "高兴", "嘿嘿", "笑", "温暖", "真好", "棒")
 
+_CELEBRATORY_MARKERS = ("真好", "暖暖", "恭喜", "太棒了", "替你高兴", "眼睛亮", "开心我也")
+
 _INTIMATE_MARKERS = ("宝贝", "亲爱的", "想你", "抱抱", "靠着我", "过来")
+
+# 「不开心/不高兴」等否定式情绪，子串匹配「开心/高兴」会误判
+_NEGATED_POSITIVE = (
+    "不开心", "不高兴", "不太开心", "不太高兴", "不怎么开心", "开心不起来",
+)
 
 _NEGATIVE_USER_WORDS = (
     "烦", "累", "难过", "伤心", "生气", "委屈", "焦虑", "崩溃", "孤独",
@@ -148,6 +170,16 @@ class DialogueEvaluator:
                     )
                 )
 
+        if self._user_is_negative(ctx.user_text) and self._reply_celebrates(reply):
+            issues.append(
+                QualityIssue(
+                    "emotional_mismatch",
+                    "critical",
+                    "用户情绪低落/负面，但回复像在庆祝或同频开心",
+                    idx,
+                )
+            )
+
         if forbid_intimate_tone:
             hits = [m for m in _INTIMATE_MARKERS if m in reply]
             if hits:
@@ -214,11 +246,52 @@ class DialogueEvaluator:
 
         return issues
 
+    def evaluate_insight(
+        self,
+        insight: UserInsightSnapshot,
+        expectation: ScenarioExpectation | None = None,
+    ) -> list[QualityIssue]:
+        """校验多轮后的用户洞察是否形成（PR #31 用户画像能力）。"""
+        issues: list[QualityIssue] = []
+        exp = expectation or ScenarioExpectation()
+
+        for substr in exp.expect_speaking_style_substr:
+            if substr not in insight.speaking_style:
+                issues.append(
+                    QualityIssue(
+                        "insight_speaking_style",
+                        "major",
+                        f"说话方式洞察应含「{substr}」，实际：{insight.speaking_style or '空'}",
+                    )
+                )
+
+        for substr in exp.expect_thought_pattern_substr:
+            if substr not in insight.thought_pattern:
+                issues.append(
+                    QualityIssue(
+                        "insight_thought_pattern",
+                        "major",
+                        f"思想模式洞察应含「{substr}」，实际：{insight.thought_pattern or '空'}",
+                    )
+                )
+
+        if exp.expect_profile_nonempty and not (insight.profile_summary or "").strip():
+            issues.append(
+                QualityIssue(
+                    "insight_profile_empty",
+                    "major",
+                    "多轮互动后应生成综合用户画像，但 profile_summary 为空",
+                )
+            )
+
+        return issues
+
     def evaluate_session(
         self,
         turns: list[TurnContext],
         expectation: ScenarioExpectation | None = None,
         initial_affinity: float = 5.0,
+        insight: UserInsightSnapshot | None = None,
     ) -> list[QualityIssue]:
         issues: list[QualityIssue] = []
         if not turns:
@@ -286,6 +359,23 @@ class DialogueEvaluator:
                         f"多轮后仍未回忆到：{missing}",
                     )
                 )
+
+        if exp.max_reply_len_when_user_brief is not None:
+            brief_turns = [t for t in turns if len(t.user_text.strip()) <= 4]
+            for t in brief_turns:
+                reply_len = len(t.result.reply or "")
+                if reply_len > exp.max_reply_len_when_user_brief:
+                    issues.append(
+                        QualityIssue(
+                            "reply_too_long_for_brief_user",
+                            "minor",
+                            f"用户极简（{len(t.user_text.strip())}字）但回复 {reply_len} 字，节奏不匹配",
+                            t.turn_index,
+                        )
+                    )
+
+        if insight is not None:
+            issues.extend(self.evaluate_insight(insight, exp))
 
         return issues
 
@@ -401,11 +491,19 @@ class DialogueEvaluator:
 
     @staticmethod
     def _user_is_negative(text: str) -> bool:
+        if any(w in text for w in _NEGATED_POSITIVE):
+            return True
         return any(w in text for w in _NEGATIVE_USER_WORDS)
 
     @staticmethod
     def _user_is_positive(text: str) -> bool:
+        if any(w in text for w in _NEGATED_POSITIVE):
+            return False
         return any(w in text for w in _POSITIVE_USER_WORDS)
+
+    @staticmethod
+    def _reply_celebrates(reply: str) -> bool:
+        return any(m in reply for m in _CELEBRATORY_MARKERS)
 
     @staticmethod
     def score(issues: list[QualityIssue]) -> float:

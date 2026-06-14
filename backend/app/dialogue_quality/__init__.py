@@ -1,5 +1,5 @@
 """对话拟真度质量评测：场景用例、启发式评分与失败记录。"""
-from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
+from .evaluator import DialogueEvaluator, QualityIssue, TurnContext, UserInsightSnapshot
 from .reporter import DialogueQualityReporter
 from .runner import DialogueQualityRunner, ScenarioResult
 from .scenarios import DialogueScenario, all_scenarios, filter_scenarios, scenarios_by_dimension

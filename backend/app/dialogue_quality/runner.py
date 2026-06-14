@@ -12,7 +12,7 @@ from ..emotion import EmotionEngine
 from ..llm import LLMProvider, MockLLMProvider
 from ..memory import HashEmbeddingProvider, MemoryStore
 from ..orchestrator import Orchestrator
-from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
+from .evaluator import DialogueEvaluator, QualityIssue, TurnContext, UserInsightSnapshot
 from .scenarios import DialogueScenario
 
 
@@ -36,6 +36,7 @@ class ScenarioResult:
     score: float
     issues: list[QualityIssue] = field(default_factory=list)
     turns: list[TurnRecord] = field(default_factory=list)
+    insight: UserInsightSnapshot | None = None
 
     @property
     def critical_issues(self) -> list[QualityIssue]:
@@ -120,6 +121,7 @@ class DialogueQualityRunner:
                     turn_contexts,
                     scenario.expectation,
                     initial_affinity=scenario.initial_affinity,
+                    insight=self._load_insight(db, user_id),
                 )
             )
 
@@ -133,6 +135,7 @@ class DialogueQualityRunner:
 
             score = self._evaluator.score(unique_issues)
             passed = not any(i.severity == "critical" for i in unique_issues)
+            insight_snap = self._load_insight(db, user_id)
 
             db.close()
             return ScenarioResult(
@@ -141,7 +144,21 @@ class DialogueQualityRunner:
                 score=score,
                 issues=unique_issues,
                 turns=turn_records,
+                insight=insight_snap,
             )
+
+    @staticmethod
+    def _load_insight(db: Database, user_id: str) -> UserInsightSnapshot:
+        meta = db.get_user_meta(user_id)
+        if not meta:
+            return UserInsightSnapshot()
+        return UserInsightSnapshot(
+            speaking_style=meta.user_speaking_style or "",
+            thought_pattern=meta.user_thought_pattern or "",
+            profile_summary=meta.user_profile_summary or "",
+            behavior=meta.user_behavior or "",
+            intent=meta.user_intent or "",
+        )
 
     def run_all(self, scenarios: list[DialogueScenario]) -> list[ScenarioResult]:
         return [self.run_scenario(s) for s in scenarios]
