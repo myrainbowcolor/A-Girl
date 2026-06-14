@@ -60,6 +60,9 @@ def _run_async(coro):
         return pool.submit(asyncio.run, coro).result()
 
 
+from .tts_text import strip_for_tts
+
+
 class EdgeTTSProvider(TTSProvider):
     def __init__(self, voice: str = DEFAULT_VOICE) -> None:
         self._voice = voice
@@ -71,6 +74,7 @@ class EdgeTTSProvider(TTSProvider):
     def synthesize(
         self, text: str, voice: str | None = None, style: VoiceStyle | None = None
     ) -> TTSResult:
+        text = strip_for_tts(text) or "嗯"
         style = style or VoiceStyle()
         v = voice or self._voice
         rate = _rate_str(style.rate)

@@ -667,10 +667,24 @@
       lipsyncRAF = requestAnimationFrame(step);
     }
 
+    function stripForTts(text) {
+      if (!text) return text;
+      let t = text;
+      // emoji
+      t = t.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "");
+      // 括号颜文字
+      t = t.replace(/[\(（][^)）\n]{0,48}[´`^~\-_=oO0ωWaApPДツノヽゝゞ・.｡･∀；；へ：][^)）\n]{0,48}[\)）]/g, "");
+      // ASCII 表情
+      t = t.replace(/(?<!\w)(?:\^[_\-]?[\^oO]|\(T[_\-]?T\)|>_<|\(\/?\_\/\)|[:;=8]-?[DPp3oO\)\]\\|/]|xD+|XD+)(?!\w)/gi, "");
+      t = t.replace(/[ \t]+/g, " ").trim();
+      return t || text.trim();
+    }
+
     async function fetchTtsData(text) {
+      const spoken = stripForTts(text);
       const r = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
+        body: JSON.stringify({ text: spoken, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
       });
       if (!r.ok) return null;
       return r.json();
@@ -685,9 +699,11 @@
     /** 台词 + 语音 + 口型统一时间轴（以音频 currentTime 为准） */
     async function playSyncedAv(bubble, text, ttsData) {
       const voiceOn = document.getElementById("voiceToggle").checked;
+      const displayText = text;
+      const spokenText = stripForTts(text);
       bubble.textContent = "";
       if (!voiceOn) {
-        bubble.textContent = text;
+        bubble.textContent = displayText;
         scrollToBottom();
         return;
       }
@@ -695,7 +711,7 @@
       stopSpeechAndLipsync();
       const session = speechSession;
       const isMock = !ttsData || !ttsData.provider || ttsData.provider === "mock";
-      const durationMs = (ttsData && ttsData.duration_ms) || estimateSpeechMs(text);
+      const durationMs = (ttsData && ttsData.duration_ms) || estimateSpeechMs(spokenText);
       const scaledVisemes = scaleVisemeTimeline(ttsData && ttsData.visemes, durationMs);
 
       if (ttsData && !isMock) {
@@ -705,7 +721,7 @@
           const cleanup = () => {
             if (syncRAF) cancelAnimationFrame(syncRAF);
             applyViseme({ open: 0, wide: 0 });
-            bubble.textContent = text;
+            bubble.textContent = displayText;
             scrollToBottom();
           };
           const syncLoop = () => {
@@ -713,7 +729,7 @@
             const d = audio.duration;
             if (d && isFinite(d) && d > 0) {
               const progress = audio.currentTime / d;
-              revealTextToProgress(bubble, text, progress);
+              revealTextToProgress(bubble, spokenText, progress);
               applyViseme(visemeAtTime(scaledVisemes, audio.currentTime * 1000));
             }
             if (!audio.paused && !audio.ended) syncRAF = requestAnimationFrame(syncLoop);
@@ -728,12 +744,12 @@
 
       // mock / 无 TTS：浏览器朗读，按估算时长同步
       if (!window.speechSynthesis) {
-        bubble.textContent = text;
+        bubble.textContent = displayText;
         scrollToBottom();
         return;
       }
       await new Promise(resolve => {
-        const u = new SpeechSynthesisUtterance(text);
+        const u = new SpeechSynthesisUtterance(spokenText);
         u.lang = "zh-CN";
         u.rate = 1.0;
         u.pitch = 1.08;
@@ -744,7 +760,7 @@
         const syncLoop = () => {
           if (session !== speechSession) return;
           const elapsed = performance.now() - t0;
-          revealTextToProgress(bubble, text, Math.min(1, elapsed / durationMs));
+          revealTextToProgress(bubble, spokenText, Math.min(1, elapsed / durationMs));
           applyViseme(visemeAtTime(scaledVisemes, elapsed));
           if (elapsed < durationMs) syncRAF = requestAnimationFrame(syncLoop);
         };
@@ -752,12 +768,12 @@
         u.onend = () => {
           if (syncRAF) cancelAnimationFrame(syncRAF);
           applyViseme({ open: 0, wide: 0 });
-          bubble.textContent = text;
+          bubble.textContent = displayText;
           scrollToBottom();
           resolve();
         };
         u.onerror = () => {
-          bubble.textContent = text;
+          bubble.textContent = displayText;
           resolve();
         };
         speechSynthesis.speak(u);
