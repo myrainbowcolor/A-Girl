@@ -41,11 +41,14 @@ export AGIRL_LLM_PROVIDER=openai_compatible
 export AGIRL_LLM_BASE_URL=https://api.openai.com/v1     # 自托管改为你的地址
 export AGIRL_LLM_API_KEY=sk-xxx
 export AGIRL_LLM_MODEL=gpt-4o-mini
-# 语音 TTS/STT
-export AGIRL_TTS_PROVIDER=openai_compatible
-export AGIRL_STT_PROVIDER=openai_compatible
-export AGIRL_VOICE_BASE_URL=https://api.openai.com/v1
-export AGIRL_VOICE_API_KEY=sk-xxx
+# 语音 TTS/STT（免费推荐 Edge TTS，无需 Key）
+export AGIRL_TTS_PROVIDER=edge
+export AGIRL_EDGE_TTS_VOICE=zh-CN-XiaoxiaoNeural   # 晓晓温柔女声；可换 zh-CN-XiaoyiNeural
+# 或使用 OpenAI 兼容付费/自托管语音：
+# export AGIRL_TTS_PROVIDER=openai_compatible
+# export AGIRL_VOICE_BASE_URL=https://api.openai.com/v1
+# export AGIRL_VOICE_API_KEY=sk-xxx
+export AGIRL_STT_PROVIDER=mock
 ```
 
 无 Key 时本地验证可用桩服务：`python -m uvicorn examples.openai_stub_server:app --port 9000`，再把上面 `*_BASE_URL` 指向 `http://127.0.0.1:9000/v1`。

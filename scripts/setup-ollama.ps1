@@ -50,7 +50,8 @@ AGIRL_LLM_PROVIDER=openai_compatible
 AGIRL_LLM_BASE_URL=http://127.0.0.1:11434/v1
 AGIRL_LLM_API_KEY=ollama
 AGIRL_LLM_MODEL=$model
-AGIRL_TTS_PROVIDER=mock
+AGIRL_TTS_PROVIDER=edge
+AGIRL_EDGE_TTS_VOICE=zh-CN-XiaoxiaoNeural
 AGIRL_STT_PROVIDER=mock
 "@
 Set-Content -Path $EnvFile -Value $content -Encoding UTF8

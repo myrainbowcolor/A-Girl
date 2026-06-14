@@ -17,6 +17,13 @@ def build_tts_provider(settings: Settings) -> TTSProvider:
             voice=settings.tts_voice,
             timeout=settings.llm_timeout_seconds,
         )
+    if settings.tts_provider == "edge":
+        try:
+            from .edge_tts import EdgeTTSProvider
+
+            return EdgeTTSProvider(voice=settings.edge_tts_voice)
+        except ImportError:
+            pass
     return MockTTSProvider()
 
 
