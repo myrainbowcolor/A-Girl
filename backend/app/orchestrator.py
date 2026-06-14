@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .avatar import AvatarCue, emotion_to_avatar
@@ -20,6 +20,7 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .user_insight import analyze_user
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
 
@@ -61,7 +62,7 @@ class Orchestrator:
         self._persona = persona or default_persona()
         self._tts = tts
         self._audit = audit
-        self._proactivity = ProactivityEngine(db, settings, self._persona)
+        self._proactivity = ProactivityEngine(db, settings, self._persona, llm=llm)
 
     @property
     def persona(self) -> Persona:
@@ -71,14 +72,43 @@ class Orchestrator:
         meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
         alpha = self._s.sentiment_ema_alpha
         new_ema = alpha * sentiment + (1 - alpha) * meta.sentiment_ema
-        updated = UserMeta(
-            user_id=user_id,
+        updated = replace(
+            meta,
             last_interaction_at=now,
             last_sentiment=sentiment,
             sentiment_ema=new_ema,
             interaction_count=meta.interaction_count + 1,
-            relationship_summary=meta.relationship_summary,
-            relationship_health=meta.relationship_health,
+        )
+        self._db.save_user_meta(updated)
+        return updated
+
+    def _update_user_insight(
+        self,
+        user_id: str,
+        session_id: str,
+        meta: UserMeta,
+        emotion: EmotionState,
+        relationship: Relationship,
+    ) -> UserMeta:
+        """每轮对话后更新用户行为/意图/状态分析，返回更新后的 meta。"""
+        history = self._db.recent_messages(session_id, self._s.recent_messages_window)
+        user_lines = [m.content for m in history if m.role == "user"]
+        analysis = analyze_user(
+            user_lines,
+            meta,
+            emotion,
+            relationship,
+            llm=self._llm if self._s.user_insight_use_llm else None,
+            persona=self._persona,
+            use_llm=self._s.user_insight_use_llm,
+        )
+        updated = replace(
+            meta,
+            user_behavior=analysis.behavior,
+            user_intent=analysis.intent,
+            user_state=analysis.state,
+            proactive_topic=analysis.topic_hint,
+            last_insight_at=time.time(),
         )
         self._db.save_user_meta(updated)
         return updated
@@ -118,12 +148,8 @@ class Orchestrator:
             health_score=insight.health_score, summary=summary, trend=insight.trend
         )
         self._db.save_user_meta(
-            UserMeta(
-                user_id=user_id,
-                last_interaction_at=meta.last_interaction_at,
-                last_sentiment=meta.last_sentiment,
-                sentiment_ema=meta.sentiment_ema,
-                interaction_count=meta.interaction_count,
+            replace(
+                meta,
                 relationship_summary=final.summary,
                 relationship_health=final.health_score,
             )
@@ -239,6 +265,7 @@ class Orchestrator:
         )
 
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
+        meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
         insight = self._refresh_relationship_insight(
             user_id, relationship, meta, sentiment_for_log, session_id
         )
@@ -352,6 +379,7 @@ class Orchestrator:
             relationship_summary=rel_summary,
         )
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
+        meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
         insight = self._refresh_relationship_insight(
             user_id, relationship, meta, sentiment_for_log, session_id
         )
@@ -489,12 +517,21 @@ class Orchestrator:
         if result.event_id is not None:
             self._db.mark_event_fired(result.event_id)
         meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
-        self._db.save_user_meta(
-            UserMeta(user_id=user_id, last_interaction_at=ts, last_sentiment=meta.last_sentiment)
-        )
+        updated = replace(meta, last_interaction_at=ts)
+        if result.trigger in ("insight", "emotion", "idle"):
+            updated = replace(updated, last_proactive_at=ts)
+        if result.insight is not None:
+            updated = replace(
+                updated,
+                user_behavior=result.insight.behavior,
+                user_intent=result.insight.intent,
+                user_state=result.insight.state,
+                proactive_topic=result.insight.topic_hint,
+            )
+        self._db.save_user_meta(updated)
 
         emotion, _ = self._load_state(user_id)
-        expr_map = {"event": False, "idle": False, "emotion": True}
+        expr_map = {"event": False, "idle": False, "emotion": True, "insight": True, "welcome": False}
         avatar = emotion_to_avatar(emotion, is_crisis=expr_map.get(result.trigger, False))
         return result, avatar
 

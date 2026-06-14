@@ -83,6 +83,13 @@ class Settings(BaseSettings):
     # 关系归纳：每 N 轮互动刷新一次 LLM 关系摘要（0=仅规则）
     relationship_summary_every_n: int = 3
 
+    # 用户洞察驱动的主动沟通
+    proactive_insight_enabled: bool = True
+    proactive_insight_min_idle_seconds: int = 1800   # 至少闲置 30 分钟再洞察触发
+    proactive_insight_cooldown_seconds: int = 3600     # 洞察主动消息冷却 1 小时
+    proactive_insight_min_confidence: float = 0.55
+    user_insight_use_llm: bool = True                  # 分析/主动话术是否调 LLM
+
 
 @lru_cache
 def get_settings() -> Settings:

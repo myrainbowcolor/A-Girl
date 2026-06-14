@@ -33,6 +33,7 @@ from .schemas import (
     SttResponse,
     TtsOut,
     TtsRequest,
+    UserInsightOut,
 )
 from .scheduler import ProactiveScheduler
 from .voice import build_stt_provider, build_tts_provider
@@ -85,6 +86,30 @@ def _tts_out(t) -> TtsOut | None:
         audio_base64=t.audio_base64, format=t.format,
         duration_ms=t.duration_ms, provider=t.provider, lipsync=t.lipsync,
         visemes=t.visemes, style=t.style,
+    )
+
+
+def _user_insight_out(meta) -> UserInsightOut | None:
+    if meta is None or not meta.user_behavior:
+        return None
+    return UserInsightOut(
+        behavior=meta.user_behavior,
+        intent=meta.user_intent,
+        state=meta.user_state,
+        proactive_topic=meta.proactive_topic,
+    )
+
+
+def _insight_from_result(insight) -> UserInsightOut | None:
+    if insight is None:
+        return None
+    return UserInsightOut(
+        behavior=insight.behavior,
+        intent=insight.intent,
+        state=insight.state,
+        proactive_topic=insight.topic_hint,
+        proactive_need=insight.proactive_need,
+        confidence=insight.confidence,
     )
 
 
@@ -181,6 +206,7 @@ def proactive(user_id: str) -> ProactiveResponse:
         emotion=_emotion_out(emotion),
         relationship=_relationship_out(relationship),
         tts=_tts_out(tts),
+        user_insight=_insight_from_result(result.insight),
     )
 
 
@@ -270,6 +296,21 @@ def get_state(user_id: str) -> StateResponse:
             health=meta.relationship_health if meta else 0.0,
             trend="stable",
         ),
+        user_insight=_user_insight_out(meta),
+    )
+
+
+@app.get("/api/insight/{user_id}", response_model=UserInsightOut)
+def get_insight(user_id: str) -> UserInsightOut:
+    """读取最近一次用户行为/意图/状态分析。"""
+    meta = _db.get_user_meta(user_id)
+    if meta is None or not meta.user_behavior:
+        return UserInsightOut()
+    return UserInsightOut(
+        behavior=meta.user_behavior,
+        intent=meta.user_intent,
+        state=meta.user_state,
+        proactive_topic=meta.proactive_topic,
     )
 
 

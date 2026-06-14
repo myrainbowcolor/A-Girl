@@ -116,6 +116,12 @@ class UserMeta:
     interaction_count: int = 0
     relationship_summary: str = ""    # LLM/规则归纳的关系描述
     relationship_health: float = 0.0  # 0~100 关系健康度
+    user_behavior: str = ""           # 行为模式分析
+    user_intent: str = ""             # 当前意图
+    user_state: str = ""              # 当前状态
+    proactive_topic: str = ""         # 建议主动跟进话题
+    last_insight_at: float = 0.0
+    last_proactive_at: float = 0.0    # 上次主动消息时间（冷却）
 
 
 @dataclass

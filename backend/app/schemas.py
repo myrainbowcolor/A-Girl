@@ -92,12 +92,23 @@ class ProactiveResponse(BaseModel):
     emotion: EmotionOut | None = None
     relationship: RelationshipOut | None = None
     tts: TtsOut | None = None
+    user_insight: "UserInsightOut | None" = None
+
+
+class UserInsightOut(BaseModel):
+    behavior: str = ""
+    intent: str = ""
+    state: str = ""
+    proactive_topic: str = ""
+    proactive_need: str = "none"
+    confidence: float = 0.0
 
 
 class StateResponse(BaseModel):
     emotion: EmotionOut
     relationship: RelationshipOut
     user_sentiment_label: str = ""
+    user_insight: UserInsightOut | None = None
 
 
 class PersonaOut(BaseModel):

@@ -196,6 +196,23 @@
         <div class="k">本轮情感</div>
         <div class="v" id="userSentiment" style="font-size:13px;">—</div>
       </div>
+      <h3 style="margin-top:24px;">用户洞察</h3>
+      <div class="stat">
+        <div class="k">行为模式</div>
+        <div class="v" id="userBehavior" style="font-size:13px;font-weight:400;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">当前意图</div>
+        <div class="v" id="userIntent" style="font-size:13px;font-weight:400;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">当前状态</div>
+        <div class="v" id="userState" style="font-size:13px;font-weight:400;">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">建议跟进</div>
+        <div class="v" id="proactiveTopic" style="font-size:12px;font-weight:400;line-height:1.5;color:#5a4d66;">—</div>
+      </div>
       <h3 style="margin-top:24px;">本轮回忆起</h3>
       <ul class="mem-list" id="memList"><li style="color:#aaa;">暂无</li></ul>
       <div style="margin-top:20px;padding-top:14px;border-top:1px solid #efe6f5;">
@@ -331,6 +348,7 @@
                 const reply = ev.reply || replyBuffer;
                 bubble.classList.remove("typing");
                 updatePanel(ev);
+                refreshUserInsight();
                 if (ev.is_crisis) bubble.classList.add("crisis");
                 await presentReplyWithAv(bubble, reply);
               } else if (ev.type === "error") {
@@ -712,6 +730,7 @@
       document.getElementById("relTrend").textContent = trendCn[rel.trend] || rel.trend || "—";
       document.getElementById("relSummary").textContent = rel.summary || "—";
       document.getElementById("userSentiment").textContent = data.user_sentiment_label || "—";
+      updateUserInsight(data.user_insight);
       const memList = document.getElementById("memList");
       if (data.retrieved_memories && data.retrieved_memories.length) {
         memList.innerHTML = data.retrieved_memories.map(m => `<li>${m}</li>`).join("");
@@ -733,6 +752,29 @@
           data.avatar.expression + " · " + data.avatar.animation
           + " · 强度 " + Math.round(faceIntensity * 100) + "%";
       }
+    }
+
+    function updateUserInsight(insight) {
+      const b = document.getElementById("userBehavior");
+      const i = document.getElementById("userIntent");
+      const s = document.getElementById("userState");
+      const t = document.getElementById("proactiveTopic");
+      if (!insight || !insight.behavior) {
+        b.textContent = i.textContent = s.textContent = t.textContent = "—";
+        return;
+      }
+      b.textContent = insight.behavior || "—";
+      i.textContent = insight.intent || "—";
+      s.textContent = insight.state || "—";
+      t.textContent = insight.proactive_topic || "—";
+    }
+
+    async function refreshUserInsight() {
+      try {
+        const r = await fetch("/api/insight/" + encodeURIComponent(userId), { cache: "no-store" });
+        if (!r.ok) return;
+        updateUserInsight(await r.json());
+      } catch (_) {}
     }
 
     let lastEmotion = { pleasure: 0, arousal: 0 };
@@ -797,7 +839,8 @@
           sessionStorage.setItem("agirl-welcomed-" + userId, "1");
           const panel = {
             emotion: d.emotion, relationship: d.relationship,
-            avatar: d.avatar, retrieved_memories: []
+            avatar: d.avatar, retrieved_memories: [],
+            user_insight: d.user_insight,
           };
           await streamNpcMessage(d.message, panel);
         }
@@ -842,6 +885,7 @@
         if (s.required && !s.has_consent) showAgeGate();
         else {
           subscribeProactive();
+          await refreshUserInsight();
           await tryProactiveWelcome();
         }
       } catch (e) {
