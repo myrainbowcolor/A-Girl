@@ -36,6 +36,7 @@ from .schemas import (
     UserInsightOut,
 )
 from .scheduler import ProactiveScheduler
+from .user_insight import meta_to_insight_dict
 from .voice import build_stt_provider, build_tts_provider
 
 settings = get_settings()
@@ -90,14 +91,10 @@ def _tts_out(t) -> TtsOut | None:
 
 
 def _user_insight_out(meta) -> UserInsightOut | None:
-    if meta is None or not meta.user_behavior:
+    d = meta_to_insight_dict(meta) if meta else None
+    if not d:
         return None
-    return UserInsightOut(
-        behavior=meta.user_behavior,
-        intent=meta.user_intent,
-        state=meta.user_state,
-        proactive_topic=meta.proactive_topic,
-    )
+    return UserInsightOut(**d)
 
 
 def _insight_from_result(insight) -> UserInsightOut | None:
@@ -304,14 +301,10 @@ def get_state(user_id: str) -> StateResponse:
 def get_insight(user_id: str) -> UserInsightOut:
     """读取最近一次用户行为/意图/状态分析。"""
     meta = _db.get_user_meta(user_id)
-    if meta is None or not meta.user_behavior:
+    d = meta_to_insight_dict(meta) if meta else None
+    if not d:
         return UserInsightOut()
-    return UserInsightOut(
-        behavior=meta.user_behavior,
-        intent=meta.user_intent,
-        state=meta.user_state,
-        proactive_topic=meta.proactive_topic,
-    )
+    return UserInsightOut(**d)
 
 
 @app.get("/api/memory/{user_id}", response_model=list[MemoryOut])

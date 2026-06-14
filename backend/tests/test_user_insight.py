@@ -82,6 +82,23 @@ def test_compose_proactive_message_fallback():
     assert "小语" in msg or "有一阵子" in msg
 
 
+def test_meta_to_insight_dict():
+    from app.domain import UserMeta
+    from app.user_insight import meta_to_insight_dict
+
+    assert meta_to_insight_dict(UserMeta(user_id="u1")) is None
+    meta = UserMeta(
+        user_id="u1",
+        user_behavior="互动较活跃",
+        user_intent="倾诉/发泄",
+        user_state="低落",
+        last_insight_at=1.0,
+    )
+    d = meta_to_insight_dict(meta)
+    assert d["behavior"] == "互动较活跃"
+    assert d["intent"] == "倾诉/发泄"
+
+
 def test_db_persists_insight_fields(db):
     meta = UserMeta(
         user_id="u1",

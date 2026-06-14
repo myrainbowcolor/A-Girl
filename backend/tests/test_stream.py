@@ -55,6 +55,24 @@ def test_chat_stream_sse(client):
         assert done["reply"]
 
 
+def test_chat_stream_includes_user_insight(client):
+    c, _, _ = client
+    _consent(c)
+    with c.stream("POST", "/api/chat/stream", json={"user_id": "u-stream", "message": "最近好累啊"}) as resp:
+        assert resp.status_code == 200
+        done = None
+        for line in resp.iter_lines():
+            if line.startswith("data: "):
+                ev = json.loads(line[6:])
+                if ev.get("type") == "done":
+                    done = ev
+        assert done is not None
+        ui = done.get("user_insight")
+        assert ui is not None
+        assert ui.get("behavior")
+        assert ui.get("intent")
+
+
 def test_proactive_welcome(client):
     c, _, _ = client
     _consent(c, "u-new")

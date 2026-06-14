@@ -193,6 +193,18 @@ _NEED_CN = {
 }
 
 
+def meta_to_insight_dict(meta: UserMeta) -> dict[str, str] | None:
+    """将 UserMeta 转为 API/流式事件用的洞察字典。"""
+    if meta.last_insight_at <= 0 and not meta.user_behavior:
+        return None
+    return {
+        "behavior": meta.user_behavior or "正常互动",
+        "intent": meta.user_intent or "闲聊",
+        "state": meta.user_state or "平稳",
+        "proactive_topic": meta.proactive_topic or "",
+    }
+
+
 def proactive_reason(need: str, analysis: UserInsightAnalysis) -> str:
     base = _NEED_CN.get(need, "基于用户状态主动沟通")
     return f"{base}（{analysis.state}·{analysis.intent}）"

@@ -20,7 +20,7 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
-from .user_insight import analyze_user
+from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
 
@@ -421,6 +421,7 @@ class Orchestrator:
             [m.content for m in retrieved], False, self._llm.name, None,
             sentiment_label=sentiment_label,
             insight=insight,
+            user_meta=meta,
         )
         if self._s.chat_defer_heavy_post:
             self._run_heavy_post_chat(
@@ -488,11 +489,12 @@ class Orchestrator:
         safety_category: str | None,
         sentiment_label: str = "",
         insight: RelationshipInsight | None = None,
+        user_meta: UserMeta | None = None,
     ) -> dict[str, Any]:
         health = insight.health_score if insight else 0.0
         summary = insight.summary if insight else ""
         trend = insight.trend if insight else "new"
-        return {
+        payload: dict[str, Any] = {
             "type": "done",
             "reply": reply,
             "emotion": {
@@ -515,6 +517,10 @@ class Orchestrator:
             "safety_category": safety_category,
             "user_sentiment_label": sentiment_label,
         }
+        ui = meta_to_insight_dict(user_meta) if user_meta else None
+        if ui:
+            payload["user_insight"] = ui
+        return payload
 
     def _maybe_tts(
         self, text: str, emotion: EmotionState, is_crisis: bool = False
