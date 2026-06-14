@@ -28,6 +28,19 @@ def test_analyze_lexicon_sick_and_lonely():
     assert analyze_lexicon("过年一个人，有点落寞").sentiment < 0
 
 
+def test_analyze_lexicon_bored_is_neutral():
+    """无聊闲聊不应触发负面情绪，避免数字人误显示担心脸。"""
+    r = analyze_lexicon("好无聊啊")
+    assert r.sentiment == 0.0
+    assert r.label == "中性"
+
+
+def test_analyze_lexicon_self_doubt_and_emo():
+    assert analyze_lexicon("同学都升职了，就我还原地踏步").sentiment < 0
+    assert analyze_lexicon("emo了今天").sentiment < 0
+    assert analyze_lexicon("憋在心里好难受").sentiment < 0
+
+
 def test_analyze_text_lexicon_mode():
     r = analyze_text("今天天气一般", llm=None, mode="lexicon")
     assert r.sentiment == 0.0

@@ -47,7 +47,7 @@ _LIVE2D_PRESETS = {
     "微笑": {"mouth_form": 1.0, "brow": 0.2, "eye_open": 1.0, "cheek": 0.35, "eye_smile": 0.5},
     "大笑": {"mouth_form": 1.0, "brow": 0.4, "eye_open": 0.65, "cheek": 0.65, "eye_smile": 0.85},
     "难过": {"mouth_form": -0.8, "brow": -0.6, "eye_open": 0.55, "cheek": 0.0, "eye_smile": 0.0},
-    "担心": {"mouth_form": -0.4, "brow": -0.8, "eye_open": 1.05, "cheek": 0.0, "eye_smile": 0.0},
+    "担心": {"mouth_form": -0.45, "brow": -0.85, "eye_open": 1.08, "cheek": 0.0, "eye_smile": 0.0},
     "惊讶": {"mouth_form": 0.0, "brow": 0.85, "eye_open": 1.15, "cheek": 0.1, "eye_smile": 0.0},
     "平静": {"mouth_form": 0.2, "brow": 0.0, "eye_open": 1.0, "cheek": 0.05, "eye_smile": 0.1},
 }
