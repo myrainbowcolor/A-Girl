@@ -13,15 +13,17 @@
     body {
       margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       background: linear-gradient(160deg, #f4ecf7, #e8dff0); color: var(--text);
-      height: 100vh; overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; overflow: auto;
+      display: flex; align-items: center; justify-content: center; padding: 12px 0;
     }
     .app {
-      width: 920px; max-width: 96vw; height: 88vh; max-height: 88vh; background: var(--panel);
+      width: min(960px, 98vw); min-width: 720px;
+      height: min(86vh, 820px); min-height: 520px;
+      background: var(--panel);
       border-radius: 20px; box-shadow: 0 20px 60px rgba(120, 80, 150, 0.18);
-      display: grid; grid-template-columns: 1fr 280px; overflow: hidden;
+      display: grid; grid-template-columns: 1fr 300px; overflow: hidden;
     }
-    .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+    .chat { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid #f0eef3; }
     .chat-header {
       padding: 16px 20px; border-bottom: 1px solid #eee; display: flex;
       align-items: center; gap: 12px;
@@ -57,24 +59,23 @@
     .composer button:hover { background: var(--accent-dark); }
     .msg.typing { color: var(--muted); font-style: italic; }
     .composer-hint { font-size: 11px; color: #aaa; padding: 0 16px 10px; flex-shrink: 0; }
-    .voice-bar {
-      display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px;
-      padding: 10px 16px; border-top: 1px solid #eee; flex-shrink: 0;
-      background: #fdfaff; font-size: 13px; color: var(--muted);
+    .panel {
+      background: #faf6fc; min-height: 0; overflow-y: auto; overflow-x: hidden;
+      padding: 16px 18px; display: flex; flex-direction: column; gap: 0;
     }
-    .voice-bar label {
-      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
-      color: var(--text); font-weight: 500; user-select: none;
+    .panel h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); letter-spacing: 1px; flex-shrink: 0; }
+    .panel-face { text-align: center; margin-bottom: 12px; flex-shrink: 0; }
+    .voice-ctrl {
+      background: #fff; border: 1px solid #e8dff0; border-radius: 12px;
+      padding: 10px 12px; margin: 10px 0 4px; text-align: left;
     }
-    .voice-bar input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-    #voiceHint { font-size: 12px; color: #9a8aa6; flex: 1; min-width: 140px; }
-    @media (max-width: 760px) {
-      body { overflow: auto; height: auto; min-height: 100vh; padding: 8px 0; }
-      .app { grid-template-columns: 1fr; height: auto; max-height: none; width: 100%; border-radius: 0; }
-      .panel { border-left: none; border-top: 1px solid #efe6f5; max-height: none; }
+    .voice-ctrl label {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 13px; color: var(--text); font-weight: 500; user-select: none;
     }
-    .panel { background: #faf6fc; border-left: 1px solid #efe6f5; padding: 20px; overflow-y: auto; }
-    .panel h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); letter-spacing: 1px; }
+    .voice-ctrl input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+    #voiceHint { display: block; font-size: 11px; color: #9a8aa6; margin-top: 6px; line-height: 1.4; }
+    .panel-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
     .stat { margin-bottom: 18px; }
     .stat .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
     .stat .v { font-size: 15px; font-weight: 600; }
@@ -128,13 +129,6 @@
         </div>
       </div>
       <div class="messages" id="messages"></div>
-      <div class="voice-bar">
-        <label for="voiceToggle">
-          <input type="checkbox" id="voiceToggle" checked />
-          语音朗读 + 口型同步
-        </label>
-        <span id="voiceHint">正在连接…</span>
-      </div>
       <div class="composer-hint">连发多条会先合并，停 2 秒后再回复 · Shift+Enter 换行</div>
       <div class="composer">
         <textarea id="input" rows="2" placeholder="和 ta 说点什么…（想说几句就停一下，小语会等你说完）"></textarea>
@@ -143,7 +137,7 @@
     </div>
     <div class="panel">
       <h3>数字人</h3>
-      <div style="text-align:center; margin-bottom:18px;">
+      <div class="panel-face">
         <svg id="face" width="140" height="150" viewBox="0 0 200 210" style="display:block;margin:0 auto;">
           <ellipse cx="100" cy="105" rx="78" ry="88" fill="#fde6f3" stroke="#e0a8d8" stroke-width="3"/>
           <path d="M40 70 Q60 40 92 58" fill="none" stroke="#7a4a8a" stroke-width="6" stroke-linecap="round"/>
@@ -159,7 +153,15 @@
           <path id="mouth" d="" fill="#c0506e"/>
         </svg>
         <div id="faceExpr" style="font-size:12px;color:#8a7d96;margin-top:6px;">平静 · idle</div>
+        <div class="voice-ctrl">
+          <label for="voiceToggle">
+            <input type="checkbox" id="voiceToggle" checked />
+            语音朗读 + 口型同步
+          </label>
+          <span id="voiceHint">正在连接…</span>
+        </div>
       </div>
+      <div class="panel-scroll">
       <h3>内在状态</h3>
       <div class="stat">
         <div class="k">当前情绪</div>
@@ -202,6 +204,7 @@
                 border-radius:10px;background:#fff;color:#8a7d96;font-size:12px;cursor:pointer;">
           重新开始（清除本地身份）
         </button>
+      </div>
       </div>
     </div>
   </div>
