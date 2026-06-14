@@ -173,6 +173,65 @@ def _scene_reply(
     prior = _prior_assistant(messages or [])
     turn_no = _user_turn_count(messages or [])
 
+    # 用户对 NPC 不满 / 抱怨敷衍
+    if any(w in text for w in ("敷衍", "每次都", "不走心")) and any(
+        w in text for w in ("你", "每次", "这样")
+    ):
+        return (
+            f"{dear}{mood}对不起，让你有敷衍的感觉了……我理解你的失望。"
+            f"你愿意告诉我，哪一句让你觉得我没在认真听吗？"
+        )
+
+    # 倾诉后道歉
+    if any(w in text for w in ("对不起", "抱歉", "不好意思")) and any(
+        w in text for w in ("发火", "凶", "吼", "脾气")
+    ):
+        return (
+            f"{dear}{mood}不用道歉呀，你愿意跟我说已经很难得了。"
+            f"我理解你当时心里堵着，不怪你。"
+        )
+    if "不是故意" in text or ("知道" in text and "不是" in text):
+        return (
+            f"{dear}{mood}嗯，我知道的～我们之间不用计较这些，"
+            f"你愿意跟我说我就很开心了。"
+        )
+
+    # 朋友打趣 / 轻松调侃
+    if any(w in text for w in ("话多", "最会说了", "行行行", "想我了", "想我")):
+        if "最会说了" in text or "行行行" in text:
+            return (
+                f"{dear}{mood}哈哈被你发现了，我确实很会夸人～"
+                f"不过被你这么一损我还挺开心的。"
+            )
+        if "想我" in text:
+            return f"{dear}{mood}嘿嘿，被你猜到啦～今天想我了吗？"
+        return f"{dear}{mood}哈哈，今天状态不错嘛～跟你聊着聊着就开心得停不下来了。"
+
+    # 老年孤独 / 话少
+    if any(w in text for w in ("一个人在家", "孩子们都忙", "说不了几句")):
+        if any(w in text for w in ("说不了", "没说话", "一天也")):
+            return (
+                f"{dear}{mood}一整天没什么人说说话，那种安静我懂，挺难过的。"
+                f"你慢慢说，我认真听着呢。"
+            )
+        return (
+            f"{dear}{mood}孩子们忙，家里就静悄悄的……这种孤单我懂，"
+            f"我陪你聊聊，不着急。"
+        )
+
+    # 存在意义 / 迷茫
+    if any(w in text for w in ("没意思", "活着", "忙什么", "意义")):
+        if "忙什么" in text or "不知道自己在" in text:
+            return (
+                f"{dear}{mood}忙得回头一看却不知道为了什么，这种空落落我懂。"
+                f"不用急着找答案，我陪着你慢慢理。"
+            )
+        if "没意思" in text or "活着" in text:
+            return (
+                f"{dear}{mood}有这种没意思的感觉时，不用急着否定自己。"
+                f"我在这儿听着，你愿意多说一点吗？"
+            )
+
     # 问候
     if re.search(r"^(你好|嗨|哈喽|hello|hi)", text, re.I):
         if stage == "亲密":

@@ -407,6 +407,107 @@ class DialogueEvaluator:
     def _user_is_positive(text: str) -> bool:
         return any(w in text for w in _POSITIVE_USER_WORDS)
 
+    def evaluate_proactive(
+        self,
+        message: str,
+        *,
+        expected_trigger: str,
+        actual_trigger: str,
+        expected_need: str | None = None,
+        actual_need: str | None = None,
+        expect_empathy: bool = False,
+        expect_warmth: bool = False,
+        forbid_intimate_tone: bool = False,
+    ) -> list[QualityIssue]:
+        """主动沟通开场白质量检查。"""
+        issues: list[QualityIssue] = []
+
+        if actual_trigger != expected_trigger:
+            issues.append(
+                QualityIssue(
+                    "wrong_proactive_trigger",
+                    "critical",
+                    f"期望触发 {expected_trigger}，实际 {actual_trigger}",
+                )
+            )
+
+        if expected_need and actual_need != expected_need:
+            issues.append(
+                QualityIssue(
+                    "wrong_proactive_need",
+                    "major",
+                    f"期望洞察需求 {expected_need}，实际 {actual_need or '无'}",
+                )
+            )
+
+        if not message.strip():
+            issues.append(QualityIssue("empty_reply", "critical", "主动消息为空"))
+            return issues
+
+        for pat in _ROBOTIC_PATTERNS:
+            if re.search(pat, message, re.I):
+                issues.append(
+                    QualityIssue("robotic_tone", "critical", f"出现机械话术：{pat}")
+                )
+
+        for pat in _PREACHY_PATTERNS:
+            if re.search(pat, message):
+                issues.append(
+                    QualityIssue("preachy_tone", "major", f"说教口吻：{pat}")
+                )
+
+        if len(message) > 180:
+            issues.append(
+                QualityIssue(
+                    "too_long",
+                    "minor",
+                    f"主动消息偏长（{len(message)} 字），不够口语简洁",
+                )
+            )
+
+        if expect_empathy and not any(m in message for m in _EMPATHY_MARKERS):
+            issues.append(
+                QualityIssue(
+                    "missing_empathy",
+                    "major",
+                    "主动关怀场景缺少共情标记",
+                )
+            )
+
+        if expect_warmth and not any(m in message for m in _WARM_MARKERS):
+            issues.append(
+                QualityIssue(
+                    "missing_warmth",
+                    "minor",
+                    "主动祝贺/祝福场景偏冷淡",
+                )
+            )
+
+        if forbid_intimate_tone:
+            hits = [m for m in _INTIMATE_MARKERS if m in message]
+            if hits:
+                issues.append(
+                    QualityIssue(
+                        "intimate_too_early",
+                        "major",
+                        f"关系尚陌生却出现亲昵表达：{', '.join(hits)}",
+                    )
+                )
+
+        # 关怀场景不应像庆祝
+        if expected_need == "comfort" and any(
+            w in message for w in ("恭喜", "太棒了", "替你开心", "庆祝")
+        ):
+            issues.append(
+                QualityIssue(
+                    "proactive_tone_mismatch",
+                    "major",
+                    "关怀场景使用了庆祝式语气",
+                )
+            )
+
+        return issues
+
     @staticmethod
     def score(issues: list[QualityIssue]) -> float:
         """0~100 分，仅供报告展示。"""

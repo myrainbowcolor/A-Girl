@@ -7,12 +7,14 @@ from dataclasses import dataclass, field
 
 from ..config import Settings
 from ..db import Database
-from ..domain import Relationship
+from ..domain import Event, Message, Persona, Relationship, UserMeta
 from ..emotion import EmotionEngine
 from ..llm import LLMProvider, MockLLMProvider
 from ..memory import HashEmbeddingProvider, MemoryStore
 from ..orchestrator import Orchestrator
+from ..proactivity import ProactivityEngine
 from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
+from .proactive_scenarios import ProactiveScenario
 from .scenarios import DialogueScenario
 
 
@@ -30,12 +32,22 @@ class TurnRecord:
 
 
 @dataclass
+class ProactiveRecord:
+    trigger: str
+    reason: str
+    message: str
+    proactive_need: str | None = None
+
+
+@dataclass
 class ScenarioResult:
-    scenario: DialogueScenario
+    scenario: DialogueScenario | ProactiveScenario
     passed: bool
     score: float
     issues: list[QualityIssue] = field(default_factory=list)
     turns: list[TurnRecord] = field(default_factory=list)
+    proactive: ProactiveRecord | None = None
+    scenario_kind: str = "dialogue"
 
     @property
     def critical_issues(self) -> list[QualityIssue]:
@@ -141,7 +153,109 @@ class DialogueQualityRunner:
                 score=score,
                 issues=unique_issues,
                 turns=turn_records,
+                scenario_kind="dialogue",
             )
 
     def run_all(self, scenarios: list[DialogueScenario]) -> list[ScenarioResult]:
         return [self.run_scenario(s) for s in scenarios]
+
+    def run_proactive_scenario(self, scenario: ProactiveScenario) -> ScenarioResult:
+        setup = scenario.setup
+        now = time.time()
+        with tempfile.NamedTemporaryFile(suffix=".db") as f:
+            settings = Settings(
+                db_path=f.name,
+                reflection_every_n_memories=999,
+                proactive_idle_seconds=6 * 3600,
+                proactive_insight_enabled=True,
+                proactive_insight_min_idle_seconds=1800,
+                proactive_insight_cooldown_seconds=3600,
+                proactive_insight_min_confidence=0.55,
+                user_insight_use_llm=False,
+                proactive_event_window_seconds=86400,
+            )
+            db = Database(f.name)
+            persona = Persona()
+            engine = ProactivityEngine(db, settings, persona, self._llm)
+            user_id = f"dq-p-{scenario.id}"
+            session_id = f"sess-{user_id}"
+
+            rel = Relationship(affinity=setup.initial_affinity)
+            rel.recompute_stage()
+            db.save_relationship(user_id, rel, now)
+
+            if not setup.no_history:
+                base_ts = now - setup.last_interaction_idle_seconds - 60
+                for idx, text in enumerate(setup.user_messages):
+                    db.add_message(
+                        Message(
+                            session_id=session_id,
+                            role="user",
+                            content=text,
+                            created_at=base_ts + idx,
+                        )
+                    )
+                db.save_user_meta(
+                    UserMeta(
+                        user_id=user_id,
+                        last_interaction_at=now - setup.last_interaction_idle_seconds,
+                        last_sentiment=setup.last_sentiment,
+                        sentiment_ema=setup.sentiment_ema,
+                        interaction_count=setup.interaction_count,
+                        last_proactive_at=now - setup.last_proactive_idle_seconds,
+                    )
+                )
+
+            for ev in setup.events:
+                db.add_event(
+                    Event(
+                        user_id=user_id,
+                        kind=ev.kind,
+                        label=ev.label,
+                        trigger_at=now + ev.trigger_offset_seconds,
+                        created_at=now - 86400,
+                    )
+                )
+
+            result = engine.check(user_id, now=now)
+            message = result.message or ""
+            issues = self._evaluator.evaluate_proactive(
+                message,
+                expected_trigger=scenario.expected_trigger,
+                actual_trigger=result.trigger or "",
+                expected_need=scenario.expected_need,
+                actual_need=result.insight.proactive_need if result.insight else None,
+                expect_empathy=scenario.expect_empathy,
+                expect_warmth=scenario.expect_warmth,
+                forbid_intimate_tone=scenario.forbid_intimate_tone,
+            )
+
+            if not result.should_reach_out:
+                issues.insert(
+                    0,
+                    QualityIssue(
+                        "proactive_not_triggered",
+                        "critical",
+                        f"场景应触发主动沟通（期望 {scenario.expected_trigger}）",
+                    ),
+                )
+
+            score = self._evaluator.score(issues)
+            passed = not any(i.severity == "critical" for i in issues)
+            db.close()
+            return ScenarioResult(
+                scenario=scenario,
+                passed=passed,
+                score=score,
+                issues=issues,
+                proactive=ProactiveRecord(
+                    trigger=result.trigger or "",
+                    reason=result.reason or "",
+                    message=message,
+                    proactive_need=result.insight.proactive_need if result.insight else None,
+                ),
+                scenario_kind="proactive",
+            )
+
+    def run_all_proactive(self, scenarios: list[ProactiveScenario]) -> list[ScenarioResult]:
+        return [self.run_proactive_scenario(s) for s in scenarios]

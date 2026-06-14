@@ -29,6 +29,10 @@ RULE_FIX_HINTS: dict[str, str] = {
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
+    "wrong_proactive_trigger": "proactivity.py 触发优先级与条件判断",
+    "wrong_proactive_need": "user_insight.py 意图/状态分析与 proactive_need 映射",
+    "proactive_not_triggered": "检查 idle/洞察/情绪/事件触发阈值与冷却",
+    "proactive_tone_mismatch": "compose_proactive_message 按 need 区分关怀/祝贺语气",
 }
 
 
@@ -91,7 +95,8 @@ class DialogueQualityReporter:
     @staticmethod
     def _scenario_payload(result: ScenarioResult) -> dict:
         s = result.scenario
-        return {
+        payload = {
+            "kind": result.scenario_kind,
             "id": s.id,
             "name": s.name,
             "scene": s.scene,
@@ -104,8 +109,12 @@ class DialogueQualityReporter:
             "passed": result.passed,
             "score": result.score,
             "issues": [asdict(i) for i in result.issues],
-            "turns": [asdict(t) for t in result.turns],
         }
+        if result.scenario_kind == "dialogue":
+            payload["turns"] = [asdict(t) for t in result.turns]
+        elif result.proactive:
+            payload["proactive"] = asdict(result.proactive)
+        return payload
 
     @staticmethod
     def _dimension_failures(results: list[ScenarioResult]) -> dict[str, list[str]]:
@@ -134,6 +143,7 @@ class DialogueQualityReporter:
             issues.append(d)
         return {
             "scenario_id": s.id,
+            "scenario_kind": result.scenario_kind,
             "scenario_name": s.name,
             "scene": s.scene,
             "background": s.background,
@@ -143,10 +153,15 @@ class DialogueQualityReporter:
             "duration": s.duration,
             "score": result.score,
             "issues": issues,
-            "transcript": [
-                {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
-                for t in result.turns
-            ],
+            "transcript": (
+                [
+                    {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
+                    for t in result.turns
+                ]
+                if result.scenario_kind == "dialogue"
+                else []
+            ),
+            "proactive": asdict(result.proactive) if result.proactive else None,
             "developer_notes": (
                 "请对照 issues 中的 rule_id 与 fix_hint 修复对话编排、提示词或 mock/LLM 回复策略。"
                 "修复后重新运行 scripts/run_dialogue_quality.py 验证。"
@@ -185,13 +200,25 @@ class DialogueQualityReporter:
                         f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}{hint_line}"
                     )
                 lines.append("")
-                lines.append("<details><summary>对话记录</summary>")
-                lines.append("")
-                for t in r.turns:
-                    lines.append(f"**用户**：{t.user_text}")
-                    lines.append(f"**NPC**：{t.reply}")
+                if r.scenario_kind == "dialogue":
+                    lines.append("<details><summary>对话记录</summary>")
                     lines.append("")
-                lines.append("</details>")
+                    for t in r.turns:
+                        lines.append(f"**用户**：{t.user_text}")
+                        lines.append(f"**NPC**：{t.reply}")
+                        lines.append("")
+                    lines.append("</details>")
+                elif r.proactive:
+                    lines.append("<details><summary>主动消息</summary>")
+                    lines.append("")
+                    p = r.proactive
+                    lines.append(f"- 触发：`{p.trigger}`")
+                    lines.append(f"- 原因：{p.reason}")
+                    if p.proactive_need:
+                        lines.append(f"- 洞察需求：`{p.proactive_need}`")
+                    lines.append(f"**NPC（主动）**：{p.message}")
+                    lines.append("")
+                    lines.append("</details>")
                 lines.append("")
 
         (self.report_dir / "latest.md").write_text("\n".join(lines), encoding="utf-8")

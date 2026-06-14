@@ -15,7 +15,9 @@
 | **关系 (relationship)** | 陌生 / 熟悉 / 朋友 / 亲密 |
 | **时长 (duration)** | 单轮、2~3 轮、6 轮长对话 |
 
-用例定义见 `backend/app/dialogue_quality/scenarios.py`。
+用例定义见 `backend/app/dialogue_quality/scenarios.py`（对话场景）与 `proactive_scenarios.py`（主动沟通场景）。
+
+当前基线：**33** 个多轮对话场景 + **9** 个主动沟通场景，共 **42** 条。
 
 ## 质量规则（启发式）
 
@@ -40,6 +42,12 @@ python scripts/run_dialogue_quality.py --strict
 
 # 只跑单个场景
 python scripts/run_dialogue_quality.py --scenario memory_pet_name
+
+# 只跑主动沟通场景
+python scripts/run_dialogue_quality.py --proactive-only
+
+# 跳过主动沟通场景
+python scripts/run_dialogue_quality.py --skip-proactive
 
 # 按维度筛选（子串匹配）
 python scripts/run_dialogue_quality.py --relationship 朋友 --emotion 焦虑
