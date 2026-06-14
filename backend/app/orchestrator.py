@@ -15,6 +15,7 @@ from .emotion.relationship_insight import RelationshipInsight, build_insight
 from .llm import LLMProvider
 from .memory import MemoryStore
 from .memory.reflection import maybe_reflect
+from .language import detect_user_language, language_instruction, reply_language_mismatch
 from .memory_honesty import enforce_memory_honesty
 from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
@@ -200,6 +201,28 @@ class Orchestrator:
         )
         return emotion, sentiment, sent_result.label, relationship
 
+    def _finalize_reply(
+        self,
+        reply: str,
+        system_prompt: str,
+        history: list[dict[str, str]],
+        user_text: str,
+        retrieved: list,
+        user_texts: list[str],
+    ) -> str:
+        """记忆诚实校正 + 语言不匹配时重试一次。"""
+        reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        lang = detect_user_language(user_text)
+        if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
+            reinforced = (
+                f"{system_prompt}\n\n【重要】上一版回复语言不符合用户输入。"
+                f"{language_instruction(lang)}"
+            )
+            retry = self._llm.generate(reinforced, history, temperature=0.65)
+            if retry.strip():
+                reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
+        return reply
+
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
         emotion = self._db.get_emotion(user_id) or EmotionState()
         relationship = self._db.get_relationship(user_id) or Relationship()
@@ -265,6 +288,7 @@ class Orchestrator:
             retrieved,
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
+            user_text=user_text,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -272,7 +296,7 @@ class Orchestrator:
         ]
         reply = self._llm.generate(system_prompt, history)
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
-        reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        reply = self._finalize_reply(reply, system_prompt, history, user_text, retrieved, user_texts)
 
         # [6] 状态后处理：持久化情绪/关系、记录回复、沉淀记忆、触发反思
         self._db.save_emotion(user_id, emotion, time.time())
@@ -360,6 +384,7 @@ class Orchestrator:
             retrieved,
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
+            user_text=user_text,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -385,7 +410,9 @@ class Orchestrator:
             parts.append(piece)
             yield {"type": "token", "text": piece}
 
-        reply = enforce_memory_honesty("".join(parts), retrieved, user_texts)
+        reply = self._finalize_reply(
+            "".join(parts), system_prompt, history, user_text, retrieved, user_texts
+        )
 
         self._db.save_emotion(user_id, emotion, time.time())
         self._db.save_relationship(user_id, relationship, time.time())

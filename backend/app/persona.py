@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
+from .language import detect_user_language, language_instruction
 
 _STAGE_GUIDE = {
     "stranger": "你们刚认识，保持礼貌与好奇，不要过度亲昵；可以分享一点自己的小兴趣来拉近距离。",
@@ -37,6 +38,7 @@ def build_system_prompt(
     memories: list[Memory],
     guard_prompt: str = "",
     relationship_summary: str = "",
+    user_text: str = "",
 ) -> str:
     """把人格 + 当前情绪 + 关系 + 检索到的记忆组装为 system 提示。
 
@@ -67,8 +69,12 @@ def build_system_prompt(
 
     guard_block = f"{guard_prompt}\n" if guard_prompt else ""
     rel_block = f"\n【关系近况归纳】\n{relationship_summary}\n" if relationship_summary else ""
+    user_lang = detect_user_language(user_text)
+    lang_block = language_instruction(user_lang)
 
     return f"""{guard_block}你是一个长期陪伴用户的情感陪伴角色。请始终保持人格一致，像真实的人一样自然交流。
+
+{lang_block}
 
 【人物设定】
 你的名字：{persona.name}
@@ -95,7 +101,7 @@ def build_system_prompt(
 {mem_block}
 
 【回复要求】
-1. 自然、口语化，像真人聊天，不要像客服或助手。用中文回复。
+1. 自然、口语化，像真人聊天，不要像客服或助手；**严格遵循上方【语言】要求**。
 2. 让你的当前情绪与关系阶段体现在语气里。
 {memory_rules}
 5. 回复简洁，1~3 句为宜，避免长篇大论与说教。
