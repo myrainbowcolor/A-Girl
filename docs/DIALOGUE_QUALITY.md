@@ -41,12 +41,21 @@ python scripts/run_dialogue_quality.py --strict
 # 只跑单个场景
 python scripts/run_dialogue_quality.py --scenario memory_pet_name
 
+# 扩展场景集（含边界情境，失败写入 failures.jsonl 供开发修复）
+python scripts/run_dialogue_quality.py --extended
+
+# 基线 + 扩展全量
+python scripts/run_dialogue_quality.py --all-suites
+
 # 按维度筛选（子串匹配）
 python scripts/run_dialogue_quality.py --relationship 朋友 --emotion 焦虑
 python scripts/run_dialogue_quality.py --duration 6轮 --scene 深夜
 
 # pytest（默认无 critical 即通过，并写入报告）
 python -m pytest tests/test_dialogue_quality.py -v
+
+# 扩展场景（有问题记 xfail + failures.jsonl，不阻塞基线）
+python -m pytest tests/test_dialogue_quality_extended.py -v
 ```
 
 ## 报告输出
@@ -55,9 +64,11 @@ python -m pytest tests/test_dialogue_quality.py -v
 
 | 文件 | 说明 |
 | --- | --- |
-| `backend/reports/dialogue_quality/latest.json` | 最近一次完整结果 |
-| `backend/reports/dialogue_quality/latest.md` | 开发人员可读的失败摘要 |
-| `backend/reports/dialogue_quality/failures.jsonl` | 历史失败流水（追加） |
+| `backend/reports/dialogue_quality/latest.json` | 最近一次基线完整结果 |
+| `backend/reports/dialogue_quality/latest.md` | 基线失败摘要（开发人员可读） |
+| `backend/reports/dialogue_quality/extended_latest.json` | 扩展场景集最近一次结果 |
+| `backend/reports/dialogue_quality/extended_latest.md` | 扩展场景失败摘要 |
+| `backend/reports/dialogue_quality/failures.jsonl` | 历史失败流水（追加，含 `suite` 字段） |
 
 `failures.jsonl` 每行一条 JSON，包含：
 

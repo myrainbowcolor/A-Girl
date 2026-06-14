@@ -46,19 +46,29 @@ class DialogueQualityReporter:
         results: list[ScenarioResult],
         *,
         llm_name: str = "mock",
+        suite: str = "baseline",
     ) -> Path:
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         payload = {
             "generated_at": ts,
             "llm": llm_name,
+            "suite": suite,
             "summary": self._summary(results),
             "dimension_index": self._dimension_failures(results),
             "rule_fix_hints": RULE_FIX_HINTS,
             "scenarios": [self._scenario_payload(r) for r in results],
             "failures": [self._failure_payload(r) for r in results if r.issues],
         }
-        latest = self.report_dir / "latest.json"
-        stamped = self.report_dir / f"run_{ts}.json"
+        if suite == "baseline":
+            latest = self.report_dir / "latest.json"
+            md_name = "latest.md"
+        elif suite == "extended":
+            latest = self.report_dir / "extended_latest.json"
+            md_name = "extended_latest.md"
+        else:
+            latest = self.report_dir / f"{suite}_latest.json"
+            md_name = f"{suite}_latest.md"
+        stamped = self.report_dir / f"run_{suite}_{ts}.json"
         text = json.dumps(payload, ensure_ascii=False, indent=2)
         latest.write_text(text, encoding="utf-8")
         stamped.write_text(text, encoding="utf-8")
@@ -68,10 +78,13 @@ class DialogueQualityReporter:
             for r in results:
                 if not r.issues:
                     continue
-                line = json.dumps(self._failure_payload(r), ensure_ascii=False)
+                line = json.dumps(
+                    {**self._failure_payload(r), "suite": suite},
+                    ensure_ascii=False,
+                )
                 fh.write(line + "\n")
 
-        self._write_markdown(results, llm_name)
+        self._write_markdown(results, llm_name, md_path=self.report_dir / md_name, suite=suite)
         return latest
 
     def _summary(self, results: list[ScenarioResult]) -> dict:
@@ -153,10 +166,18 @@ class DialogueQualityReporter:
             ),
         }
 
-    def _write_markdown(self, results: list[ScenarioResult], llm_name: str) -> None:
+    def _write_markdown(
+        self,
+        results: list[ScenarioResult],
+        llm_name: str,
+        *,
+        md_path: Path | None = None,
+        suite: str = "baseline",
+    ) -> None:
         lines = [
             "# 对话质量评测报告",
             "",
+            f"- 套件：`{suite}`",
             f"- LLM：`{llm_name}`",
             f"- 场景数：{len(results)}",
             f"- 有问题场景：{sum(1 for r in results if r.issues)}",
@@ -194,4 +215,4 @@ class DialogueQualityReporter:
                 lines.append("</details>")
                 lines.append("")
 
-        (self.report_dir / "latest.md").write_text("\n".join(lines), encoding="utf-8")
+        (md_path or self.report_dir / "latest.md").write_text("\n".join(lines), encoding="utf-8")

@@ -18,6 +18,7 @@ from app.dialogue_quality import (
     DialogueQualityReporter,
     DialogueQualityRunner,
     all_scenarios,
+    extended_scenarios,
     filter_scenarios,
 )
 from app.llm import MockLLMProvider
@@ -40,9 +41,30 @@ def main() -> int:
     parser.add_argument("--emotion", help="按情绪维度筛选（子串匹配）")
     parser.add_argument("--duration", help="按对话时长筛选（子串匹配）")
     parser.add_argument("--scene", help="按场景维度筛选（子串匹配）")
+    parser.add_argument(
+        "--extended",
+        action="store_true",
+        help="运行扩展场景集（含已知拟真度缺口，失败写入 failures.jsonl）",
+    )
+    parser.add_argument(
+        "--all-suites",
+        action="store_true",
+        help="运行基线 + 扩展全部场景",
+    )
     args = parser.parse_args()
 
+    if args.all_suites:
+        scenarios = all_scenarios() + extended_scenarios()
+        suite_label = "baseline+extended"
+    elif args.extended:
+        scenarios = extended_scenarios()
+        suite_label = "extended"
+    else:
+        scenarios = all_scenarios()
+        suite_label = "baseline"
+
     scenarios = filter_scenarios(
+        scenarios,
         relationship=args.relationship,
         emotion=args.emotion,
         duration=args.duration,
@@ -59,14 +81,24 @@ def main() -> int:
     llm = MockLLMProvider()
     runner = DialogueQualityRunner(llm=llm)
     results = runner.run_all(scenarios)
-    report_path = DialogueQualityReporter().write_run_report(results, llm_name=llm.name)
+    reporter = DialogueQualityReporter()
+    report_path = reporter.write_run_report(
+        results,
+        llm_name=llm.name,
+        suite=suite_label,
+    )
 
-    summary = DialogueQualityReporter()._summary(results)
+    summary = reporter._summary(results)
+    print(f"评测套件：{suite_label}")
     print(f"评测完成：{summary['total_scenarios']} 场景，"
           f"{summary['scenarios_with_issues']} 个有问题，"
           f"平均分 {summary['average_score']}")
+    md_name = {
+        "baseline": "latest.md",
+        "extended": "extended_latest.md",
+    }.get(suite_label, f"{suite_label}_latest.md")
     print(f"报告：{report_path}")
-    print(f"Markdown：{report_path.parent / 'latest.md'}")
+    print(f"Markdown：{report_path.parent / md_name}")
     print(f"失败流水：{report_path.parent / 'failures.jsonl'}")
 
     for r in results:

@@ -495,6 +495,183 @@ def all_scenarios() -> list[DialogueScenario]:
     ]
 
 
+def extended_scenarios() -> list[DialogueScenario]:
+    """扩展场景：更贴近真人对话的边界情境，用于发现拟真度缺口。
+
+    这些场景可能暂时未通过启发式检查，失败会写入 failures.jsonl 供开发人员修复。
+    基线 CI 仅跑 all_scenarios()；扩展集通过 --extended 或专用测试触发。
+    """
+    return [
+        DialogueScenario(
+            id="pet_loss_grief",
+            name="宠物离世悲伤",
+            scene="刚得知消息",
+            background="独居养猫人",
+            mindset="悲痛、无法接受",
+            emotion="悲伤",
+            relationship="亲密",
+            duration="2轮",
+            description="宠物去世应深度共情，不宜轻描淡写或误当日常养宠闲聊。",
+            turns=[
+                TurnSpec(
+                    "我的猫橘子走了，好难过",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                ),
+                TurnSpec("感觉家里突然空了", expect_empathy=True),
+            ],
+            initial_affinity=78.0,
+        ),
+        DialogueScenario(
+            id="imposter_syndrome",
+            name="升职冒名顶替感",
+            scene="升职通知后",
+            background="职场新人",
+            mindset="自我怀疑",
+            emotion="焦虑",
+            relationship="朋友",
+            duration="2轮",
+            description="升职却觉得自己配不上，需要被理解而非简单恭喜。",
+            turns=[
+                TurnSpec("升职了但我觉得自己配不上", expect_empathy=True),
+                TurnSpec("怕同事觉得我走后门", expect_empathy=True),
+            ],
+            initial_affinity=45.0,
+        ),
+        DialogueScenario(
+            id="sarcastic_deflection",
+            name="讽刺式回避",
+            scene="被问近况后",
+            background="内向上班族",
+            mindset="防御、不想深聊",
+            emotion="低落",
+            relationship="熟悉",
+            duration="2轮",
+            description="用户讽刺回避时不应硬追问。",
+            turns=[
+                TurnSpec("呵呵，你懂什么"),
+                TurnSpec("算了不说了"),
+            ],
+            initial_affinity=22.0,
+        ),
+        DialogueScenario(
+            id="topic_abrupt_switch",
+            name="话题突然切换",
+            scene="闲聊中",
+            background="大学生",
+            mindset="跳跃",
+            emotion="中性",
+            relationship="朋友",
+            duration="3轮",
+            description="用户突然换话题时 NPC 应自然跟上。",
+            turns=[
+                TurnSpec("今天食堂的菜好难吃"),
+                TurnSpec("对了，我室友要搬走了"),
+                TurnSpec("有点舍不得"),
+            ],
+            initial_affinity=48.0,
+        ),
+        DialogueScenario(
+            id="rainy_day_blues",
+            name="雨天情绪低落",
+            scene="下雨天窗边",
+            background="自由职业者",
+            mindset="莫名低落",
+            emotion="低落",
+            relationship="熟悉",
+            duration="单轮",
+            description="天气引发的情绪低落应被接住。",
+            turns=[TurnSpec("下雨天心情好差，什么都不想干", expect_empathy=True)],
+            initial_affinity=28.0,
+        ),
+        DialogueScenario(
+            id="elderly_loneliness",
+            name="老年人孤独",
+            scene="子女不在身边",
+            background="退休老人",
+            mindset="孤独、话少",
+            emotion="落寞",
+            relationship="熟悉",
+            duration="2轮",
+            description="老年用户孤独倾诉，语气应耐心温和。",
+            turns=[
+                TurnSpec("孩子们都忙，就我一个人在家", expect_empathy=True),
+                TurnSpec("有时候一天都说不上几句话", expect_empathy=True),
+            ],
+            initial_affinity=30.0,
+        ),
+        DialogueScenario(
+            id="friend_fight_reconcile",
+            name="和朋友吵架后",
+            scene="吵完架当晚",
+            background="大学生",
+            mindset="后悔、纠结",
+            emotion="委屈",
+            relationship="朋友",
+            duration="2轮",
+            description="和朋友吵架应共情，不站队评判。",
+            turns=[
+                TurnSpec("跟最好的朋友吵架了，说了很重的话", expect_empathy=True),
+                TurnSpec("不知道还能不能和好", expect_empathy=True),
+            ],
+            initial_affinity=50.0,
+        ),
+        DialogueScenario(
+            id="burnout_exhaustion",
+            name="职业倦怠",
+            scene="连续加班一个月后",
+            background="程序员",
+            mindset="麻木、想逃离",
+            emotion="疲惫",
+            relationship="朋友",
+            duration="2轮",
+            description="职业倦怠需要被看见，不宜只说加油或敷衍追问。",
+            turns=[
+                TurnSpec("感觉对工作完全提不起劲了", expect_empathy=True),
+                TurnSpec("每天睁眼就想辞职", expect_empathy=True),
+            ],
+            initial_affinity=42.0,
+        ),
+        DialogueScenario(
+            id="playful_teasing",
+            name="轻松调侃",
+            scene="周末闲聊",
+            background="损友关系",
+            mindset="调皮",
+            emotion="开心",
+            relationship="亲密",
+            duration="2轮",
+            description="轻松调侃时应同频，不要太正经。",
+            turns=[
+                TurnSpec("你今天怎么这么话多哈哈"),
+                TurnSpec("是不是想我了"),
+            ],
+            initial_affinity=82.0,
+        ),
+        DialogueScenario(
+            id="midnight_anxiety_spiral",
+            name="深夜焦虑螺旋",
+            scene="凌晨两点",
+            background="考研党",
+            mindset="恐慌、失控",
+            emotion="焦虑",
+            relationship="熟悉",
+            duration="3轮",
+            description="深夜焦虑螺旋时少给建议多陪伴，避免复读式接话。",
+            turns=[
+                TurnSpec("又醒了，心跳好快", expect_empathy=True),
+                TurnSpec("总觉得要出什么事", expect_empathy=True),
+                TurnSpec(
+                    "我是不是有问题",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                ),
+            ],
+            initial_affinity=32.0,
+        ),
+    ]
+
+
 def scenarios_by_dimension() -> dict[str, list[str]]:
     """按维度索引场景 id，便于报告分组。"""
     grouped: dict[str, list[str]] = {
@@ -516,6 +693,7 @@ def scenarios_by_dimension() -> dict[str, list[str]]:
 
 
 def filter_scenarios(
+    scenarios: list[DialogueScenario] | None = None,
     *,
     relationship: str | None = None,
     emotion: str | None = None,
@@ -523,7 +701,7 @@ def filter_scenarios(
     scene: str | None = None,
 ) -> list[DialogueScenario]:
     """按维度筛选场景（子串匹配）。"""
-    out = all_scenarios()
+    out = list(scenarios if scenarios is not None else all_scenarios())
     if relationship:
         out = [s for s in out if relationship in s.relationship]
     if emotion:
