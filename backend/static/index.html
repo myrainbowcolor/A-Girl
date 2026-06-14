@@ -277,6 +277,7 @@
         const reader = r.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let replyBuffer = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -291,13 +292,25 @@
                 updatePanel(ev);
                 if (ev.is_crisis) bubble.classList.add("crisis");
               } else if (ev.type === "token") {
-                bubble.textContent += ev.text;
-                scrollToBottom();
+                replyBuffer += ev.text;
+                const voiceOn = document.getElementById("voiceToggle").checked;
+                if (!voiceOn) {
+                  if (bubble.classList.contains("typing")) {
+                    bubble.textContent = "";
+                    bubble.classList.remove("typing");
+                  }
+                  bubble.textContent += ev.text;
+                  scrollToBottom();
+                } else if (!bubble.textContent) {
+                  bubble.textContent = "…";
+                  bubble.classList.add("typing");
+                }
               } else if (ev.type === "done") {
-                bubble.textContent = ev.reply;
+                const reply = ev.reply || replyBuffer;
+                bubble.classList.remove("typing");
                 updatePanel(ev);
-                scrollToBottom();
-                await maybeSpeak(ev.reply);
+                if (ev.is_crisis) bubble.classList.add("crisis");
+                await presentReplyWithAv(bubble, reply);
               } else if (ev.type === "error") {
                 throw new Error(ev.message || "stream error");
               }
@@ -497,30 +510,7 @@
       speechSession += 1;
       if (window.speechSynthesis) speechSynthesis.cancel();
       if (lipsyncRAF) { cancelAnimationFrame(lipsyncRAF); lipsyncRAF = null; }
-      setFace(currentExpr, 0, 0);
-    }
-
-    function playLipsync(track, visemes, startAt) {
-      if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
-      const useViseme = visemes && visemes.length;
-      const frames = useViseme ? visemes : track;
-      if (!frames || !frames.length) { setFace(currentExpr, 0, 0); return; }
-      const start = startAt || performance.now();
-      const session = speechSession;
-      function step(nowT) {
-        if (session !== speechSession) return;
-        const t = nowT - start;
-        let cur = frames[0];
-        for (let i = 0; i < frames.length; i++) {
-          if (frames[i].t <= t) cur = frames[i]; else break;
-        }
-        const last = frames[frames.length - 1].t;
-        if (useViseme) setFace(currentExpr, cur.open, cur.wide);
-        else setFace(currentExpr, cur.v, 0);
-        if (t < last) lipsyncRAF = requestAnimationFrame(step);
-        else { lipsyncRAF = null; setFace(currentExpr, 0, 0); }
-      }
-      lipsyncRAF = requestAnimationFrame(step);
+      applyViseme({ open: 0, wide: 0 });
     }
 
     function estimateSpeechMs(text) {
@@ -529,69 +519,159 @@
       return Math.max(600, cjk * 165 + other * 80);
     }
 
-    function speakWithBrowser(text, visemes, durationMs) {
-      return new Promise(resolve => {
-        if (!window.speechSynthesis) { resolve(false); return; }
-        stopSpeechAndLipsync();
-        const session = speechSession;
+    function visemeAtTime(visemes, tMs) {
+      if (!visemes || !visemes.length) return { open: 0, wide: 0 };
+      let cur = visemes[0];
+      for (let i = 0; i < visemes.length; i++) {
+        if (visemes[i].t <= tMs) cur = visemes[i]; else break;
+      }
+      return cur;
+    }
+
+    function applyViseme(v) {
+      mouthOpenOverride = v.open || 0;
+      wideOverride = v.wide || 0;
+    }
+
+    function playLipsync(track, visemes, getTimeMs) {
+      if (lipsyncRAF) cancelAnimationFrame(lipsyncRAF);
+      const useViseme = visemes && visemes.length;
+      const frames = useViseme ? visemes : track;
+      if (!frames || !frames.length) { applyViseme({ open: 0, wide: 0 }); return; }
+      const session = speechSession;
+      const timeFn = typeof getTimeMs === "function" ? getTimeMs : () => 0;
+      function step() {
+        if (session !== speechSession) return;
+        const t = timeFn();
+        let cur = frames[0];
+        for (let i = 0; i < frames.length; i++) {
+          if (frames[i].t <= t) cur = frames[i]; else break;
+        }
+        const last = frames[frames.length - 1].t;
+        if (useViseme) applyViseme(cur);
+        else { mouthOpenOverride = cur.v; wideOverride = 0; }
+        if (t < last) lipsyncRAF = requestAnimationFrame(step);
+        else { lipsyncRAF = null; applyViseme({ open: 0, wide: 0 }); }
+      }
+      lipsyncRAF = requestAnimationFrame(step);
+    }
+
+    async function fetchTtsData(text) {
+      const r = await fetch("/api/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
+      });
+      if (!r.ok) return null;
+      return r.json();
+    }
+
+    function revealTextToProgress(bubble, text, progress) {
+      const idx = Math.min(text.length, Math.max(0, Math.ceil(progress * text.length)));
+      bubble.textContent = text.slice(0, idx);
+      scrollToBottom();
+    }
+
+    /** 台词 + 语音 + 口型统一时间轴（以音频 currentTime 为准） */
+    async function playSyncedAv(bubble, text, ttsData) {
+      const voiceOn = document.getElementById("voiceToggle").checked;
+      bubble.textContent = "";
+      if (!voiceOn) {
+        bubble.textContent = text;
+        scrollToBottom();
+        return;
+      }
+
+      stopSpeechAndLipsync();
+      const session = speechSession;
+      const isMock = !ttsData || !ttsData.provider || ttsData.provider === "mock";
+      const durationMs = (ttsData && ttsData.duration_ms) || estimateSpeechMs(text);
+      const scaledVisemes = scaleVisemeTimeline(ttsData && ttsData.visemes, durationMs);
+
+      if (ttsData && !isMock) {
+        const audio = new Audio("data:audio/" + ttsData.format + ";base64," + ttsData.audio_base64);
+        await new Promise((resolve, reject) => {
+          let syncRAF = null;
+          const cleanup = () => {
+            if (syncRAF) cancelAnimationFrame(syncRAF);
+            applyViseme({ open: 0, wide: 0 });
+            bubble.textContent = text;
+            scrollToBottom();
+          };
+          const syncLoop = () => {
+            if (session !== speechSession) return;
+            const d = audio.duration;
+            if (d && isFinite(d) && d > 0) {
+              const progress = audio.currentTime / d;
+              revealTextToProgress(bubble, text, progress);
+              applyViseme(visemeAtTime(scaledVisemes, audio.currentTime * 1000));
+            }
+            if (!audio.paused && !audio.ended) syncRAF = requestAnimationFrame(syncLoop);
+          };
+          audio.onplay = () => syncLoop();
+          audio.onended = () => { cleanup(); resolve(); };
+          audio.onerror = () => { cleanup(); reject(new Error("audio")); };
+          audio.play().catch(err => { cleanup(); reject(err); });
+        });
+        return;
+      }
+
+      // mock / 无 TTS：浏览器朗读，按估算时长同步
+      if (!window.speechSynthesis) {
+        bubble.textContent = text;
+        scrollToBottom();
+        return;
+      }
+      await new Promise(resolve => {
         const u = new SpeechSynthesisUtterance(text);
         u.lang = "zh-CN";
         u.rate = 1.0;
         u.pitch = 1.08;
         const voice = pickZhVoice();
         if (voice) u.voice = voice;
-        const estMs = durationMs || estimateSpeechMs(text);
-        const scaled = scaleVisemeTimeline(visemes, estMs);
-        u.onstart = () => {
+        const t0 = performance.now();
+        let syncRAF = null;
+        const syncLoop = () => {
           if (session !== speechSession) return;
-          playLipsync(null, scaled, performance.now());
+          const elapsed = performance.now() - t0;
+          revealTextToProgress(bubble, text, Math.min(1, elapsed / durationMs));
+          applyViseme(visemeAtTime(scaledVisemes, elapsed));
+          if (elapsed < durationMs) syncRAF = requestAnimationFrame(syncLoop);
         };
+        u.onstart = () => syncLoop();
         u.onend = () => {
-          if (session !== speechSession) return;
-          if (lipsyncRAF) { cancelAnimationFrame(lipsyncRAF); lipsyncRAF = null; }
-          setFace(currentExpr, 0, 0);
-          resolve(true);
+          if (syncRAF) cancelAnimationFrame(syncRAF);
+          applyViseme({ open: 0, wide: 0 });
+          bubble.textContent = text;
+          scrollToBottom();
+          resolve();
         };
-        u.onerror = () => resolve(false);
+        u.onerror = () => {
+          bubble.textContent = text;
+          resolve();
+        };
         speechSynthesis.speak(u);
       });
     }
 
-    async function maybeSpeak(text) {
-      if (!text || !text.trim()) return;
-      if (!document.getElementById("voiceToggle").checked) return;
-      try {
-        const r = await fetch("/api/tts", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
-        });
-        if (!r.ok) {
-          await speakWithBrowser(text, null, estimateSpeechMs(text));
-          return;
-        }
-        const data = await r.json();
-        const isMock = !data.provider || data.provider === "mock";
-        if (isMock) {
-          await speakWithBrowser(text, data.visemes, data.duration_ms || estimateSpeechMs(text));
-          return;
-        }
-        stopSpeechAndLipsync();
-        const session = speechSession;
-        const audio = new Audio("data:audio/" + data.format + ";base64," + data.audio_base64);
-        const dur = data.duration_ms || estimateSpeechMs(text);
-        const scaled = scaleVisemeTimeline(data.visemes, dur);
-        audio.onplay = () => {
-          if (session !== speechSession) return;
-          playLipsync(data.lipsync, scaled, performance.now());
-        };
-        audio.onended = () => {
-          if (session !== speechSession) return;
-          setFace(currentExpr, 0, 0);
-        };
-        await audio.play();
-      } catch (e) {
-        await speakWithBrowser(text, null, estimateSpeechMs(text));
+    async function presentReplyWithAv(bubble, text) {
+      if (!text || !text.trim()) {
+        bubble.textContent = "…";
+        return;
       }
+      const voiceOn = document.getElementById("voiceToggle").checked;
+      if (!voiceOn) {
+        bubble.textContent = text;
+        scrollToBottom();
+        return;
+      }
+      bubble.textContent = "";
+      bubble.classList.add("typing");
+      let ttsData = null;
+      try {
+        ttsData = await fetchTtsData(text);
+      } catch (_) { /* 回退浏览器语音 */ }
+      bubble.classList.remove("typing");
+      await playSyncedAv(bubble, text, ttsData);
     }
 
     function updatePanel(data) {
@@ -681,14 +761,7 @@
       const bubble = addMessage("", "npc");
       if (panelData && panelData.is_crisis) bubble.classList.add("crisis");
       if (panelData) updatePanel(panelData);
-      const speakTask = maybeSpeak(text);
-      const msPerChar = Math.max(35, Math.min(100, estimateSpeechMs(text) / Math.max(1, text.length)));
-      for (let i = 0; i < text.length; i += 1) {
-        bubble.textContent += text[i];
-        scrollToBottom();
-        await new Promise(res => setTimeout(res, msPerChar));
-      }
-      await speakTask;
+      await presentReplyWithAv(bubble, text);
     }
 
     async function tryProactiveWelcome() {
