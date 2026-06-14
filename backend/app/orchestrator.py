@@ -17,6 +17,7 @@ from .memory import MemoryStore
 from .memory.reflection import maybe_reflect
 from .language import detect_user_language, language_instruction, reply_language_mismatch
 from .memory_honesty import enforce_memory_honesty
+from .reply_polish import polish_reply
 from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
@@ -218,8 +219,9 @@ class Orchestrator:
         retrieved: list,
         user_texts: list[str],
     ) -> str:
-        """记忆诚实校正 + 语言不匹配时重试一次。"""
+        """记忆诚实校正 + 语言不匹配时重试 + 口语润色。"""
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        reply = polish_reply(reply)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
@@ -228,7 +230,9 @@ class Orchestrator:
             )
             retry = self._llm.generate(reinforced, history, temperature=0.65)
             if retry.strip():
-                reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
+                reply = polish_reply(
+                    enforce_memory_honesty(retry.strip(), retrieved, user_texts)
+                )
         return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
@@ -302,7 +306,9 @@ class Orchestrator:
             {"role": m.role, "content": m.content}
             for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
         ]
-        reply = self._llm.generate(system_prompt, history)
+        reply = self._llm.generate(
+            system_prompt, history, temperature=self._s.llm_reply_temperature
+        )
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
         reply = self._finalize_reply(reply, system_prompt, history, user_text, retrieved, user_texts)
 
@@ -414,7 +420,9 @@ class Orchestrator:
         )
 
         parts: list[str] = []
-        for piece in self._llm.generate_stream(system_prompt, history):
+        for piece in self._llm.generate_stream(
+            system_prompt, history, temperature=self._s.llm_reply_temperature
+        ):
             parts.append(piece)
             yield {"type": "token", "text": piece}
 
