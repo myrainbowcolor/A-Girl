@@ -102,6 +102,16 @@ class Database:
             ("interaction_count", "INTEGER DEFAULT 0"),
             ("relationship_summary", "TEXT DEFAULT ''"),
             ("relationship_health", "REAL DEFAULT 0"),
+            ("user_behavior", "TEXT DEFAULT ''"),
+            ("user_intent", "TEXT DEFAULT ''"),
+            ("user_state", "TEXT DEFAULT ''"),
+            ("proactive_topic", "TEXT DEFAULT ''"),
+            ("last_insight_at", "REAL DEFAULT 0"),
+            ("last_proactive_at", "REAL DEFAULT 0"),
+            ("user_speaking_style", "TEXT DEFAULT ''"),
+            ("user_thought_pattern", "TEXT DEFAULT ''"),
+            ("user_profile_summary", "TEXT DEFAULT ''"),
+            ("insight_turn_count", "INTEGER DEFAULT 0"),
         ):
             if name not in cols:
                 self._conn.execute(f"ALTER TABLE user_meta ADD COLUMN {name} {typedef}")
@@ -228,14 +238,25 @@ class Database:
         r = cur.fetchone()
         if not r:
             return None
+        keys = r.keys()
         return UserMeta(
             user_id=r["user_id"],
             last_interaction_at=r["last_interaction_at"],
             last_sentiment=r["last_sentiment"],
-            sentiment_ema=r["sentiment_ema"] if "sentiment_ema" in r.keys() else 0.0,
-            interaction_count=r["interaction_count"] if "interaction_count" in r.keys() else 0,
-            relationship_summary=r["relationship_summary"] if "relationship_summary" in r.keys() else "",
-            relationship_health=r["relationship_health"] if "relationship_health" in r.keys() else 0.0,
+            sentiment_ema=r["sentiment_ema"] if "sentiment_ema" in keys else 0.0,
+            interaction_count=r["interaction_count"] if "interaction_count" in keys else 0,
+            relationship_summary=r["relationship_summary"] if "relationship_summary" in keys else "",
+            relationship_health=r["relationship_health"] if "relationship_health" in keys else 0.0,
+            user_behavior=r["user_behavior"] if "user_behavior" in keys else "",
+            user_intent=r["user_intent"] if "user_intent" in keys else "",
+            user_state=r["user_state"] if "user_state" in keys else "",
+            proactive_topic=r["proactive_topic"] if "proactive_topic" in keys else "",
+            last_insight_at=r["last_insight_at"] if "last_insight_at" in keys else 0.0,
+            last_proactive_at=r["last_proactive_at"] if "last_proactive_at" in keys else 0.0,
+            user_speaking_style=r["user_speaking_style"] if "user_speaking_style" in keys else "",
+            user_thought_pattern=r["user_thought_pattern"] if "user_thought_pattern" in keys else "",
+            user_profile_summary=r["user_profile_summary"] if "user_profile_summary" in keys else "",
+            insight_turn_count=r["insight_turn_count"] if "insight_turn_count" in keys else 0,
         )
 
     def save_user_meta(self, meta: UserMeta) -> None:
@@ -243,14 +264,27 @@ class Database:
             self._conn.execute(
                 "INSERT INTO user_meta("
                 "user_id, last_interaction_at, last_sentiment, sentiment_ema,"
-                " interaction_count, relationship_summary, relationship_health"
-                ") VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
+                " interaction_count, relationship_summary, relationship_health,"
+                " user_behavior, user_intent, user_state, proactive_topic,"
+                " user_speaking_style, user_thought_pattern, user_profile_summary,"
+                " insight_turn_count, last_insight_at, last_proactive_at"
+                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET"
                 " last_interaction_at=excluded.last_interaction_at,"
                 " last_sentiment=excluded.last_sentiment,"
                 " sentiment_ema=excluded.sentiment_ema,"
                 " interaction_count=excluded.interaction_count,"
                 " relationship_summary=excluded.relationship_summary,"
-                " relationship_health=excluded.relationship_health",
+                " relationship_health=excluded.relationship_health,"
+                " user_behavior=excluded.user_behavior,"
+                " user_intent=excluded.user_intent,"
+                " user_state=excluded.user_state,"
+                " proactive_topic=excluded.proactive_topic,"
+                " user_speaking_style=excluded.user_speaking_style,"
+                " user_thought_pattern=excluded.user_thought_pattern,"
+                " user_profile_summary=excluded.user_profile_summary,"
+                " insight_turn_count=excluded.insight_turn_count,"
+                " last_insight_at=excluded.last_insight_at,"
+                " last_proactive_at=excluded.last_proactive_at",
                 (
                     meta.user_id,
                     meta.last_interaction_at,
@@ -259,6 +293,16 @@ class Database:
                     meta.interaction_count,
                     meta.relationship_summary,
                     meta.relationship_health,
+                    meta.user_behavior,
+                    meta.user_intent,
+                    meta.user_state,
+                    meta.proactive_topic,
+                    meta.user_speaking_style,
+                    meta.user_thought_pattern,
+                    meta.user_profile_summary,
+                    meta.insight_turn_count,
+                    meta.last_insight_at,
+                    meta.last_proactive_at,
                 ),
             )
             self._conn.commit()

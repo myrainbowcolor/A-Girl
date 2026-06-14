@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .avatar import AvatarCue, emotion_to_avatar
@@ -15,11 +15,13 @@ from .emotion.relationship_insight import RelationshipInsight, build_insight
 from .llm import LLMProvider
 from .memory import MemoryStore
 from .memory.reflection import maybe_reflect
+from .language import detect_user_language, language_instruction, reply_language_mismatch
 from .memory_honesty import enforce_memory_honesty
 from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
 
@@ -61,7 +63,7 @@ class Orchestrator:
         self._persona = persona or default_persona()
         self._tts = tts
         self._audit = audit
-        self._proactivity = ProactivityEngine(db, settings, self._persona)
+        self._proactivity = ProactivityEngine(db, settings, self._persona, llm=llm)
 
     @property
     def persona(self) -> Persona:
@@ -71,17 +73,83 @@ class Orchestrator:
         meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
         alpha = self._s.sentiment_ema_alpha
         new_ema = alpha * sentiment + (1 - alpha) * meta.sentiment_ema
-        updated = UserMeta(
-            user_id=user_id,
+        updated = replace(
+            meta,
             last_interaction_at=now,
             last_sentiment=sentiment,
             sentiment_ema=new_ema,
             interaction_count=meta.interaction_count + 1,
-            relationship_summary=meta.relationship_summary,
-            relationship_health=meta.relationship_health,
         )
         self._db.save_user_meta(updated)
         return updated
+
+    def _update_user_insight(
+        self,
+        user_id: str,
+        session_id: str,
+        meta: UserMeta,
+        emotion: EmotionState,
+        relationship: Relationship,
+    ) -> UserMeta:
+        """每轮对话后更新用户行为/意图/状态/说话方式/思想模式，返回更新后的 meta。"""
+        history = self._db.recent_messages(session_id, self._s.user_insight_history_limit)
+        user_lines = [m.content for m in history if m.role == "user"]
+        next_turn = meta.insight_turn_count + 1
+        use_llm = self._s.user_insight_use_llm
+        if use_llm and self._s.user_insight_llm_every_n > 0:
+            use_llm = next_turn % self._s.user_insight_llm_every_n == 0
+        analysis = analyze_user(
+            user_lines,
+            meta,
+            emotion,
+            relationship,
+            llm=self._llm if use_llm else None,
+            persona=self._persona,
+            use_llm=use_llm,
+        )
+        updated = replace(
+            meta,
+            user_behavior=analysis.behavior,
+            user_intent=analysis.intent,
+            user_state=analysis.state,
+            user_speaking_style=analysis.speaking_style,
+            user_thought_pattern=analysis.thought_pattern,
+            user_profile_summary=analysis.profile_summary,
+            proactive_topic=analysis.topic_hint,
+            insight_turn_count=next_turn,
+            last_insight_at=time.time(),
+        )
+        self._db.save_user_meta(updated)
+        return updated
+
+    def _run_heavy_post_chat(
+        self,
+        user_id: str,
+        session_id: str,
+        user_text: str,
+        sentiment: float,
+        emotion: EmotionState,
+        relationship: Relationship,
+        meta: UserMeta,
+        rel_summary: str,
+    ) -> RelationshipInsight | None:
+        """反思、关系 LLM 归纳等可能阻塞回复的重型任务。"""
+        maybe_reflect(
+            self._memory,
+            user_id,
+            self._s.reflection_every_n_memories,
+            self._llm,
+            self._persona,
+            relationship_summary=rel_summary,
+        )
+        fresh = self._db.get_user_meta(user_id) or meta
+        insight = self._refresh_relationship_insight(
+            user_id, relationship, fresh, sentiment, session_id
+        )
+        if self._s.user_insight_use_llm:
+            fresh = self._db.get_user_meta(user_id) or fresh
+            self._update_user_insight(user_id, session_id, fresh, emotion, relationship)
+        return insight
 
     def _relationship_context(self, user_id: str) -> UserMeta:
         return self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
@@ -118,12 +186,8 @@ class Orchestrator:
             health_score=insight.health_score, summary=summary, trend=insight.trend
         )
         self._db.save_user_meta(
-            UserMeta(
-                user_id=user_id,
-                last_interaction_at=meta.last_interaction_at,
-                last_sentiment=meta.last_sentiment,
-                sentiment_ema=meta.sentiment_ema,
-                interaction_count=meta.interaction_count,
+            replace(
+                meta,
                 relationship_summary=final.summary,
                 relationship_health=final.health_score,
             )
@@ -144,6 +208,28 @@ class Orchestrator:
             relationship, sentiment, persona=self._persona
         )
         return emotion, sentiment, sent_result.label, relationship
+
+    def _finalize_reply(
+        self,
+        reply: str,
+        system_prompt: str,
+        history: list[dict[str, str]],
+        user_text: str,
+        retrieved: list,
+        user_texts: list[str],
+    ) -> str:
+        """记忆诚实校正 + 语言不匹配时重试一次。"""
+        reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        lang = detect_user_language(user_text)
+        if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
+            reinforced = (
+                f"{system_prompt}\n\n【重要】上一版回复语言不符合用户输入。"
+                f"{language_instruction(lang)}"
+            )
+            retry = self._llm.generate(reinforced, history, temperature=0.65)
+            if retry.strip():
+                reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
+        return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
         emotion = self._db.get_emotion(user_id) or EmotionState()
@@ -210,6 +296,7 @@ class Orchestrator:
             retrieved,
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
+            user_text=user_text,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -217,7 +304,7 @@ class Orchestrator:
         ]
         reply = self._llm.generate(system_prompt, history)
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
-        reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        reply = self._finalize_reply(reply, system_prompt, history, user_text, retrieved, user_texts)
 
         # [6] 状态后处理：持久化情绪/关系、记录回复、沉淀记忆、触发反思
         self._db.save_emotion(user_id, emotion, time.time())
@@ -229,18 +316,15 @@ class Orchestrator:
         importance = self._estimate_importance(user_text, sentiment_for_log)
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         rel_summary = meta_ctx.relationship_summary
-        maybe_reflect(
-            self._memory,
-            user_id,
-            self._s.reflection_every_n_memories,
-            self._llm,
-            self._persona,
-            relationship_summary=rel_summary,
-        )
-
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
-        insight = self._refresh_relationship_insight(
-            user_id, relationship, meta, sentiment_for_log, session_id
+        meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
+        heavy = self._run_heavy_post_chat(
+            user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+        )
+        insight = heavy or RelationshipInsight(
+            health_score=meta.relationship_health,
+            summary=meta.relationship_summary,
+            trend="stable",
         )
         for ev in extract_events(user_text, time.time()):
             ev.user_id = user_id
@@ -308,6 +392,7 @@ class Orchestrator:
             retrieved,
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
+            user_text=user_text,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -333,7 +418,9 @@ class Orchestrator:
             parts.append(piece)
             yield {"type": "token", "text": piece}
 
-        reply = enforce_memory_honesty("".join(parts), retrieved, user_texts)
+        reply = self._finalize_reply(
+            "".join(parts), system_prompt, history, user_text, retrieved, user_texts
+        )
 
         self._db.save_emotion(user_id, emotion, time.time())
         self._db.save_relationship(user_id, relationship, time.time())
@@ -343,18 +430,23 @@ class Orchestrator:
         importance = self._estimate_importance(user_text, sentiment_for_log)
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         rel_summary = meta_ctx.relationship_summary
-        maybe_reflect(
-            self._memory,
-            user_id,
-            self._s.reflection_every_n_memories,
-            self._llm,
-            self._persona,
-            relationship_summary=rel_summary,
-        )
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
-        insight = self._refresh_relationship_insight(
-            user_id, relationship, meta, sentiment_for_log, session_id
-        )
+        meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
+        if self._s.chat_defer_heavy_post:
+            insight = RelationshipInsight(
+                health_score=meta.relationship_health,
+                summary=meta.relationship_summary,
+                trend="stable",
+            )
+        else:
+            heavy = self._run_heavy_post_chat(
+                user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+            )
+            insight = heavy or RelationshipInsight(
+                health_score=meta.relationship_health,
+                summary=meta.relationship_summary,
+                trend="stable",
+            )
         for ev in extract_events(user_text, time.time()):
             ev.user_id = user_id
             self._db.add_event(ev)
@@ -364,7 +456,12 @@ class Orchestrator:
             [m.content for m in retrieved], False, self._llm.name, None,
             sentiment_label=sentiment_label,
             insight=insight,
+            user_meta=meta,
         )
+        if self._s.chat_defer_heavy_post:
+            self._run_heavy_post_chat(
+                user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+            )
 
     @staticmethod
     def _relationship_payload(
@@ -427,11 +524,12 @@ class Orchestrator:
         safety_category: str | None,
         sentiment_label: str = "",
         insight: RelationshipInsight | None = None,
+        user_meta: UserMeta | None = None,
     ) -> dict[str, Any]:
         health = insight.health_score if insight else 0.0
         summary = insight.summary if insight else ""
         trend = insight.trend if insight else "new"
-        return {
+        payload: dict[str, Any] = {
             "type": "done",
             "reply": reply,
             "emotion": {
@@ -454,6 +552,10 @@ class Orchestrator:
             "safety_category": safety_category,
             "user_sentiment_label": sentiment_label,
         }
+        ui = meta_to_insight_dict(user_meta) if user_meta else None
+        if ui:
+            payload["user_insight"] = ui
+        return payload
 
     def _maybe_tts(
         self, text: str, emotion: EmotionState, is_crisis: bool = False
@@ -489,12 +591,24 @@ class Orchestrator:
         if result.event_id is not None:
             self._db.mark_event_fired(result.event_id)
         meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
-        self._db.save_user_meta(
-            UserMeta(user_id=user_id, last_interaction_at=ts, last_sentiment=meta.last_sentiment)
-        )
+        updated = replace(meta, last_interaction_at=ts)
+        if result.trigger in ("insight", "emotion", "idle"):
+            updated = replace(updated, last_proactive_at=ts)
+        if result.insight is not None:
+            updated = replace(
+                updated,
+                user_behavior=result.insight.behavior,
+                user_intent=result.insight.intent,
+                user_state=result.insight.state,
+                user_speaking_style=result.insight.speaking_style,
+                user_thought_pattern=result.insight.thought_pattern,
+                user_profile_summary=result.insight.profile_summary,
+                proactive_topic=result.insight.topic_hint,
+            )
+        self._db.save_user_meta(updated)
 
         emotion, _ = self._load_state(user_id)
-        expr_map = {"event": False, "idle": False, "emotion": True}
+        expr_map = {"event": False, "idle": False, "emotion": True, "insight": True, "welcome": False}
         avatar = emotion_to_avatar(emotion, is_crisis=expr_map.get(result.trigger, False))
         return result, avatar
 

@@ -17,6 +17,9 @@ from .lipsync import generate_lipsync, generate_visemes
 _MS_PER_CHAR = 140
 
 
+from .tts_text import strip_for_tts
+
+
 class OpenAICompatibleTTSProvider(TTSProvider):
     def __init__(self, base_url: str, api_key: str, model: str, voice: str, timeout: float = 30.0) -> None:
         self._base_url = base_url.rstrip("/")
@@ -32,6 +35,7 @@ class OpenAICompatibleTTSProvider(TTSProvider):
     def synthesize(
         self, text: str, voice: str | None = None, style: VoiceStyle | None = None
     ) -> TTSResult:
+        text = strip_for_tts(text) or "嗯"
         style = style or VoiceStyle()
         payload = {
             "model": self._model,

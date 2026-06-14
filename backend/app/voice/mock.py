@@ -35,6 +35,9 @@ def _silent_wav(duration_ms: int, sample_rate: int = _SAMPLE_RATE) -> bytes:
     return buf.getvalue()
 
 
+from .tts_text import strip_for_tts
+
+
 class MockTTSProvider(TTSProvider):
     @property
     def name(self) -> str:
@@ -43,6 +46,7 @@ class MockTTSProvider(TTSProvider):
     def synthesize(
         self, text: str, voice: str | None = None, style: VoiceStyle | None = None
     ) -> TTSResult:
+        text = strip_for_tts(text) or "嗯"
         style = style or VoiceStyle()
         # 语速影响时长（rate 越大越短）
         duration_ms = max(300, int(len(text) * _MS_PER_CHAR / max(0.3, style.rate)))

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
-    llm_timeout_seconds: float = 30.0
+    llm_timeout_seconds: float = 180.0   # 本地 Llama 首 token 可能较慢
 
     # Embedding provider：hash | openai_compatible
     embedding_provider: str = "hash"
@@ -74,14 +74,27 @@ class Settings(BaseSettings):
     memory_min_relevance: float = 0.12
 
     # 近期对话注入轮数
-    recent_messages_window: int = 8
+    recent_messages_window: int = 6
 
-    # 情感分析：lexicon | llm | hybrid（中性句用 LLM 细判）
-    sentiment_mode: str = "hybrid"
+    # 情感分析：lexicon | llm | hybrid（中性句用 LLM 细判；lexicon 最快）
+    sentiment_mode: str = "lexicon"
     sentiment_ema_alpha: float = 0.35   # 情感 EMA 平滑系数
 
-    # 关系归纳：每 N 轮互动刷新一次 LLM 关系摘要（0=仅规则）
-    relationship_summary_every_n: int = 3
+    # 关系归纳：每 N 轮互动刷新一次 LLM 关系摘要（0=仅规则；越大越少调 LLM）
+    relationship_summary_every_n: int = 6
+
+    # 用户洞察驱动的主动沟通
+    proactive_insight_enabled: bool = True
+    proactive_insight_min_idle_seconds: int = 1800   # 至少闲置 30 分钟再洞察触发
+    proactive_insight_cooldown_seconds: int = 3600     # 洞察主动消息冷却 1 小时
+    proactive_insight_min_confidence: float = 0.55
+    user_insight_use_llm: bool = False                 # 对话路径用规则分析，避免额外 LLM
+    user_insight_history_limit: int = 40             # 洞察分析拉取的用户消息条数
+    user_insight_llm_every_n: int = 2                  # 启用 LLM 时每 N 次洞察做一次深描
+    user_insight_min_messages: int = 2                 # 至少 N 条用户消息才输出深度画像
+
+    # 流式对话：done 事件前是否推迟反思/关系归纳等重型 LLM 任务到后台
+    chat_defer_heavy_post: bool = True
 
 
 @lru_cache

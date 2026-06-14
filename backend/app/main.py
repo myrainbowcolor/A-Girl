@@ -33,8 +33,10 @@ from .schemas import (
     SttResponse,
     TtsOut,
     TtsRequest,
+    UserInsightOut,
 )
 from .scheduler import ProactiveScheduler
+from .user_insight import meta_to_insight_dict
 from .voice import build_stt_provider, build_tts_provider
 
 settings = get_settings()
@@ -88,6 +90,29 @@ def _tts_out(t) -> TtsOut | None:
     )
 
 
+def _user_insight_out(meta) -> UserInsightOut | None:
+    d = meta_to_insight_dict(meta) if meta else None
+    if not d:
+        return None
+    return UserInsightOut(**d)
+
+
+def _insight_from_result(insight) -> UserInsightOut | None:
+    if insight is None:
+        return None
+    return UserInsightOut(
+        behavior=insight.behavior,
+        intent=insight.intent,
+        state=insight.state,
+        speaking_style=insight.speaking_style,
+        thought_pattern=insight.thought_pattern,
+        profile_summary=insight.profile_summary,
+        proactive_topic=insight.topic_hint,
+        proactive_need=insight.proactive_need,
+        confidence=insight.confidence,
+    )
+
+
 @app.get("/health")
 def health() -> dict:
     return {
@@ -135,7 +160,13 @@ def chat_stream(req: ChatRequest) -> StreamingResponse:
             for item in _orchestrator.chat_stream(req.user_id, session_id, req.message):
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         except Exception as exc:
-            err = {"type": "error", "message": str(exc)}
+            msg = str(exc).strip() or "unknown"
+            low = msg.lower()
+            if "timeout" in low or "timed out" in low:
+                msg = "LLM 响应超时（本地模型可能仍在加载），请稍后再试"
+            elif "connect" in low and "refused" in low:
+                msg = "LLM 服务未启动，请先运行 scripts/start-remote-llm.sh"
+            err = {"type": "error", "message": msg}
             yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(
@@ -181,6 +212,7 @@ def proactive(user_id: str) -> ProactiveResponse:
         emotion=_emotion_out(emotion),
         relationship=_relationship_out(relationship),
         tts=_tts_out(tts),
+        user_insight=_insight_from_result(result.insight),
     )
 
 
@@ -270,7 +302,18 @@ def get_state(user_id: str) -> StateResponse:
             health=meta.relationship_health if meta else 0.0,
             trend="stable",
         ),
+        user_insight=_user_insight_out(meta),
     )
+
+
+@app.get("/api/insight/{user_id}", response_model=UserInsightOut)
+def get_insight(user_id: str) -> UserInsightOut:
+    """读取最近一次用户行为/意图/状态分析。"""
+    meta = _db.get_user_meta(user_id)
+    d = meta_to_insight_dict(meta) if meta else None
+    if not d:
+        return UserInsightOut()
+    return UserInsightOut(**d)
 
 
 @app.get("/api/memory/{user_id}", response_model=list[MemoryOut])

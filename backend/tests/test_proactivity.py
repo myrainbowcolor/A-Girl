@@ -13,7 +13,15 @@ from app.proactivity import ProactivityEngine, extract_events
 def engine():
     with tempfile.NamedTemporaryFile(suffix=".db") as f:
         db = Database(f.name)
-        s = Settings(db_path=f.name, proactive_idle_seconds=6 * 3600)
+        s = Settings(
+            db_path=f.name,
+            proactive_idle_seconds=6 * 3600,
+            proactive_insight_enabled=True,
+            proactive_insight_min_idle_seconds=1800,
+            proactive_insight_cooldown_seconds=3600,
+            proactive_insight_min_confidence=0.55,
+            user_insight_use_llm=False,
+        )
         yield ProactivityEngine(db, s, Persona()), db, s
         db.close()
 
@@ -63,6 +71,63 @@ def test_emotion_trigger(engine):
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 3600, last_sentiment=-0.6))
     r = eng.check("u1", now=now)
     assert r.should_reach_out and r.trigger == "emotion"
+
+
+def test_insight_trigger_comfort(engine):
+    eng, db, _ = engine
+    _seed_history(db)
+    now = time.time()
+    db.add_message(
+        Message(session_id="sess-u1", role="user", content="最近好累压力好大", created_at=now - 4000)
+    )
+    db.save_user_meta(
+        UserMeta(
+            "u1",
+            last_interaction_at=now - 3600,
+            last_sentiment=-0.5,
+            sentiment_ema=-0.4,
+            interaction_count=5,
+        )
+    )
+    r = eng.check("u1", now=now)
+    assert r.should_reach_out and r.trigger == "insight"
+    assert r.insight is not None
+    assert r.insight.proactive_need == "comfort"
+    assert r.message
+
+
+def test_insight_respects_cooldown(engine):
+    eng, db, _ = engine
+    _seed_history(db)
+    now = time.time()
+    db.add_message(
+        Message(session_id="sess-u1", role="user", content="好烦压力好大", created_at=now - 4000)
+    )
+    db.save_user_meta(
+        UserMeta(
+            "u1",
+            last_interaction_at=now - 3600,
+            last_sentiment=0.0,
+            sentiment_ema=-0.4,
+            last_proactive_at=now - 600,
+        )
+    )
+    r = eng.check("u1", now=now)
+    assert not r.should_reach_out or r.trigger != "insight"
+
+
+def test_insight_skipped_when_idle_too_short(engine):
+    eng, db, s = engine
+    _seed_history(db)
+    now = time.time()
+    db.add_message(
+        Message(session_id="sess-u1", role="user", content="好烦", created_at=now - 100)
+    )
+    db.save_user_meta(
+        UserMeta("u1", last_interaction_at=now - 900, last_sentiment=-0.5, sentiment_ema=-0.4)
+    )
+    r = eng.check("u1", now=now)
+    assert not r.should_reach_out or r.trigger != "insight"
 
 
 def test_event_trigger_has_priority(engine):

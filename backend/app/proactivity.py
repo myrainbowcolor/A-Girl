@@ -1,22 +1,30 @@
 """主动关心引擎：让 NPC 像真人一样主动发起互动。
 
-三类触发器（优先级从高到低）：
+触发器（优先级从高到低）：
 1. 事件触发：用户提过的重要日期（生日/面试/考试）到点 → 主动问候
-2. 情绪触发：上次互动情绪明显低落 → 主动关心
-3. 时间触发：长时间未互动 → 主动想念
+2. 首次来访：尚无对话记录 → 主动问候
+3. 洞察触发：基于用户行为/意图/状态分析 → 个性化主动沟通
+4. 情绪触发：上次互动情绪明显低落 → 主动关心
+5. 时间触发：长时间未互动 → 主动想念
 
 引擎是纯逻辑（注入 now 便于测试）；调度器只是周期性调用它。
 事件抽取做了轻量的相对日期解析（明天/后天/下周）。
 """
 from __future__ import annotations
 
-import re
 import time
 from dataclasses import dataclass
 
 from .config import Settings
 from .db import Database
-from .domain import Event, Persona
+from .domain import EmotionState, Event, Persona, Relationship, UserMeta
+from .llm.base import LLMProvider
+from .user_insight import (
+    UserInsightAnalysis,
+    analyze_user,
+    compose_proactive_message,
+    proactive_reason,
+)
 
 _DAY = 86400
 
@@ -43,10 +51,11 @@ _RELATIVE_DATES = {
 @dataclass
 class ProactiveResult:
     should_reach_out: bool
-    trigger: str | None = None       # event | emotion | idle
+    trigger: str | None = None       # event | welcome | insight | emotion | idle
     reason: str | None = None        # 人类可读原因
-    message: str | None = None       # 主动开场白（persona 风格模板）
+    message: str | None = None       # 主动开场白
     event_id: int | None = None      # 若为事件触发，对应事件
+    insight: UserInsightAnalysis | None = None
 
 
 def extract_events(user_text: str, now: float) -> list[Event]:
@@ -69,10 +78,17 @@ def extract_events(user_text: str, now: float) -> list[Event]:
 
 
 class ProactivityEngine:
-    def __init__(self, db: Database, settings: Settings, persona: Persona) -> None:
+    def __init__(
+        self,
+        db: Database,
+        settings: Settings,
+        persona: Persona,
+        llm: LLMProvider | None = None,
+    ) -> None:
         self._db = db
         self._s = settings
         self._persona = persona
+        self._llm = llm
 
     def check(self, user_id: str, now: float | None = None) -> ProactiveResult:
         now = now or time.time()
@@ -100,8 +116,15 @@ class ProactivityEngine:
             return ProactiveResult(False)
 
         idle = now - meta.last_interaction_at
+        emotion = self._db.get_emotion(user_id) or EmotionState()
+        relationship = self._db.get_relationship(user_id) or Relationship()
 
-        # 3) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
+        # 3) 洞察触发：基于行为/意图/状态分析
+        insight_result = self._check_insight(user_id, meta, emotion, relationship, idle, now)
+        if insight_result:
+            return insight_result
+
+        # 4) 情绪触发：上次情绪低落，且已过去一段时间（避免刚说完就追问）
         if meta.last_sentiment <= -0.3 and idle >= 1800:
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
@@ -109,7 +132,7 @@ class ProactivityEngine:
                 f"现在好点了吗？想说的话我都在听。"
             )
 
-        # 4) 时间触发：长时间未互动
+        # 5) 时间触发：长时间未互动
         if idle >= self._s.proactive_idle_seconds:
             hours = int(idle // 3600)
             return ProactiveResult(
@@ -119,6 +142,58 @@ class ProactivityEngine:
             )
 
         return ProactiveResult(False)
+
+    def _check_insight(
+        self,
+        user_id: str,
+        meta: UserMeta,
+        emotion: EmotionState,
+        relationship: Relationship,
+        idle: float,
+        now: float,
+    ) -> ProactiveResult | None:
+        if not self._s.proactive_insight_enabled:
+            return None
+        if idle < self._s.proactive_insight_min_idle_seconds:
+            return None
+        if meta.last_proactive_at > 0:
+            since_proactive = now - meta.last_proactive_at
+            if since_proactive < self._s.proactive_insight_cooldown_seconds:
+                return None
+
+        session_id = f"sess-{user_id}"
+        history = self._db.recent_messages(session_id, self._s.user_insight_history_limit)
+        user_lines = [m.content for m in history if m.role == "user"]
+        if not user_lines:
+            return None
+
+        analysis = analyze_user(
+            user_lines,
+            meta,
+            emotion,
+            relationship,
+            llm=self._llm if self._s.user_insight_use_llm else None,
+            persona=self._persona,
+            use_llm=self._s.user_insight_use_llm,
+        )
+        if analysis.proactive_need == "none":
+            return None
+        if analysis.confidence < self._s.proactive_insight_min_confidence:
+            return None
+
+        need = analysis.proactive_need
+        msg = compose_proactive_message(
+            need,
+            analysis,
+            self._persona,
+            relationship,
+            llm=self._llm if self._s.user_insight_use_llm else None,
+            rel_summary=meta.relationship_summary,
+        )
+        reason = proactive_reason(need, analysis)
+        return ProactiveResult(
+            True, "insight", reason, msg, insight=analysis
+        )
 
     def _event_message(self, ev: Event) -> str:
         name = self._persona.name
