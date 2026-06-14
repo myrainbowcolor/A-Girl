@@ -387,15 +387,21 @@
         blinkCloseUntil = now + 110;
         nextBlinkAt = now + 2200 + Math.random() * 3200;
       }
-      const smileSquint = 1 - (f.eyeSmile || 0) * 0.5;
+      const smileK = f.eyeSmile || 0;
+      const smileSquint = 1 - smileK * 0.5;
       const ry = 12 * f.eye * blinkScale * smileSquint;
-      const rx = 9 + (f.eyeSmile || 0) * 2.5;
+      const rx = 9 + smileK * 2.5;
       const eyeL = document.getElementById("eyeL");
       const eyeR = document.getElementById("eyeR");
       eyeL.setAttribute("ry", ry);
       eyeR.setAttribute("ry", ry);
       eyeL.setAttribute("rx", rx);
       eyeR.setAttribute("rx", rx);
+      const smileEyeOp = smileK > 0.12 ? Math.min(1, smileK * 1.15) : 0;
+      document.getElementById("smileEyeL").setAttribute("opacity", smileEyeOp);
+      document.getElementById("smileEyeR").setAttribute("opacity", smileEyeOp);
+      eyeL.setAttribute("opacity", smileEyeOp > 0.35 ? 0.25 : 1);
+      eyeR.setAttribute("opacity", smileEyeOp > 0.35 ? 0.25 : 1);
       const browDy = -f.brow * 6;
       document.getElementById("browL").setAttribute("transform", `translate(0 ${browDy})`);
       document.getElementById("browR").setAttribute("transform", `translate(0 ${browDy})`);
