@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 180.0   # 本地 Llama 首 token 可能较慢
+    llm_reply_temperature: float = 0.72  # 对话生成温度（略低更口语、少跑题）
 
     # Embedding provider：hash | openai_compatible
     embedding_provider: str = "hash"
