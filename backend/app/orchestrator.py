@@ -113,6 +113,35 @@ class Orchestrator:
         self._db.save_user_meta(updated)
         return updated
 
+    def _run_heavy_post_chat(
+        self,
+        user_id: str,
+        session_id: str,
+        user_text: str,
+        sentiment: float,
+        emotion: EmotionState,
+        relationship: Relationship,
+        meta: UserMeta,
+        rel_summary: str,
+    ) -> RelationshipInsight | None:
+        """反思、关系 LLM 归纳等可能阻塞回复的重型任务。"""
+        maybe_reflect(
+            self._memory,
+            user_id,
+            self._s.reflection_every_n_memories,
+            self._llm,
+            self._persona,
+            relationship_summary=rel_summary,
+        )
+        fresh = self._db.get_user_meta(user_id) or meta
+        insight = self._refresh_relationship_insight(
+            user_id, relationship, fresh, sentiment, session_id
+        )
+        if self._s.user_insight_use_llm:
+            fresh = self._db.get_user_meta(user_id) or fresh
+            self._update_user_insight(user_id, session_id, fresh, emotion, relationship)
+        return insight
+
     def _relationship_context(self, user_id: str) -> UserMeta:
         return self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
 
@@ -255,19 +284,15 @@ class Orchestrator:
         importance = self._estimate_importance(user_text, sentiment_for_log)
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         rel_summary = meta_ctx.relationship_summary
-        maybe_reflect(
-            self._memory,
-            user_id,
-            self._s.reflection_every_n_memories,
-            self._llm,
-            self._persona,
-            relationship_summary=rel_summary,
-        )
-
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
         meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
-        insight = self._refresh_relationship_insight(
-            user_id, relationship, meta, sentiment_for_log, session_id
+        heavy = self._run_heavy_post_chat(
+            user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+        )
+        insight = heavy or RelationshipInsight(
+            health_score=meta.relationship_health,
+            summary=meta.relationship_summary,
+            trend="stable",
         )
         for ev in extract_events(user_text, time.time()):
             ev.user_id = user_id
@@ -370,19 +395,23 @@ class Orchestrator:
         importance = self._estimate_importance(user_text, sentiment_for_log)
         self._memory.add(user_id, f"ta 说：{user_text}", importance=importance)
         rel_summary = meta_ctx.relationship_summary
-        maybe_reflect(
-            self._memory,
-            user_id,
-            self._s.reflection_every_n_memories,
-            self._llm,
-            self._persona,
-            relationship_summary=rel_summary,
-        )
         meta = self._record_interaction(user_id, time.time(), sentiment_for_log)
         meta = self._update_user_insight(user_id, session_id, meta, emotion, relationship)
-        insight = self._refresh_relationship_insight(
-            user_id, relationship, meta, sentiment_for_log, session_id
-        )
+        if self._s.chat_defer_heavy_post:
+            insight = RelationshipInsight(
+                health_score=meta.relationship_health,
+                summary=meta.relationship_summary,
+                trend="stable",
+            )
+        else:
+            heavy = self._run_heavy_post_chat(
+                user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+            )
+            insight = heavy or RelationshipInsight(
+                health_score=meta.relationship_health,
+                summary=meta.relationship_summary,
+                trend="stable",
+            )
         for ev in extract_events(user_text, time.time()):
             ev.user_id = user_id
             self._db.add_event(ev)
@@ -393,6 +422,10 @@ class Orchestrator:
             sentiment_label=sentiment_label,
             insight=insight,
         )
+        if self._s.chat_defer_heavy_post:
+            self._run_heavy_post_chat(
+                user_id, session_id, user_text, sentiment_for_log, emotion, relationship, meta, rel_summary
+            )
 
     @staticmethod
     def _relationship_payload(

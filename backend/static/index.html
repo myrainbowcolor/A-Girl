@@ -129,7 +129,7 @@
         </div>
       </div>
       <div class="messages" id="messages"></div>
-      <div class="composer-hint">连发多条会先合并，停 2 秒后再回复 · Shift+Enter 换行</div>
+      <div class="composer-hint">连发多条会先合并，停 0.8 秒后再回复 · Shift+Enter 换行</div>
       <div class="composer">
         <textarea id="input" rows="2" placeholder="和 ta 说点什么…（想说几句就停一下，小语会等你说完）"></textarea>
         <button id="send">发送</button>
@@ -271,7 +271,7 @@
     }
 
     // 合并连发：停 COMPOSE_MS 后再一次性请求，避免每句都打断
-    const COMPOSE_MS = 2000;
+    const COMPOSE_MS = 800;
     let pendingTexts = [];
     let composeTimer = null;
     let isReplying = false;
@@ -332,25 +332,23 @@
                 if (ev.is_crisis) bubble.classList.add("crisis");
               } else if (ev.type === "token") {
                 replyBuffer += ev.text;
-                const voiceOn = document.getElementById("voiceToggle").checked;
-                if (!voiceOn) {
-                  if (bubble.classList.contains("typing")) {
-                    bubble.textContent = "";
-                    bubble.classList.remove("typing");
-                  }
-                  bubble.textContent += ev.text;
-                  scrollToBottom();
-                } else if (!bubble.textContent || bubble.textContent === "…") {
-                  bubble.textContent = "小语在想…";
-                  bubble.classList.add("typing");
+                if (bubble.classList.contains("typing")) {
+                  bubble.textContent = "";
+                  bubble.classList.remove("typing");
                 }
+                bubble.textContent += ev.text;
+                scrollToBottom();
               } else if (ev.type === "done") {
                 const reply = ev.reply || replyBuffer;
                 bubble.classList.remove("typing");
+                if (!bubble.textContent) bubble.textContent = reply;
                 updatePanel(ev);
                 refreshUserInsight();
                 if (ev.is_crisis) bubble.classList.add("crisis");
-                await presentReplyWithAv(bubble, reply);
+                const voiceOn = document.getElementById("voiceToggle").checked;
+                if (voiceOn) {
+                  await presentReplyWithAv(bubble, reply, true);
+                }
               } else if (ev.type === "error") {
                 throw new Error(ev.message || "stream error");
               }
@@ -612,9 +610,9 @@
     }
 
     /** 台词 + 语音 + 口型统一时间轴（以音频 currentTime 为准） */
-    async function playSyncedAv(bubble, text, ttsData) {
+    async function playSyncedAv(bubble, text, ttsData, textAlreadyVisible) {
       const voiceOn = document.getElementById("voiceToggle").checked;
-      bubble.textContent = "";
+      if (!textAlreadyVisible) bubble.textContent = "";
       if (!voiceOn) {
         bubble.textContent = text;
         scrollToBottom();
@@ -626,6 +624,7 @@
       const isMock = !ttsData || !ttsData.provider || ttsData.provider === "mock";
       const durationMs = (ttsData && ttsData.duration_ms) || estimateSpeechMs(text);
       const scaledVisemes = scaleVisemeTimeline(ttsData && ttsData.visemes, durationMs);
+      const syncText = !textAlreadyVisible;
 
       if (ttsData && !isMock) {
         const audio = new Audio("data:audio/" + ttsData.format + ";base64," + ttsData.audio_base64);
@@ -641,8 +640,10 @@
             if (session !== speechSession) return;
             const d = audio.duration;
             if (d && isFinite(d) && d > 0) {
-              const progress = audio.currentTime / d;
-              revealTextToProgress(bubble, text, progress);
+              if (syncText) {
+                const progress = audio.currentTime / d;
+                revealTextToProgress(bubble, text, progress);
+              }
               applyViseme(visemeAtTime(scaledVisemes, audio.currentTime * 1000));
             }
             if (!audio.paused && !audio.ended) syncRAF = requestAnimationFrame(syncLoop);
@@ -673,7 +674,7 @@
         const syncLoop = () => {
           if (session !== speechSession) return;
           const elapsed = performance.now() - t0;
-          revealTextToProgress(bubble, text, Math.min(1, elapsed / durationMs));
+          if (syncText) revealTextToProgress(bubble, text, Math.min(1, elapsed / durationMs));
           applyViseme(visemeAtTime(scaledVisemes, elapsed));
           if (elapsed < durationMs) syncRAF = requestAnimationFrame(syncLoop);
         };
@@ -693,7 +694,7 @@
       });
     }
 
-    async function presentReplyWithAv(bubble, text) {
+    async function presentReplyWithAv(bubble, text, textAlreadyVisible) {
       if (!text || !text.trim()) {
         bubble.textContent = "…";
         return;
@@ -704,15 +705,17 @@
         scrollToBottom();
         return;
       }
-      bubble.textContent = "";
-      bubble.classList.add("typing");
-      bubble.textContent = "小语在组织语言…";
+      if (!textAlreadyVisible) {
+        bubble.textContent = "";
+        bubble.classList.add("typing");
+        bubble.textContent = "小语在组织语言…";
+      }
       let ttsData = null;
       try {
         ttsData = await fetchTtsData(text);
       } catch (_) { /* 回退浏览器语音 */ }
       bubble.classList.remove("typing");
-      await playSyncedAv(bubble, text, ttsData);
+      await playSyncedAv(bubble, text, ttsData, !!textAlreadyVisible);
     }
 
     function updatePanel(data) {

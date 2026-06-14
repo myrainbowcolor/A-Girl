@@ -15,7 +15,8 @@ _DEFAULT_GGUF = os.environ.get(
     "/home/ubuntu/.ollama/models/blobs/sha256-6a0746a1ec1aef3e7ec53868f220ff6e389f6f8ef87a01d77c96807de94ca2aa",
 )
 _THREADS = int(os.environ.get("LLAMA_THREADS", "4"))
-_CTX = int(os.environ.get("LLAMA_CTX", "4096"))
+_CTX = int(os.environ.get("LLAMA_CTX", "2048"))
+_MAX_TOKENS = int(os.environ.get("LLAMA_MAX_TOKENS", "180"))
 
 
 @lru_cache
@@ -57,7 +58,7 @@ async def chat_completions(req: Request):
             for chunk in llm.create_chat_completion(
                 messages=messages,
                 temperature=temperature,
-                max_tokens=int(body.get("max_tokens", 256)),
+                max_tokens=int(body.get("max_tokens", _MAX_TOKENS)),
                 stream=True,
             ):
                 choices = chunk.get("choices") or []
@@ -74,7 +75,7 @@ async def chat_completions(req: Request):
     result = llm.create_chat_completion(
         messages=messages,
         temperature=temperature,
-        max_tokens=int(body.get("max_tokens", 256)),
+        max_tokens=int(body.get("max_tokens", _MAX_TOKENS)),
     )
     content = result["choices"][0]["message"]["content"]
     return {
