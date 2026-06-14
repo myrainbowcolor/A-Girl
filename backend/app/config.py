@@ -46,10 +46,13 @@ class Settings(BaseSettings):
     deployment_mode: str = "standalone"
 
     # 主动关心调度
-    proactive_idle_seconds: int = 6 * 3600        # 闲置多久后主动问候
+    proactive_idle_seconds: int = 45 * 60          # 长时间未互动后主动问候（45 分钟）
+    proactive_warm_idle_seconds: int = 8 * 60      # 聊过几句后安静一会儿的轻问候（8 分钟）
+    proactive_emotion_min_idle_seconds: int = 10 * 60  # 上次情绪低落后再关心（10 分钟）
+    proactive_global_cooldown_seconds: int = 12 * 60   # 任意主动消息最短间隔（12 分钟）
     proactive_event_window_seconds: int = 86400   # 事件到点前后多久内触发
-    proactive_scheduler_enabled: bool = False     # 是否启用后台轮询调度
-    proactive_scheduler_interval_seconds: int = 60
+    proactive_scheduler_enabled: bool = True      # 后台轮询，经 SSE 推送主动消息
+    proactive_scheduler_interval_seconds: int = 90
 
     # 主动推送：webhook 回调地址（留空则仅 SSE）
     push_webhook_url: str = ""
@@ -86,9 +89,9 @@ class Settings(BaseSettings):
 
     # 用户洞察驱动的主动沟通
     proactive_insight_enabled: bool = True
-    proactive_insight_min_idle_seconds: int = 1800   # 至少闲置 30 分钟再洞察触发
-    proactive_insight_cooldown_seconds: int = 3600     # 洞察主动消息冷却 1 小时
-    proactive_insight_min_confidence: float = 0.55
+    proactive_insight_min_idle_seconds: int = 5 * 60    # 洞察触发：安静 5 分钟
+    proactive_insight_cooldown_seconds: int = 15 * 60   # 洞察主动消息冷却 15 分钟
+    proactive_insight_min_confidence: float = 0.48
     user_insight_use_llm: bool = False                 # 对话路径用规则分析，避免额外 LLM
     user_insight_history_limit: int = 40             # 洞察分析拉取的用户消息条数
     user_insight_llm_every_n: int = 2                  # 启用 LLM 时每 N 次洞察做一次深描

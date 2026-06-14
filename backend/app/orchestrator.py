@@ -600,7 +600,7 @@ class Orchestrator:
             self._db.mark_event_fired(result.event_id)
         meta = self._db.get_user_meta(user_id) or UserMeta(user_id=user_id)
         updated = replace(meta, last_interaction_at=ts)
-        if result.trigger in ("insight", "emotion", "idle"):
+        if result.trigger in ("insight", "emotion", "warm", "idle"):
             updated = replace(updated, last_proactive_at=ts)
         if result.insight is not None:
             updated = replace(
@@ -616,7 +616,7 @@ class Orchestrator:
         self._db.save_user_meta(updated)
 
         emotion, _ = self._load_state(user_id)
-        expr_map = {"event": False, "idle": False, "emotion": True, "insight": True, "welcome": False}
+        expr_map = {"event": False, "idle": False, "emotion": True, "insight": True, "warm": True, "welcome": False}
         avatar = emotion_to_avatar(emotion, is_crisis=expr_map.get(result.trigger, False))
         return result, avatar
 
