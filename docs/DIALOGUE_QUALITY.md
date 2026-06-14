@@ -17,6 +17,9 @@
 
 用例定义见 `backend/app/dialogue_quality/scenarios.py`。
 
+- **基线场景**（`baseline=True`）：CI 严格模式必须全部通过，代表当前已承诺的对话质量。
+- **扩展场景**（`baseline=False`）：覆盖更多真人对话维度，未达标时写入 `failures.jsonl` 供开发跟进，不阻断基线 CI。
+
 ## 质量规则（启发式）
 
 `DialogueEvaluator` 自动检查包括但不限于：

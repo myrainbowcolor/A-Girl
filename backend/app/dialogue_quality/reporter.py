@@ -80,12 +80,25 @@ class DialogueQualityReporter:
         critical = sum(len(r.critical_issues) for r in results)
         major = sum(len(r.major_issues) for r in results)
         avg_score = sum(r.score for r in results) / total if total else 0.0
+        baseline = [r for r in results if r.scenario.baseline]
+        extended = [r for r in results if not r.scenario.baseline]
+        baseline_failed = sum(1 for r in baseline if r.issues)
+        extended_failed = sum(1 for r in extended if r.issues)
         return {
             "total_scenarios": total,
+            "baseline_scenarios": len(baseline),
+            "extended_scenarios": len(extended),
             "scenarios_with_issues": failed,
+            "baseline_with_issues": baseline_failed,
+            "extended_with_issues": extended_failed,
             "critical_issue_count": critical,
             "major_issue_count": major,
             "average_score": round(avg_score, 1),
+            "baseline_average_score": round(
+                sum(r.score for r in baseline) / len(baseline), 1
+            )
+            if baseline
+            else 0.0,
         }
 
     @staticmethod
@@ -101,6 +114,7 @@ class DialogueQualityReporter:
             "relationship": s.relationship,
             "duration": s.duration,
             "description": s.description,
+            "baseline": s.baseline,
             "passed": result.passed,
             "score": result.score,
             "issues": [asdict(i) for i in result.issues],
@@ -141,6 +155,7 @@ class DialogueQualityReporter:
             "emotion": s.emotion,
             "relationship": s.relationship,
             "duration": s.duration,
+            "baseline": s.baseline,
             "score": result.score,
             "issues": issues,
             "transcript": [
@@ -168,30 +183,45 @@ class DialogueQualityReporter:
         if not problem_results:
             lines.append("_本次全部场景通过启发式检查。_")
         else:
-            for r in problem_results:
-                s = r.scenario
-                lines.append(f"### {s.id} · {s.name}")
-                lines.append(
-                    f"- 维度：场景={s.scene} | 背景={s.background} | "
-                    f"心态={s.mindset} | 情绪={s.emotion} | "
-                    f"关系={s.relationship} | 时长={s.duration}"
-                )
-                lines.append(f"- 得分：{r.score}")
-                for issue in r.issues:
-                    turn = f"（第 {issue.turn_index + 1} 轮）" if issue.turn_index is not None else ""
-                    hint = RULE_FIX_HINTS.get(issue.rule_id, "")
-                    hint_line = f" → 修复：{hint}" if hint else ""
-                    lines.append(
-                        f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}{hint_line}"
-                    )
+            baseline_problems = [r for r in problem_results if r.scenario.baseline]
+            extended_problems = [r for r in problem_results if not r.scenario.baseline]
+            if baseline_problems:
+                lines.append("### 基线场景（需立即修复）")
                 lines.append("")
-                lines.append("<details><summary>对话记录</summary>")
+            for r in baseline_problems:
+                self._append_scenario_md(lines, r)
+            if extended_problems:
+                lines.append("### 扩展场景（拟真度跟进）")
                 lines.append("")
-                for t in r.turns:
-                    lines.append(f"**用户**：{t.user_text}")
-                    lines.append(f"**NPC**：{t.reply}")
-                    lines.append("")
-                lines.append("</details>")
-                lines.append("")
+            for r in extended_problems:
+                self._append_scenario_md(lines, r)
 
         (self.report_dir / "latest.md").write_text("\n".join(lines), encoding="utf-8")
+
+    @staticmethod
+    def _append_scenario_md(lines: list[str], r: ScenarioResult) -> None:
+        s = r.scenario
+        tier = "基线" if s.baseline else "扩展"
+        lines.append(f"### {s.id} · {s.name}（{tier}）")
+        lines.append(
+            f"- 维度：场景={s.scene} | 背景={s.background} | "
+            f"心态={s.mindset} | 情绪={s.emotion} | "
+            f"关系={s.relationship} | 时长={s.duration}"
+        )
+        lines.append(f"- 得分：{r.score}")
+        for issue in r.issues:
+            turn = f"（第 {issue.turn_index + 1} 轮）" if issue.turn_index is not None else ""
+            hint = RULE_FIX_HINTS.get(issue.rule_id, "")
+            hint_line = f" → 修复：{hint}" if hint else ""
+            lines.append(
+                f"  - [{issue.severity}] `{issue.rule_id}`{turn}: {issue.message}{hint_line}"
+            )
+        lines.append("")
+        lines.append("<details><summary>对话记录</summary>")
+        lines.append("")
+        for t in r.turns:
+            lines.append(f"**用户**：{t.user_text}")
+            lines.append(f"**NPC**：{t.reply}")
+            lines.append("")
+        lines.append("</details>")
+        lines.append("")

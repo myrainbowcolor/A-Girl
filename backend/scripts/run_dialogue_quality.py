@@ -62,9 +62,13 @@ def main() -> int:
     report_path = DialogueQualityReporter().write_run_report(results, llm_name=llm.name)
 
     summary = DialogueQualityReporter()._summary(results)
-    print(f"评测完成：{summary['total_scenarios']} 场景，"
-          f"{summary['scenarios_with_issues']} 个有问题，"
-          f"平均分 {summary['average_score']}")
+    print(
+        f"评测完成：{summary['total_scenarios']} 场景"
+        f"（基线 {summary['baseline_scenarios']} + 扩展 {summary['extended_scenarios']}），"
+        f"{summary['scenarios_with_issues']} 个有问题"
+        f"（基线 {summary['baseline_with_issues']} / 扩展 {summary['extended_with_issues']}），"
+        f"平均分 {summary['average_score']}（基线 {summary['baseline_average_score']}）"
+    )
     print(f"报告：{report_path}")
     print(f"Markdown：{report_path.parent / 'latest.md'}")
     print(f"失败流水：{report_path.parent / 'failures.jsonl'}")
@@ -78,7 +82,8 @@ def main() -> int:
             print(f"  - {issue.severity} {issue.rule_id}{turn}: {issue.message}")
 
     if args.strict:
-        if any(r.critical_issues or r.major_issues for r in results):
+        baseline = [r for r in results if r.scenario.baseline]
+        if any(r.critical_issues or r.major_issues for r in baseline):
             return 1
     elif any(r.critical_issues for r in results):
         return 1
