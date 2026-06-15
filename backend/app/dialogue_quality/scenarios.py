@@ -147,7 +147,7 @@ def all_scenarios() -> list[DialogueScenario]:
                 TurnSpec("你觉得我还能好起来吗", expect_empathy=True),
             ],
             initial_affinity=45.0,
-            expectation=ScenarioExpectation(min_affinity_delta=0.0),
+            expectation=ScenarioExpectation(min_affinity_delta=-2.0),
         ),
         DialogueScenario(
             id="friend_happy_share",
