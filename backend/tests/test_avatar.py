@@ -33,3 +33,9 @@ def test_avatar_comfort_when_user_distressed():
     cue = emotion_to_avatar(EmotionState(pleasure=-0.2, arousal=0.3), user_sentiment=-1.0)
     assert cue.expression == "担心"
     assert cue.animation == "comfort"
+
+
+def test_avatar_warm_when_user_positive():
+    cue = emotion_to_avatar(EmotionState(pleasure=0.2, arousal=0.2), user_sentiment=0.8)
+    assert cue.expression in ("微笑", "大笑")
+    assert cue.animation in ("nod", "cheer")

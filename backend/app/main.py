@@ -145,6 +145,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         llm=result.llm,
         tts=_tts_out(result.tts),
         user_sentiment_label=result.user_sentiment_label,
+        user_sentiment=result.user_sentiment,
     )
 
 
@@ -183,7 +184,8 @@ def tts(req: TtsRequest) -> TtsOut:
         from .domain import EmotionState
         from .voice import style_from_emotion
         style = style_from_emotion(
-            EmotionState(pleasure=req.pleasure or 0.0, arousal=req.arousal or 0.0)
+            EmotionState(pleasure=req.pleasure or 0.0, arousal=req.arousal or 0.0),
+            user_sentiment=req.user_sentiment,
         )
     result = _tts.synthesize(req.text, voice=req.voice, style=style)
     return _tts_out(result)
