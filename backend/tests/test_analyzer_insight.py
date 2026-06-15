@@ -41,6 +41,18 @@ def test_analyze_lexicon_self_doubt_and_emo():
     assert analyze_lexicon("憋在心里好难受").sentiment < 0
 
 
+def test_analyze_lexicon_breakup_and_long_distance():
+    assert analyze_lexicon("我们分手了").sentiment < 0
+    assert analyze_lexicon("刚跟他视频完，挂掉电话好空").sentiment < 0
+    assert analyze_lexicon("有时候觉得异地恋好难").sentiment < 0
+    assert analyze_lexicon("困死了，不想起床").sentiment < 0
+
+
+def test_analyze_lexicon_nostalgic_hard_calm_stays_neutral():
+    """怀旧「难静下来」不应误判为负面情绪。"""
+    assert analyze_lexicon("那时候日子简单，现在好难静下来").sentiment == 0.0
+
+
 def test_analyze_text_lexicon_mode():
     r = analyze_text("今天天气一般", llm=None, mode="lexicon")
     assert r.sentiment == 0.0
