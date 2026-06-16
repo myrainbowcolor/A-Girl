@@ -83,6 +83,7 @@ _NEGATIVE_USER_WORDS = (
     "压力", "糟糕", "不开心", "想哭", "绝望", "讨厌", "低落", "丧",
     "紧张", "记不住", "难受", "落寞", "想家", "头痛", "头疼", "感冒", "差劲",
     "原地踏步", "踏步", "emo", "心累", "没用", "自卑", "迷茫", "憋着", "自我怀疑",
+    "分手", "失恋", "异地", "好空", "困死", "空落落",
 )
 
 _POSITIVE_USER_WORDS = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖")
@@ -192,6 +193,17 @@ class DialogueEvaluator:
                             "avatar_not_comforting",
                             "major",
                             f"用户倾诉时表情/动作不够安抚（{av.expression}/{av.animation}）",
+                            idx,
+                        )
+                    )
+            if expect_comfort_avatar and av:
+                comforting = av.expression in {"担心", "难过"} or av.animation == "comfort"
+                if not comforting:
+                    issues.append(
+                        QualityIssue(
+                            "avatar_not_comforting",
+                            "major",
+                            f"期望安抚表情但得到（{av.expression}/{av.animation}）",
                             idx,
                         )
                     )
