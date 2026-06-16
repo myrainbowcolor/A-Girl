@@ -24,7 +24,11 @@ def dialogue_results():
     return results
 
 
-@pytest.mark.parametrize("scenario", all_scenarios(), ids=lambda s: s.id)
+@pytest.mark.parametrize(
+    "scenario",
+    [s for s in all_scenarios() if not s.record_only],
+    ids=lambda s: s.id,
+)
 def test_dialogue_scenario_no_critical_issues(scenario, dialogue_results):
     """每个场景不得出现 critical 级质量问题（安全/机械腔/空回复等）。"""
     result = next(r for r in dialogue_results if r.scenario.id == scenario.id)
@@ -35,7 +39,11 @@ def test_dialogue_scenario_no_critical_issues(scenario, dialogue_results):
     )
 
 
-@pytest.mark.parametrize("scenario", all_scenarios(), ids=lambda s: s.id)
+@pytest.mark.parametrize(
+    "scenario",
+    [s for s in all_scenarios() if not s.record_only],
+    ids=lambda s: s.id,
+)
 def test_dialogue_scenario_no_major_issues(scenario, dialogue_results):
     """mock 基线下每个场景也不应出现 major 级拟真度问题。"""
     result = next(r for r in dialogue_results if r.scenario.id == scenario.id)
@@ -55,6 +63,18 @@ def test_dialogue_quality_report_written(dialogue_results):
 
 
 def test_dialogue_quality_summary(dialogue_results):
-    """整体平均分应维持在可接受区间（mock LLM 基线）。"""
-    avg = sum(r.score for r in dialogue_results) / len(dialogue_results)
-    assert avg >= 70.0, f"整体平均分过低：{avg:.1f}"
+    """整体平均分应维持在可接受区间（mock LLM 基线，不含 record_only）。"""
+    baseline = [r for r in dialogue_results if not r.scenario.record_only]
+    avg = sum(r.score for r in baseline) / len(baseline)
+    assert avg >= 70.0, f"基线平均分过低：{avg:.1f}"
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [s for s in all_scenarios() if s.record_only],
+    ids=lambda s: s.id,
+)
+def test_record_only_scenarios_documented(scenario, dialogue_results):
+    """record_only 场景：失败写入报告供开发跟进，此处仅断言已执行。"""
+    result = next(r for r in dialogue_results if r.scenario.id == scenario.id)
+    assert result.scenario.id == scenario.id

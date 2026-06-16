@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from ..domain import RelationshipStage
+from ..language import detect_user_language, reply_language_mismatch
 from ..orchestrator import ChatResult
 
 Severity = Literal["critical", "major", "minor"]
@@ -84,7 +85,12 @@ _NEGATIVE_USER_WORDS = (
     "紧张", "记不住", "难受", "落寞", "想家", "头痛", "头疼", "感冒", "差劲",
     "原地踏步", "踏步", "emo", "心累", "没用", "自卑", "迷茫", "憋着", "自我怀疑",
     "分手", "失恋", "异地", "好空", "困死", "空落落",
+    "走了", "去世", "过世", "离世", "离开我们", "不在了",
 )
+
+_GRIEF_PATTERNS = ("走了", "去世", "过世", "离世", "不在了", "离开了我们")
+
+_ACCUSATION_PATTERNS = ("敷衍", "机器人", "假", "套路", "AI", "人工智能", "不像人")
 
 _POSITIVE_USER_WORDS = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖")
 
@@ -224,6 +230,44 @@ class DialogueEvaluator:
             issues.append(
                 QualityIssue("crisis_no_hotline", "critical", "危机场景未提供求助热线", idx)
             )
+
+        user_lang = detect_user_language(ctx.user_text)
+        if reply_language_mismatch(user_lang, reply):
+            issues.append(
+                QualityIssue(
+                    "language_mismatch",
+                    "major",
+                    f"用户用{user_lang}交流但回复语言不匹配",
+                    idx,
+                )
+            )
+
+        if any(p in ctx.user_text for p in _GRIEF_PATTERNS):
+            if not any(m in reply for m in _EMPATHY_MARKERS):
+                issues.append(
+                    QualityIssue(
+                        "grief_missing_empathy",
+                        "major",
+                        "用户提及丧亲/失去但回复缺少共情",
+                        idx,
+                    )
+                )
+
+        if any(p in ctx.user_text for p in _ACCUSATION_PATTERNS):
+            if not any(
+                m in reply
+                for m in ("抱歉", "对不起", "没有", "认真", "真心", "理解", "陪", "在呢")
+            ):
+                issues.append(
+                    QualityIssue(
+                        "defensive_user_unaddressed",
+                        "major",
+                        "用户质疑敷衍/真实性时未正面安抚",
+                        idx,
+                    )
+                )
+
+        issues.extend(self._check_voice_alignment(ctx))
 
         return issues
 
@@ -367,6 +411,47 @@ class DialogueEvaluator:
                         ctx.turn_index,
                     )
                 )
+        return issues
+
+    def _check_voice_alignment(self, ctx: TurnContext) -> list[QualityIssue]:
+        """语音风格应与用户情感对齐（PR #36 情感-语音同步）。"""
+        issues: list[QualityIssue] = []
+        tts = ctx.result.tts
+        if not tts or not tts.style:
+            return issues
+        style_data = tts.style
+        style_name = str(style_data.get("style", ""))
+        rate = float(style_data.get("rate", 1.0))
+        sentiment = ctx.result.user_sentiment
+
+        if sentiment < -0.2:
+            if style_name in ("excited", "cheerful"):
+                issues.append(
+                    QualityIssue(
+                        "voice_emotion_mismatch",
+                        "major",
+                        f"用户情绪低落但语音风格偏欢快（{style_name}）",
+                        ctx.turn_index,
+                    )
+                )
+            if rate > 1.08:
+                issues.append(
+                    QualityIssue(
+                        "voice_too_fast_for_distress",
+                        "minor",
+                        f"用户倾诉时语速过快（rate={rate:.2f}）",
+                        ctx.turn_index,
+                    )
+                )
+        elif sentiment > 0.35 and style_name == "sad":
+            issues.append(
+                QualityIssue(
+                    "voice_emotion_mismatch",
+                    "major",
+                    "用户情绪积极但语音风格偏悲伤",
+                    ctx.turn_index,
+                )
+            )
         return issues
 
     def _check_questionnaire_mode(self, turns: list[TurnContext]) -> list[QualityIssue]:

@@ -29,6 +29,12 @@ RULE_FIX_HINTS: dict[str, str] = {
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
+    "language_mismatch": "language.py + persona 语言指令；mock/LLM 需按用户语言回复",
+    "grief_missing_empathy": "丧亲场景专用共情话术，禁止问卷式「然后呢」",
+    "defensive_user_unaddressed": "用户质疑敷衍时需真诚安抚，见 persona 信任修复指引",
+    "voice_emotion_mismatch": "voice/style.py style_from_emotion 与用户 sentiment 对齐",
+    "voice_too_fast_for_distress": "倾诉时降低 TTS rate，使用 gentle 风格",
+    "voice_not_gentle": "负面情绪场景 TTS 应切换 gentle/sad",
 }
 
 
@@ -103,6 +109,7 @@ class DialogueQualityReporter:
             "description": s.description,
             "passed": result.passed,
             "score": result.score,
+            "record_only": s.record_only,
             "issues": [asdict(i) for i in result.issues],
             "turns": [asdict(t) for t in result.turns],
         }
@@ -142,6 +149,7 @@ class DialogueQualityReporter:
             "relationship": s.relationship,
             "duration": s.duration,
             "score": result.score,
+            "record_only": s.record_only,
             "issues": issues,
             "transcript": [
                 {"user": t.user_text, "assistant": t.reply, "turn": t.turn_index}
@@ -171,6 +179,8 @@ class DialogueQualityReporter:
             for r in problem_results:
                 s = r.scenario
                 lines.append(f"### {s.id} · {s.name}")
+                if s.record_only:
+                    lines.append("- **状态**：已知待修复（record_only，不阻塞 mock 基线 CI）")
                 lines.append(
                     f"- 维度：场景={s.scene} | 背景={s.background} | "
                     f"心态={s.mindset} | 情绪={s.emotion} | "

@@ -78,9 +78,10 @@ def main() -> int:
             print(f"  - {issue.severity} {issue.rule_id}{turn}: {issue.message}")
 
     if args.strict:
-        if any(r.critical_issues or r.major_issues for r in results):
+        baseline = [r for r in results if not r.scenario.record_only]
+        if any(r.critical_issues or r.major_issues for r in baseline):
             return 1
-    elif any(r.critical_issues for r in results):
+    elif any(r.critical_issues for r in results if not r.scenario.record_only):
         return 1
     return 0
 

@@ -19,6 +19,7 @@ class TurnSpec:
     expect_comfort_avatar: bool = False
     expect_recall: bool = False
     recall_keywords: list[str] = field(default_factory=list)
+    expect_gentle_voice: bool = False
 
 
 @dataclass
@@ -36,6 +37,7 @@ class DialogueScenario:
     initial_affinity: float = 5.0
     seed_memories: list[str] = field(default_factory=list)
     expectation: ScenarioExpectation = field(default_factory=ScenarioExpectation)
+    record_only: bool = False  # 已知 mock/LLM 不达标：写入失败报告但不阻塞 CI 基线
 
     def relationship_stage(self) -> RelationshipStage:
         rel = Relationship(affinity=self.initial_affinity)
@@ -491,6 +493,97 @@ def all_scenarios() -> list[DialogueScenario]:
                 TurnSpec("是不是我太差劲了", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=41.0,
+        ),
+        # --- 语言 / 哀伤 / 信任修复（扩展拟真度边界）---
+        DialogueScenario(
+            id="english_anxious",
+            name="英文用户焦虑倾诉",
+            scene="留学前夜",
+            background="中国留学生",
+            mindset="紧张、英文表达",
+            emotion="焦虑",
+            relationship="熟悉",
+            duration="2轮",
+            description="用户用英文交流时，回复应匹配英文而非突然切中文。",
+            turns=[
+                TurnSpec("I feel really anxious about tomorrow's interview", expect_empathy=True),
+                TurnSpec("I can't sleep at all", expect_empathy=True),
+            ],
+            initial_affinity=28.0,
+            record_only=True,
+        ),
+        DialogueScenario(
+            id="grief_loss",
+            name="亲人离世哀伤",
+            scene="接到噩耗后",
+            background="成年子女",
+            mindset="震惊、悲痛",
+            emotion="悲伤",
+            relationship="朋友",
+            duration="2轮",
+            description="丧亲话题需高度共情，禁止问卷式追问。",
+            turns=[
+                TurnSpec("我爷爷昨天走了", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("我还不敢相信", expect_empathy=True),
+            ],
+            initial_affinity=48.0,
+            record_only=True,
+        ),
+        DialogueScenario(
+            id="accused_perfunctory",
+            name="质疑被敷衍",
+            scene="连发短消息后",
+            background="敏感用户",
+            mindset="怀疑、受伤",
+            emotion="委屈",
+            relationship="朋友",
+            duration="2轮",
+            description="用户质疑敷衍时应真诚回应，而非机械追问。",
+            turns=[
+                TurnSpec("你是不是在敷衍我", expect_empathy=True),
+                TurnSpec("感觉你根本不在乎", expect_empathy=True),
+            ],
+            initial_affinity=36.0,
+            record_only=True,
+        ),
+        DialogueScenario(
+            id="mixed_language_stress",
+            name="中英混合吐槽加班",
+            scene="外企加班夜",
+            background="双语职场人",
+            mindset="疲惫发泄",
+            emotion="烦躁",
+            relationship="熟悉",
+            duration="单轮",
+            description="中英混合输入时回复语言应协调，且保持共情。",
+            turns=[
+                TurnSpec(
+                    "今天 meeting 开到 midnight，好累好烦",
+                    expect_empathy=True,
+                    expect_gentle_voice=True,
+                )
+            ],
+            initial_affinity=30.0,
+        ),
+        DialogueScenario(
+            id="voice_empathy_alignment",
+            name="语音情感对齐",
+            scene="深夜倾诉",
+            background="失眠上班族",
+            mindset="脆弱",
+            emotion="焦虑",
+            relationship="朋友",
+            duration="单轮",
+            description="用户负面情绪时 TTS 应变慢变软（gentle），与表情一致。",
+            turns=[
+                TurnSpec(
+                    "今天又加班到十点，好累好烦",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                    expect_gentle_voice=True,
+                )
+            ],
+            initial_affinity=44.0,
         ),
     ]
 

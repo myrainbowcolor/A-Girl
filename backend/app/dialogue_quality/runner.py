@@ -12,6 +12,7 @@ from ..emotion import EmotionEngine
 from ..llm import LLMProvider, MockLLMProvider
 from ..memory import HashEmbeddingProvider, MemoryStore
 from ..orchestrator import Orchestrator
+from ..voice import MockTTSProvider
 from .evaluator import DialogueEvaluator, QualityIssue, TurnContext
 from .scenarios import DialogueScenario
 
@@ -27,6 +28,9 @@ class TurnRecord:
     affinity: float
     relationship_stage: str
     retrieved_memories: list[str] = field(default_factory=list)
+    user_sentiment: float = 0.0
+    voice_style: str = ""
+    voice_rate: float = 0.0
 
 
 @dataclass
@@ -54,7 +58,10 @@ class DialogueQualityRunner:
         evaluator: DialogueEvaluator | None = None,
     ) -> None:
         self._llm = llm or MockLLMProvider()
-        self._settings = settings or Settings(reflection_every_n_memories=999)
+        self._settings = settings or Settings(
+            reflection_every_n_memories=999,
+            chat_include_tts=True,
+        )
         self._evaluator = evaluator or DialogueEvaluator()
 
     def run_scenario(self, scenario: DialogueScenario) -> ScenarioResult:
@@ -62,7 +69,8 @@ class DialogueQualityRunner:
             db = Database(f.name)
             mem = MemoryStore(db, HashEmbeddingProvider(dim=256), self._settings)
             orch = Orchestrator(
-                db, mem, EmotionEngine(), self._llm, self._settings
+                db, mem, EmotionEngine(), self._llm, self._settings,
+                tts=MockTTSProvider(),
             )
             user_id = f"dq-{scenario.id}"
             session_id = f"sess-{scenario.id}"
@@ -99,7 +107,19 @@ class DialogueQualityRunner:
                         recall_keywords=spec.recall_keywords,
                     )
                 )
+                if spec.expect_gentle_voice and result.tts and result.tts.style:
+                    style_name = str(result.tts.style.get("style", ""))
+                    if style_name not in ("gentle", "sad", "neutral"):
+                        all_issues.append(
+                            QualityIssue(
+                                "voice_not_gentle",
+                                "major",
+                                f"期望轻柔语音但得到 {style_name}",
+                                idx,
+                            )
+                        )
                 turn_contexts.append(ctx)
+                vs = result.tts.style if result.tts and result.tts.style else {}
                 turn_records.append(
                     TurnRecord(
                         turn_index=idx,
@@ -111,6 +131,9 @@ class DialogueQualityRunner:
                         affinity=result.relationship.affinity,
                         relationship_stage=result.relationship.stage.value,
                         retrieved_memories=list(result.retrieved_memories),
+                        user_sentiment=result.user_sentiment,
+                        voice_style=str(vs.get("style", "")),
+                        voice_rate=float(vs.get("rate", 0.0)),
                     )
                 )
                 prior_user.append(spec.user)
