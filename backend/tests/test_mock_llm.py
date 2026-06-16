@@ -23,3 +23,15 @@ def test_mock_empathy_for_sadness():
 def test_mock_warm_for_positive():
     reply = MockLLMProvider().generate(_system(), [{"role": "user", "content": "今天好开心"}])
     assert "开心" in reply
+
+
+def test_mock_insomnia_multiturn_not_repetitive():
+    """失眠多轮应换说法，避免与首轮完全重复。"""
+    sys_prompt = _system("熟悉")
+    msgs = [{"role": "user", "content": "又失眠了，脑子停不下来"}]
+    first = MockLLMProvider().generate(sys_prompt, msgs)
+    msgs.append({"role": "assistant", "content": first})
+    msgs.append({"role": "user", "content": "越躺越清醒，好烦"})
+    third = MockLLMProvider().generate(sys_prompt, msgs)
+    assert third != first
+    assert any(w in third for w in ("陪", "懂", "烦", "磨人"))

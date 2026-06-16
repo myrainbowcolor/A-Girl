@@ -471,7 +471,11 @@ def all_scenarios() -> list[DialogueScenario]:
             description="失眠焦虑时少给解决方案，多陪伴。",
             turns=[
                 TurnSpec("又失眠了，脑子停不下来", expect_empathy=True),
-                TurnSpec("一直在想项目会不会黄", expect_empathy=True),
+                TurnSpec(
+                    "一直在想项目会不会黄",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                ),
                 TurnSpec("越躺越清醒，好烦", expect_empathy=True),
             ],
             initial_affinity=32.0,

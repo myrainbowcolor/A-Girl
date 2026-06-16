@@ -47,6 +47,8 @@ def test_analyze_lexicon_breakup_distance_and_tired():
     assert analyze_lexicon("困死了，不想起床").sentiment < 0
     assert analyze_lexicon("刚跟他视频完，挂掉电话好空").sentiment < 0
     assert analyze_lexicon("有时候觉得异地恋好难").sentiment < 0
+    assert analyze_lexicon("又失眠了，脑子停不下来").sentiment < 0
+    assert analyze_lexicon("一直在想项目会不会黄").sentiment < 0
     # 怀旧场景「好难静下来」不含新增词，应保持中性
     assert analyze_lexicon("那时候日子简单，现在好难静下来").sentiment == 0.0
 
