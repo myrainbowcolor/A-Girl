@@ -53,6 +53,7 @@ class ChatResponse(BaseModel):
     llm: str
     tts: TtsOut | None = None
     user_sentiment_label: str = ""
+    user_sentiment: float = 0.0
 
 
 class TtsRequest(BaseModel):
@@ -61,6 +62,7 @@ class TtsRequest(BaseModel):
     # 可选：直接给情绪让语音带风格（缺省 neutral）
     pleasure: float | None = None
     arousal: float | None = None
+    user_sentiment: float | None = None
 
 
 class SttRequest(BaseModel):
@@ -111,6 +113,7 @@ class StateResponse(BaseModel):
     emotion: EmotionOut
     relationship: RelationshipOut
     user_sentiment_label: str = ""
+    user_sentiment: float = 0.0
     user_insight: UserInsightOut | None = None
 
 

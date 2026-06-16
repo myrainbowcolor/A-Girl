@@ -21,6 +21,20 @@ def test_crisis_style_gentle():
     assert s.rate < 1.0
 
 
+def test_distressed_user_softens_voice():
+    base = style_from_emotion(EmotionState(pleasure=0.5, arousal=0.5))
+    soft = style_from_emotion(EmotionState(pleasure=0.5, arousal=0.5), user_sentiment=-0.8)
+    assert soft.rate < base.rate
+    assert soft.style == "gentle"
+
+
+def test_positive_user_warms_voice():
+    base = style_from_emotion(EmotionState(pleasure=0.1, arousal=0.1))
+    warm = style_from_emotion(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.7)
+    assert warm.rate >= base.rate
+    assert warm.pitch >= base.pitch
+
+
 def test_style_bounds():
     s = style_from_emotion(EmotionState(pleasure=1.0, arousal=1.0))
     assert 0.6 <= s.rate <= 1.4 and 0.7 <= s.pitch <= 1.35

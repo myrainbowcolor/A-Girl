@@ -696,7 +696,12 @@
       const spoken = stripForTts(text);
       const r = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: spoken, pleasure: lastEmotion.pleasure, arousal: lastEmotion.arousal })
+        body: JSON.stringify({
+          text: spoken,
+          pleasure: lastEmotion.pleasure,
+          arousal: lastEmotion.arousal,
+          user_sentiment: lastUserSentiment,
+        })
       });
       if (!r.ok) return null;
       return r.json();
@@ -763,8 +768,9 @@
       await new Promise(resolve => {
         const u = new SpeechSynthesisUtterance(spokenText);
         u.lang = "zh-CN";
-        u.rate = 1.0;
-        u.pitch = 1.08;
+        const vs = (ttsData && ttsData.style) || {};
+        u.rate = Math.max(0.6, Math.min(1.4, vs.rate || 1.0));
+        u.pitch = Math.max(0.7, Math.min(1.35, vs.pitch || 1.08));
         const voice = pickZhVoice();
         if (voice) u.voice = voice;
         const t0 = performance.now();
@@ -816,6 +822,7 @@
 
     function updatePanel(data) {
       if (data.emotion) lastEmotion = { pleasure: data.emotion.pleasure, arousal: data.emotion.arousal };
+      if (typeof data.user_sentiment === "number") lastUserSentiment = data.user_sentiment;
       document.getElementById("emotionLabel").textContent = data.emotion.label;
       document.getElementById("pleasureBar").style.width = ((data.emotion.pleasure + 1) / 2 * 100) + "%";
       const stageCn = { stranger: "陌生", acquainted: "熟悉", friend: "朋友", close: "亲密" };
@@ -893,6 +900,7 @@
     }
 
     let lastEmotion = { pleasure: 0, arousal: 0 };
+    let lastUserSentiment = 0;
 
     function setConnStatus(ok, detail) {
       const sub = document.getElementById("npcSub");

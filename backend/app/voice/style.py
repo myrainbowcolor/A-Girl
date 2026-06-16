@@ -14,7 +14,11 @@ def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
 
-def style_from_emotion(emotion: EmotionState, is_crisis: bool = False) -> VoiceStyle:
+def style_from_emotion(
+    emotion: EmotionState,
+    is_crisis: bool = False,
+    user_sentiment: float | None = None,
+) -> VoiceStyle:
     if is_crisis:
         # 危机：放慢、压低、轻柔，体现关切与安抚
         return VoiceStyle(rate=0.85, pitch=0.95, volume=0.9, style="gentle")
@@ -33,6 +37,19 @@ def style_from_emotion(emotion: EmotionState, is_crisis: bool = False) -> VoiceS
         style = "sad"
     else:
         style = "neutral"
+
+    # 与用户情感对齐：倾诉时放慢放柔，分享喜悦时略提亮（与 avatar 逻辑呼应）
+    if user_sentiment is not None:
+        if user_sentiment < -0.2:
+            rate = min(rate, 0.92 - min(0.06, abs(user_sentiment) * 0.05))
+            pitch = min(pitch, 1.03)
+            volume = min(volume, 1.0)
+            style = "gentle"
+        elif user_sentiment > 0.35:
+            rate = _clamp(rate * (1.0 + user_sentiment * 0.06), 0.6, 1.4)
+            pitch = _clamp(pitch * (1.0 + user_sentiment * 0.04), 0.7, 1.35)
+            if style == "neutral":
+                style = "cheerful"
 
     return VoiceStyle(
         rate=round(rate, 3), pitch=round(pitch, 3), volume=round(volume, 3), style=style
