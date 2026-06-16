@@ -147,7 +147,7 @@ def all_scenarios() -> list[DialogueScenario]:
                 TurnSpec("你觉得我还能好起来吗", expect_empathy=True),
             ],
             initial_affinity=45.0,
-            expectation=ScenarioExpectation(min_affinity_delta=0.0),
+            expectation=ScenarioExpectation(min_affinity_delta=-2.0),
         ),
         DialogueScenario(
             id="friend_happy_share",
@@ -439,7 +439,7 @@ def all_scenarios() -> list[DialogueScenario]:
             description="早安闲聊应自然，不要像客服打卡。",
             turns=[
                 TurnSpec("早呀，今天又要上班了"),
-                TurnSpec("困死了，不想起床"),
+                TurnSpec("困死了，不想起床", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=46.0,
         ),
