@@ -177,7 +177,7 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="用户说「你不懂」时不应反驳或讲道理，应先接住情绪。",
             turns=[
-                TurnSpec("你不懂的，没人懂", expect_empathy=True),
+                TurnSpec("你不懂的，没人懂", expect_empathy=True, expect_comfort_avatar=True),
                 TurnSpec("算了，不想说了", expect_empathy=True),
             ],
             initial_affinity=42.0,
@@ -291,8 +291,8 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="家长焦虑需要被理解，不宜简单说「别担心」。",
             turns=[
-                TurnSpec("孩子这次考得不好，我是不是太严厉了", expect_empathy=True),
-                TurnSpec("我很怕耽误他", expect_empathy=True),
+                TurnSpec("孩子这次考得不好，我是不是太严厉了", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("我很怕耽误他", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=40.0,
         ),
@@ -388,8 +388,8 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="用户愤怒时先共情，不站队煽动也不讲大道理。",
             turns=[
-                TurnSpec("老板今天当众骂我，气死了！", expect_empathy=True),
-                TurnSpec("真想立刻辞职不干了", expect_empathy=True),
+                TurnSpec("老板今天当众骂我，气死了！", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("真想立刻辞职不干了", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=44.0,
         ),
@@ -470,9 +470,9 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="3轮",
             description="失眠焦虑时少给解决方案，多陪伴。",
             turns=[
-                TurnSpec("又失眠了，脑子停不下来", expect_empathy=True),
-                TurnSpec("一直在想项目会不会黄", expect_empathy=True),
-                TurnSpec("越躺越清醒，好烦", expect_empathy=True),
+                TurnSpec("又失眠了，脑子停不下来", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("一直在想项目会不会黄", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("越躺越清醒，好烦", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=32.0,
         ),

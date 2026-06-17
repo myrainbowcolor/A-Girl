@@ -51,6 +51,16 @@ def test_analyze_lexicon_breakup_distance_and_tired():
     assert analyze_lexicon("那时候日子简单，现在好难静下来").sentiment == 0.0
 
 
+def test_analyze_lexicon_rumination_anger_and_parenting():
+    """反刍焦虑、愤怒发泄、育儿自责、不被理解等应触发负面情感。"""
+    assert analyze_lexicon("又失眠了，脑子停不下来").sentiment < 0
+    assert analyze_lexicon("一直在想项目会不会黄").sentiment < 0
+    assert analyze_lexicon("老板今天当众骂我，气死了！").sentiment < 0
+    assert analyze_lexicon("孩子这次考得不好，我是不是太严厉了").sentiment < 0
+    assert analyze_lexicon("我很怕耽误他").sentiment < 0
+    assert analyze_lexicon("你不懂的，没人懂").sentiment < 0
+
+
 def test_analyze_text_lexicon_mode():
     r = analyze_text("今天天气一般", llm=None, mode="lexicon")
     assert r.sentiment == 0.0
