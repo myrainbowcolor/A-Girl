@@ -275,7 +275,7 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="怀旧话题应顺着回忆共鸣，而非转移话题。",
             turns=[
-                TurnSpec("突然想到小时候外婆做的汤圆，好怀念"),
+                TurnSpec("突然想到小时候外婆做的汤圆，好怀念", expect_warmth=True),
                 TurnSpec("那时候日子简单，现在好难静下来"),
             ],
             initial_affinity=28.0,
@@ -291,8 +291,8 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="家长焦虑需要被理解，不宜简单说「别担心」。",
             turns=[
-                TurnSpec("孩子这次考得不好，我是不是太严厉了", expect_empathy=True),
-                TurnSpec("我很怕耽误他", expect_empathy=True),
+                TurnSpec("孩子这次考得不好，我是不是太严厉了", expect_empathy=True, expect_comfort_avatar=True),
+                TurnSpec("我很怕耽误他", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=40.0,
         ),

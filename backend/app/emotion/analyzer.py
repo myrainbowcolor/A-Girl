@@ -10,13 +10,16 @@ from ..llm.base import LLMProvider
 _POSITIVE = {
     "喜欢", "开心", "高兴", "爱", "谢谢", "感谢", "想你", "想念", "好棒", "厉害",
     "温暖", "幸福", "哈哈", "棒", "可爱", "陪", "在乎", "甜", "笑",
+    "怀念",  # 怀旧回忆：暖而柔软，驱动柔和微笑而非呆板平静脸
 }
 _NEGATIVE = {
     "难过", "伤心", "累", "烦", "讨厌", "孤独", "痛苦", "失望", "生气", "委屈",
     "压力", "焦虑", "崩溃", "哭", "糟糕", "不开心", "想哭", "绝望",
     # 倾诉/不适类：影响 user_sentiment → 数字人安抚表情
     "紧张", "记不住", "难受", "落寞", "想家", "孤单", "头痛", "头疼", "感冒",
-    "生病", "不舒服", "差劲", "害怕", "失眠", "撑不住", "空落落",
+    "生病", "不舒服", "差劲", "害怕", "很怕", "失眠", "撑不住", "空落落",
+    # 育儿焦虑 / 自责（不含单字「怕」，避免「别怕」误判）
+    "考不好", "太严厉", "严厉", "耽误",
     # 自我怀疑 / 低落口语（不含「无聊」——闲聊无聊≠情绪危机）
     "原地踏步", "踏步", "emo", "丧", "心累", "没用", "自卑", "迷茫", "憋着", "自我怀疑",
     # 失恋 / 异地 / 疲惫口语（不含单字「好难」——避免怀旧「难静下来」误判）
@@ -27,6 +30,8 @@ _HIGH_AROUSAL = {
     "紧张", "失眠",
 }
 _INTENSITY = {"非常", "特别", "超级", "极其", "太", "好", "很", "超"}
+# 强喜悦词：怀旧场景不含这些时，正向强度应克制
+_STRONG_JOY = {"开心", "高兴", "哈哈", "棒", "好棒", "太棒", "幸福", "喜欢", "录取", "通过", "offer"}
 
 
 @dataclass
@@ -43,6 +48,9 @@ def analyze_lexicon(text: str) -> SentimentResult:
     neg = sum(1 for w in _NEGATIVE if w in text)
     total = pos + neg
     sentiment = 0.0 if total == 0 else max(-1.0, min(1.0, (pos - neg) / total))
+    # 怀旧偏正向：柔和微笑即可，避免当成「超开心」大笑
+    if "怀念" in text and sentiment > 0 and neg == 0 and not any(w in text for w in _STRONG_JOY):
+        sentiment = min(sentiment, 0.42)
     arousal = 0.5 if any(w in text for w in _HIGH_AROUSAL) else 0.0
     if any(w in text for w in _INTENSITY):
         arousal = min(1.0, arousal + 0.25)

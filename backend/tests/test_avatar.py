@@ -29,6 +29,12 @@ def test_intensity_in_range():
     assert 0.0 <= cue.intensity <= 1.0
 
 
+def test_avatar_mild_positive_soft_smile():
+    cue = emotion_to_avatar(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.2)
+    assert cue.expression == "微笑"
+    assert cue.animation == "nod"
+
+
 def test_avatar_comfort_when_user_distressed():
     cue = emotion_to_avatar(EmotionState(pleasure=-0.2, arousal=0.3), user_sentiment=-1.0)
     assert cue.expression == "担心"

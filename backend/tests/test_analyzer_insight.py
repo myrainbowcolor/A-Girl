@@ -41,7 +41,16 @@ def test_analyze_lexicon_self_doubt_and_emo():
     assert analyze_lexicon("憋在心里好难受").sentiment < 0
 
 
-def test_analyze_lexicon_breakup_distance_and_tired():
+def test_analyze_lexicon_nostalgic_warmth():
+    """怀旧回忆应偏正向但克制，驱动柔和微笑而非夸张大笑。"""
+    r = analyze_lexicon("突然想到小时候外婆做的汤圆，好怀念")
+    assert 0 < r.sentiment <= 0.5
+
+
+def test_analyze_lexicon_parent_anxiety():
+    """育儿焦虑自责应触发负面情感，驱动安抚表情。"""
+    assert analyze_lexicon("孩子这次考得不好，我是不是太严厉了").sentiment < 0
+    assert analyze_lexicon("我很怕耽误他").sentiment < 0
     """失恋/异地/困倦等应触发负面情感，驱动数字人安抚表情。"""
     assert analyze_lexicon("我们分手了").sentiment < 0
     assert analyze_lexicon("困死了，不想起床").sentiment < 0

@@ -71,13 +71,18 @@ def emotion_to_avatar(
         intensity = min(1.0, (abs(p) + abs(a)) / 2 + 0.35)
         return AvatarCue(expression="担心", intensity=intensity, animation="comfort")
 
-    # 用户分享好事时，NPC 展现共情式喜悦（倾听 + 微笑），而非呆板平静脸
+    # 用户分享好事或温暖怀旧时，NPC 展现共情式喜悦（倾听 + 微笑），而非呆板平静脸
     if user_sentiment is not None and user_sentiment > 0.35:
         a = emotion.arousal
         raw_intensity = min(1.0, max(0.35, user_sentiment * 0.45 + 0.3))
         intensity = _intensity_curve(raw_intensity)
         if user_sentiment > 0.6 and a >= 0.3:
             return AvatarCue(expression="大笑", intensity=intensity, animation="cheer")
+        return AvatarCue(expression="微笑", intensity=intensity, animation="nod")
+
+    # 轻度正向（如淡淡开心）：柔和微笑 + 轻点头，比平静脸更有温度
+    if user_sentiment is not None and 0.12 < user_sentiment <= 0.35:
+        intensity = _intensity_curve(max(0.28, user_sentiment * 0.55 + 0.22))
         return AvatarCue(expression="微笑", intensity=intensity, animation="nod")
 
     p, a = emotion.pleasure, emotion.arousal
