@@ -16,6 +16,7 @@ def test_happy_calm_smiles():
 def test_sad_low_arousal():
     cue = emotion_to_avatar(EmotionState(pleasure=-0.6, arousal=0.1))
     assert cue.expression == "难过"
+    assert cue.animation == "comfort"
 
 
 def test_crisis_overrides_to_worried_comfort():
