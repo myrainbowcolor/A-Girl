@@ -30,6 +30,14 @@ Dialogue Quality 跑完后也会再次尝试 merge（`workflow_run` 触发）。
 2. **Settings → General → Pull Requests**：建议勾选 **Allow auto-merge**（作 fallback）  
 3. **Branch protection**：若 `main` 要求人工 Review，Actions 的 `GITHUB_TOKEN` 可能无法 bypass，需在规则里允许 GitHub Actions 合并，或去掉 mandatory review
 
+## Automations 走 OpenSpec SDD
+
+若希望 **Automations 自动迭代先写 spec 再写代码**，见 **[AUTOMATIONS-SDD.md](AUTOMATIONS-SDD.md)**（若已合入 main）。
+
+## 对话质量测试 Automation（不开 PR）
+
+PR 合并后只做评测、记录失败、开 Issue，**禁止提交 PR** 的配置与 Prompt 见 **[AUTOMATIONS-DIALOGUE-QUALITY.md](AUTOMATIONS-DIALOGUE-QUALITY.md)**。
+
 ## Automations 侧建议
 
 Cursor Automations **没有内置 merge 工具**，可选：

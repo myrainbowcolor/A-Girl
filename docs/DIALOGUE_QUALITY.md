@@ -92,6 +92,18 @@ DialogueQualityReporter().write_run_report(results, llm_name=llm.name)
 
 真实 LLM 结果波动大，建议将 `--strict` 仅用于 mock 基线；线上模型用报告人工复核。
 
+## Automation 接入（PR 合并后自动测）
+
+Cursor Automation「情感 NPC 测试」在 PR merged 触发时：
+
+1. 跑 `run_dialogue_quality.py --strict` + pytest
+2. 失败时用 `scripts/file_dialogue_quality_issues.py` 开 GitHub Issue（label `dialogue-quality`）
+3. **不开 PR、不改代码**
+
+完整 Prompt 与 JSON 配置说明见 [AUTOMATIONS-DIALOGUE-QUALITY.md](AUTOMATIONS-DIALOGUE-QUALITY.md)。
+
+首次使用前在 GitHub 创建 label：`dialogue-quality`（或在仓库 Settings → Labels 添加）。
+
 ## 新增场景模板
 
 ```python
