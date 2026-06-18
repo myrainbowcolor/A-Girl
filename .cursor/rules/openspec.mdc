@@ -9,4 +9,4 @@ alwaysApply: true
 2. 优先使用 `.cursor/skills/openspec-*` 对应 workflow（propose → apply → archive）
 3. 运行 CLI 时用 `npx openspec`（项目已安装 `@fission-ai/openspec`）
 
-用户若在 `/` 菜单找不到命令：在 **Skills** 区搜索 `openspec`（Cursor 2.5+ 用 Skills 而非 Commands）。
+用户若在 `/` 菜单找不到 OpenSpec：**Cloud Agent 用户请直接用自然语言**（见 docs/OPENSPEC.md）；本地用户可在 Skills 区搜索 `openspec`。

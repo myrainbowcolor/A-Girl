@@ -12,15 +12,17 @@
 
 ## 在 Cursor 里怎么找到 OpenSpec？
 
-输入 `/` 后看 **Skills**（不是 Commands），搜索 **openspec**，应出现：
+### Cloud Agent（无本地仓库）
 
-- `openspec-propose`
-- `openspec-apply-change`
-- `openspec-explore`
-- `openspec-sync-specs`
-- `openspec-archive-change`
+**不需要斜杠命令。** 在 Agent 对话里直接说，例如：
 
-若看不到：先 `git pull origin main`，再 **Developer: Reload Window**。
+```text
+用 OpenSpec propose：优化主动对话文案
+```
+
+### 本地开发（已 clone 仓库）
+
+输入 `/` 后看 **Skills**，搜索 `openspec`。若看不到：`git pull origin main` → Reload Window。
 
 ## 项目要点
 

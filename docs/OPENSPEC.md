@@ -2,11 +2,28 @@
 
 本项目已接入 [OpenSpec](https://github.com/Fission-AI/OpenSpec)（规范驱动开发，SDD）。
 
-## 在 Cursor 里怎么用？（重要）
+## Cloud Agent 用户（没有本地仓库）
+
+**Cloud Agent 远程跑代码，你本地的 `/` 菜单不会出现项目的 OpenSpec Skills**——这是正常的。你看到的只有内置 `summarize` 和插件（如 Figma），不代表 Cloud 上没有 OpenSpec。
+
+**直接在 Cloud Agent 对话里用自然语言即可**，Agent 会读取远程仓库里的 `openspec/`、`.cursor/skills/` 和规则文件。
+
+| 你想做什么 | 直接发给 Cloud Agent |
+|-----------|---------------------|
+| 新功能 / 改需求 | `用 OpenSpec propose：增加睡前晚安主动问候` |
+| 先讨论不写代码 | `用 OpenSpec explore：讨论主动对话频率怎么调` |
+| 开始写代码 | `用 OpenSpec apply：实现当前 change 的 tasks` |
+| 功能做完 | `用 OpenSpec archive：归档当前变更` |
+
+Agent 会在远程 VM 执行 `npx openspec ...`，产物在 `openspec/changes/` 和 PR 里，无需本地 `git pull`。
+
+---
+
+## 本地 Cursor 用户
 
 **Cursor 2.5+ 使用 Skills，不是 Commands。**
 
-你的 `/` 菜单里如果只有 `summarize`，说明还没加载本项目的 Skills。请按下面排查。
+若本地 clone 了仓库，`/` 菜单的 **Skills** 区搜索 `openspec` 可手动触发；Cloud Agent 用户可跳过本节。
 
 ### 第一步：拉最新代码
 
