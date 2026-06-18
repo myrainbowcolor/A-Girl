@@ -17,6 +17,8 @@
 
 Agent 会在远程 VM 执行 `npx openspec ...`，产物在 `openspec/changes/` 和 PR 里，无需本地 `git pull`。
 
+**Automations 定时/CI/Issue 触发** 请复制 [AUTOMATIONS-SDD.md](AUTOMATIONS-SDD.md) 里的 Prompt 模板，让每次自动运行都走同一套 SDD 循环。
+
 ---
 
 ## 本地 Cursor 用户

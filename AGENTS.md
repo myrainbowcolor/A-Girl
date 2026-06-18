@@ -10,6 +10,8 @@
 
 规格真相源：`openspec/specs/`。详细说明见 [docs/OPENSPEC.md](docs/OPENSPEC.md)。
 
+**Cursor Automations** 自动迭代请用 [docs/AUTOMATIONS-SDD.md](docs/AUTOMATIONS-SDD.md) 中的 Prompt 模板，强制走 Propose → Apply → Verify → Archive → PR。
+
 ## 在 Cursor 里怎么找到 OpenSpec？
 
 ### Cloud Agent（无本地仓库）

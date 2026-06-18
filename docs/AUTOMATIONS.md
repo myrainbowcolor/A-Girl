@@ -30,6 +30,14 @@ Dialogue Quality 跑完后也会再次尝试 merge（`workflow_run` 触发）。
 2. **Settings → General → Pull Requests**：建议勾选 **Allow auto-merge**（作 fallback）  
 3. **Branch protection**：若 `main` 要求人工 Review，Actions 的 `GITHUB_TOKEN` 可能无法 bypass，需在规则里允许 GitHub Actions 合并，或去掉 mandatory review
 
+## Automations 走 OpenSpec SDD
+
+若希望 **Automations 自动迭代先写 spec 再写代码**，见 **[AUTOMATIONS-SDD.md](AUTOMATIONS-SDD.md)**：
+
+- 可复制 **通用 Prompt 前缀** + 定时 / CI / PR 评论 / Issue 四类模板
+- 循环：**Propose → Apply → Verify → Archive → PR**
+- Cloud Agent 用自然语言「用 OpenSpec propose/apply/archive」，无需斜杠命令
+
 ## Automations 侧建议
 
 Cursor Automations **没有内置 merge 工具**，可选：
