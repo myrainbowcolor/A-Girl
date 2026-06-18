@@ -1,0 +1,36 @@
+schema: spec-driven
+
+context: |
+  项目：A-Girl — 长期陪伴情感 NPC（Python FastAPI + 轻量 Web UI）
+  仓库结构：
+    - backend/app/          核心领域逻辑（orchestrator, persona, memory, emotion, safety, proactivity）
+    - backend/static/       独立 Web 聊天 UI
+    - docs/ARCHITECTURE.md  技术架构（权威设计参考）
+    - docs/INTEGRATION.md   游戏嵌入 API 契约
+
+  技术栈：Python 3.12, FastAPI, SQLite, Pydantic Settings, pytest
+  LLM/语音：Provider 抽象（mock / openai_compatible / edge TTS），环境变量前缀 AGIRL_
+
+  设计哲学（四支柱）：稳定人格、长期记忆、动态情绪/关系、主动沟通
+  默认受众：未成年人（audience=minor），安全优先于沉浸感
+
+  代码约定：
+    - 最小 diff，匹配现有命名与模块边界
+    - 新行为先写 openspec change（proposal → specs → design → tasks），再 /opsx:apply
+    - 测试：cd backend && python -m pytest
+    - 禁止在后台线程访问 SQLite（流式 done 后再跑重型任务）
+
+  回复风格：口语化微信聊天，每轮最多一个问句，禁止问卷式连环追问
+
+rules:
+  proposal:
+    - 用中文撰写，保留 OpenSpec 标准章节（Why / What Changes / Capabilities / Impact）
+    - 标明影响的后端模块路径（如 backend/app/orchestrator.py）
+  specs:
+    - 需求与场景用中文；Requirement/Scenario 标题可中英混合
+    - 每个 Requirement 至少一个 #### Scenario
+  design:
+    - 引用 docs/ARCHITECTURE.md 中已有决策，说明增量改动
+  tasks:
+    - 任务粒度 30 分钟～2 小时，带 checkbox
+    - 必须包含 pytest 验证步骤

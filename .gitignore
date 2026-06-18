@@ -7,3 +7,5 @@ venv/
 .pytest_cache/
 backend/reports/
 .DS_Store
+node_modules/
+package-lock.json

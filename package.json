@@ -1,0 +1,13 @@
+{
+  "name": "a-girl",
+  "private": true,
+  "description": "A-Girl emotional companion NPC",
+  "scripts": {
+    "openspec:update": "openspec update --tools cursor",
+    "openspec:validate": "openspec validate",
+    "openspec:status": "openspec status"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "^1.4.1"
+  }
+}
