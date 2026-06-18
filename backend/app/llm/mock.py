@@ -263,7 +263,13 @@ def _scene_reply(
         )
 
     # 失眠 / 反复想事
-    if any(w in text for w in ("失眠", "睡不着", "脑子停", "越躺越清醒")):
+    if "越躺越清醒" in text:
+        return (
+            f"{dear}{mood}越躺越清醒真的折磨人，我懂这种烦。"
+            f"别跟睡意较劲了，咱们随便聊点轻的，或者就安静待着也行？"
+        )
+
+    if any(w in text for w in ("失眠", "睡不着", "脑子停")):
         return (
             f"{dear}{mood}失眠的时候脑子特别吵，我懂这种难受。"
             f"先别逼自己睡着，我陪你慢慢说，是什么事在转？"
