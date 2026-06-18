@@ -1,6 +1,6 @@
 ---
 name: openspec-apply-change
-description: Implement tasks from an OpenSpec change. Use when the user wants to start implementing, continue implementation, or work through tasks.
+description: "OpenSpec 规范驱动：按 tasks.md 实现变更代码。用户说 apply、开始实现时用此 skill。"
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:

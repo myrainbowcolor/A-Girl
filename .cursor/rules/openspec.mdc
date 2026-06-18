@@ -1,0 +1,12 @@
+---
+description: OpenSpec 规范驱动开发入口
+alwaysApply: true
+---
+
+本项目使用 OpenSpec（`openspec/` 目录）。当用户提到 OpenSpec、规范驱动、propose/apply/archive 或「先写 spec 再写代码」时：
+
+1. 读取 `docs/OPENSPEC.md` 与 `openspec/config.yaml`
+2. 优先使用 `.cursor/skills/openspec-*` 对应 workflow（propose → apply → archive）
+3. 运行 CLI 时用 `npx openspec`（项目已安装 `@fission-ai/openspec`）
+
+用户若在 `/` 菜单找不到命令：在 **Skills** 区搜索 `openspec`（Cursor 2.5+ 用 Skills 而非 Commands）。

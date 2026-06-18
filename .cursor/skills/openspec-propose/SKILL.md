@@ -1,6 +1,6 @@
 ---
 name: openspec-propose
-description: Propose a new change with all artifacts generated in one step. Use when the user wants to quickly describe what they want to build and get a complete proposal with design, specs, and tasks ready for implementation.
+description: "OpenSpec 规范驱动：提出新变更（proposal/specs/design/tasks）。用户说「用 OpenSpec 开发」「propose 功能」时用此 skill。"
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:

@@ -1,102 +1,96 @@
 # 用 OpenSpec 开发 A-Girl
 
-本项目已接入 [OpenSpec](https://github.com/Fission-AI/OpenSpec)（规范驱动开发，SDD）。先对齐「要做什么」，再写代码。
+本项目已接入 [OpenSpec](https://github.com/Fission-AI/OpenSpec)（规范驱动开发，SDD）。
+
+## 在 Cursor 里怎么用？（重要）
+
+**Cursor 2.5+ 使用 Skills，不是 Commands。**
+
+你的 `/` 菜单里如果只有 `summarize`，说明还没加载本项目的 Skills。请按下面排查。
+
+### 第一步：拉最新代码
+
+```bash
+git pull origin main
+ls .cursor/skills/
+# 应看到：openspec-propose、openspec-apply-change 等文件夹
+```
+
+### 第二步：重载 Cursor
+
+命令面板 → **Developer: Reload Window**
+
+### 第三步：在 Skills 里找 OpenSpec
+
+1. 打开 **Agent** 聊天框
+2. 输入 `/`
+3. 看 **Skills** 区域（不是 Commands）
+4. 搜索 **`openspec`**
+
+应出现：
+
+| Skill | 作用 |
+|-------|------|
+| `/openspec-propose` | 新建变更：proposal + specs + design + tasks |
+| `/openspec-explore` | 只讨论方案，不写代码 |
+| `/openspec-apply-change` | 按 tasks 实现 |
+| `/openspec-sync-specs` | 同步 delta spec |
+| `/openspec-archive-change` | 归档已完成变更 |
+
+### 不用斜杠也可以
+
+直接对 Agent 说：
+
+```text
+用 OpenSpec propose：增加睡前晚安主动问候
+```
+
+项目规则（`.cursor/rules/openspec.mdc`）会让 Agent 自动走 OpenSpec 流程。
 
 ## 目录结构
 
 ```text
 openspec/
-  config.yaml          # 项目上下文与 artifact 规则（AI 会读取）
-  specs/               # 当前系统的「真相源」——已实现能力的需求规格
-    chat-orchestration/
-    persona/
-    memory/
-    ...
-  changes/             # 进行中的变更（proposal / specs / design / tasks）
-    archive/           # 已完成并归档的变更
-.cursor/
-  commands/            # Cursor 斜杠命令：/opsx-propose 等（见下方说明）
-  skills/              # OpenSpec Agent Skills
+  config.yaml          # 项目上下文（AI 会读）
+  specs/               # 当前系统「真相源」
+  changes/             # 进行中的变更
+.cursor/skills/        # Cursor Skills（/openspec-propose 等）
+AGENTS.md              # Agent 总览
 ```
 
-## 日常流程（OPSX）
-
-> **注意**：Cursor 里命令名来自文件名，请用 **连字符** `/opsx-propose`，不是 `/opsx:propose`。输入 `/` 后搜索 `opsx` 或 `openspec-help`。
-
-| 步骤 | 命令 | 说明 |
-|------|------|------|
-| 1. 提想法 | `/opsx-propose 你的功能描述` | 生成 change 文件夹：proposal、specs、design、tasks |
-| 2. 探讨 | `/opsx-explore …` | 只讨论、不改文件（可选） |
-| 3. 实现 | `/opsx-apply` | 按 tasks.md 逐项实现并勾选 |
-| 4. 同步 | `/opsx-sync` | 将 delta spec 合并到主 specs（可选） |
-| 5. 归档 | `/opsx-archive` | 变更移入 archive，更新真相源 specs |
-
-### 示例
+## 日常流程
 
 ```text
-/opsx-propose 增加 NPC 睡前晚安主动问候
-
-# AI 创建 openspec/changes/bedtime-greeting/
-#   proposal.md  — 为什么做、改什么
-#   specs/       — ADDED/MODIFIED 需求
-#   design.md    — 技术方案
-#   tasks.md     — 实现清单
-
-/opsx-apply
-
-/opsx-archive
+/openspec-propose 增加 NPC 睡前晚安主动问候
+/openspec-apply-change
+/openspec-archive-change
 ```
 
 ## 本地 CLI
 
 ```bash
-# 安装（项目已含 devDependency）
 npm install
-
-# 初始化/更新 Cursor 集成（新 clone 后）
-npx openspec update --tools cursor
-
-# 查看变更状态
+npx openspec validate --specs
 npx openspec status
-
-# 校验 spec 格式
-npx openspec validate
+npx openspec update --force   # 刷新 Cursor Skills
 ```
 
-## 编写变更时的约定
+## 已有 Spec 与代码
 
-1. **改行为先改 spec**：在 `openspec/changes/<name>/specs/` 写 delta（`## ADDED Requirements` 等），不要只改代码不留规格。
-2. **对照现有能力**：修改前先读 `openspec/specs/<capability>/spec.md`，proposal 的 Capabilities 里写清 New / Modified。
-3. **与架构文档一致**：设计细节参考 `docs/ARCHITECTURE.md`；OpenSpec 管「要什么」，架构文档管「为什么这样拆」。
-4. **测试门禁**：tasks 最后一项永远是 `cd backend && python -m pytest`。
+| Spec | 代码 |
+|------|------|
+| chat-orchestration | orchestrator.py |
+| persona | persona.py |
+| memory | memory/ |
+| emotion-relationship | emotion/ |
+| safety | safety.py |
+| proactivity | proactivity.py |
+| user-insight | user_insight.py |
+| voice-avatar | voice/, avatar.py |
 
-## 已有能力规格（baseline）
+## 仍看不到 Skills？
 
-| Spec | 对应代码 |
-|------|----------|
-| `chat-orchestration` | `backend/app/orchestrator.py`, `memory_honesty.py`, `reply_polish.py` |
-| `persona` | `backend/app/persona.py`, `domain.py` |
-| `memory` | `backend/app/memory/` |
-| `emotion-relationship` | `backend/app/emotion/` |
-| `safety` | `backend/app/safety.py`, `compliance.py` |
-| `proactivity` | `backend/app/proactivity.py`, `scheduler.py` |
-| `user-insight` | `backend/app/user_insight.py` |
-| `voice-avatar` | `backend/app/voice/`, `avatar.py` |
-
-## 看不到斜杠命令？
-
-1. **拉最新代码**：OpenSpec 文件在 `main` 分支的 `.cursor/commands/` 下，需 `git pull origin main`
-2. **重载窗口**：Cursor 命令面板 → `Developer: Reload Window`
-3. **在 Agent 聊天框输入 `/`**（Composer/Agent 模式），搜索 `opsx` 或 `/openspec-help`
-4. **命令格式**：`/opsx-propose`（连字符 `-`），OpenSpec 文档里的 `/opsx:propose`（冒号）在 Cursor 中对应 `-`
-
-## 与 Cursor 的关系
-
-- 重启 IDE 后可用 `/opsx-*` 斜杠命令。
-- Agent 会自动加载 `.cursor/skills/openspec-*` 与 `openspec/config.yaml` 中的项目上下文。
-- 云 Agent 开发同样遵循：先 propose，再 apply，最后 archive。
-
-## 参考
-
-- [OpenSpec 文档](https://github.com/Fission-AI/OpenSpec/tree/main/docs)
-- [OPSX 工作流](https://github.com/Fission-AI/OpenSpec/blob/main/docs/opsx.md)
+1. 确认打开的是 **仓库根目录**（含 `openspec/` 和 `backend/`，不是只开 `backend/`）
+2. 确认分支是 **main** 且已 pull
+3. 运行 `npm install && npx openspec update --force` 后再次 Reload
+4. 或用 `@openspec-propose` 手动附加 Skill 到对话

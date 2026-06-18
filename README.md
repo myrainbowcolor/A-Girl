@@ -7,7 +7,7 @@
 ## 文档
 
 - 技术架构文档：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- **OpenSpec 规范驱动开发**：[`docs/OPENSPEC.md`](docs/OPENSPEC.md)（`/opsx-propose` → `/opsx-apply` → `/opsx-archive`）
+- **OpenSpec 规范驱动开发**：[`docs/OPENSPEC.md`](docs/OPENSPEC.md) — 在 Agent 输入 `/` 后于 **Skills** 搜索 `openspec`
 
 ## 核心骨架（已实现）
 

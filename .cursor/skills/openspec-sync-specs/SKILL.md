@@ -1,6 +1,6 @@
 ---
 name: openspec-sync-specs
-description: Sync delta specs from a change to main specs. Use when the user wants to update main specs with changes from a delta spec, without archiving the change.
+description: "OpenSpec 规范驱动：同步 delta spec 到主 specs。用户说 sync 时用此 skill。"
 license: MIT
 compatibility: Requires openspec CLI.
 metadata:
