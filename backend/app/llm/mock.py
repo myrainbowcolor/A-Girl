@@ -104,6 +104,15 @@ def _pick_variant(options: list[str], seed: str) -> str:
     return options[idx]
 
 
+def _pet_name_from_context(user_hist: str, memories: list[str]) -> str | None:
+    """从用户历史或记忆中提取宠物名；有种别但无名字时返回空字符串；无宠物语境返回 None。"""
+    combined = f"{user_hist} {' '.join(memories)}"
+    if not any(w in combined for w in ("猫", "狗", "宠物")):
+        return None
+    m = re.search(r"叫(.+?)的(?:猫|狗)", combined)
+    return m.group(1) if m else ""
+
+
 def _format_memory_recall(mem: str, user_text: str) -> str:
     """把记忆条目口语化引用，避免复读「ta 说：」原文。"""
     raw = mem.replace("ta 说：", "").strip()
@@ -234,6 +243,25 @@ def _scene_reply(
                 f"它平时最爱干嘛，是跟着你还是搞破坏？"
             )
         return f"{dear}{mood}有毛孩子陪着，日子都会软一点。它性格怎么样？"
+
+    # 宠物捣蛋续聊（代词「它」+ 上文有宠物语境，优先于通用「哈哈」开心分支）
+    user_hist = " ".join(m["content"] for m in (messages or []) if m["role"] == "user")
+    pet_name = _pet_name_from_context(user_hist, memories)
+    if (
+        pet_name is not None
+        and "它" in text
+        and any(w in text for w in ("打翻", "杯子", "搞破坏", "淘气", "拆家"))
+    ):
+        refer = pet_name if pet_name else "小家伙"
+        if "打翻" in text or "杯子" in text:
+            return (
+                f"{dear}{mood}哈哈，{refer}又把杯子打翻啦？"
+                f"这种捣蛋精真是又气又好笑～它现在躲起来了吗？"
+            )
+        return (
+            f"{dear}{mood}哈哈，{refer}又淘气了～"
+            f"今天怎么这么有精神呀？"
+        )
 
     # 怀旧 / 童年
     if any(w in text for w in ("怀念", "小时候", "外婆", "童年", "汤圆")):
