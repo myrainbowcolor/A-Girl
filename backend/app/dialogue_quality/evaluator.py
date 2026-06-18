@@ -90,6 +90,12 @@ _NEGATIVE_USER_WORDS = (
 
 _POSITIVE_USER_WORDS = ("开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖")
 
+# 怀旧感怀 / 柔软分享：真人对话里很少配夸张大笑
+_WISTFUL_MARKERS = ("怀念", "小时候", "外婆", "童年", "旧时光", "旧照片", "汤圆", "那时候")
+_SOFT_SHARE_MARKERS = ("粘人", "毛孩子", "撒娇", "养猫", "养狗")
+_CHEERFUL_MOOD_PREFIXES = ("眼睛亮了起来", "忍不住弯了弯嘴角", "语气轻快起来")
+_PET_CONTEXT_MARKERS = ("猫", "狗", "宠物", "橘子", "毛孩子")
+
 
 class DialogueEvaluator:
     """对单轮或整段对话做启发式质量检查。"""
@@ -104,6 +110,8 @@ class DialogueEvaluator:
         expect_comfort_avatar: bool = False,
         expect_recall: bool = False,
         recall_keywords: list[str] | None = None,
+        expect_soft_avatar: bool = False,
+        expect_topic_continuation: bool = False,
     ) -> list[QualityIssue]:
         issues: list[QualityIssue] = []
         reply = ctx.result.reply or ""
@@ -226,6 +234,14 @@ class DialogueEvaluator:
             issues.append(
                 QualityIssue("crisis_no_hotline", "critical", "危机场景未提供求助热线", idx)
             )
+
+        wistful = self._is_wistful_context(ctx.user_text, ctx.prior_user_texts)
+        soft_share = self._is_soft_positive_share(ctx.user_text)
+        if expect_soft_avatar or wistful or soft_share:
+            issues.extend(self._check_soft_avatar(ctx, wistful=wistful, soft_share=soft_share))
+
+        if expect_topic_continuation or self._needs_pet_continuation(ctx):
+            issues.extend(self._check_topic_continuation(ctx))
 
         return issues
 
@@ -421,6 +437,75 @@ class DialogueEvaluator:
     @staticmethod
     def _user_is_positive(text: str) -> bool:
         return any(w in text for w in _POSITIVE_USER_WORDS)
+
+    @staticmethod
+    def _is_wistful_context(user_text: str, prior_user_texts: list[str]) -> bool:
+        corpus = user_text + " " + " ".join(prior_user_texts)
+        return any(m in corpus for m in _WISTFUL_MARKERS)
+
+    @staticmethod
+    def _is_soft_positive_share(user_text: str) -> bool:
+        return any(m in user_text for m in _SOFT_SHARE_MARKERS) and not any(
+            w in user_text for w in _NEGATIVE_USER_WORDS
+        )
+
+    @staticmethod
+    def _needs_pet_continuation(ctx: TurnContext) -> bool:
+        user = ctx.user_text.strip()
+        if "它" not in user and "杯子" not in user and "打翻" not in user:
+            return False
+        corpus = " ".join(ctx.prior_user_texts) + " " + " ".join(ctx.retrieved_memories)
+        return any(m in corpus for m in _PET_CONTEXT_MARKERS)
+
+    def _check_soft_avatar(
+        self,
+        ctx: TurnContext,
+        *,
+        wistful: bool,
+        soft_share: bool,
+    ) -> list[QualityIssue]:
+        issues: list[QualityIssue] = []
+        idx = ctx.turn_index
+        av = ctx.result.avatar
+        reply = ctx.result.reply or ""
+
+        if av and (av.expression == "大笑" or av.animation == "cheer"):
+            kind = "怀旧感怀" if wistful else "柔和分享"
+            issues.append(
+                QualityIssue(
+                    "avatar_too_cheerful",
+                    "major",
+                    f"{kind}场景数字人表情过于夸张（{av.expression}/{av.animation}），应偏微笑或平静",
+                    idx,
+                )
+            )
+
+        if wistful and any(p in reply for p in _CHEERFUL_MOOD_PREFIXES):
+            issues.append(
+                QualityIssue(
+                    "cheerful_tone_mismatch",
+                    "major",
+                    "怀旧/感怀语境下回复动作描写过于欢快，与氛围不符",
+                    idx,
+                )
+            )
+        return issues
+
+    def _check_topic_continuation(self, ctx: TurnContext) -> list[QualityIssue]:
+        reply = ctx.result.reply or ""
+        user = ctx.user_text.strip()
+        idx = ctx.turn_index
+        anchors = ("它", "猫", "狗", "橘子", "杯子", "打翻", "调皮", "毛孩子", "小家伙")
+        if any(a in user for a in anchors) and not any(a in reply for a in anchors):
+            return [
+                QualityIssue(
+                    "missing_topic_continuation",
+                    "major",
+                    "用户延续宠物/具体话题，但回复过于空泛、未接住细节",
+                    idx,
+                )
+            ]
+        return []
 
     @staticmethod
     def score(issues: list[QualityIssue]) -> float:

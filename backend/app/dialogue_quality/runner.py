@@ -97,6 +97,8 @@ class DialogueQualityRunner:
                         expect_comfort_avatar=spec.expect_comfort_avatar,
                         expect_recall=spec.expect_recall,
                         recall_keywords=spec.recall_keywords,
+                        expect_soft_avatar=spec.expect_soft_avatar,
+                        expect_topic_continuation=spec.expect_topic_continuation,
                     )
                 )
                 turn_contexts.append(ctx)

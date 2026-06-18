@@ -29,6 +29,9 @@ RULE_FIX_HINTS: dict[str, str] = {
     "ignores_user_question": "用户直接提问时需正面回应（如在干嘛/记得吗）",
     "affinity_too_low": "emotion engine 亲密度正向互动增量",
     "session_recall_missing": "多轮记忆写入与检索召回",
+    "avatar_too_cheerful": "avatar.py：怀旧/柔和分享应用微笑或平静，避免大笑+cheer",
+    "cheerful_tone_mismatch": "mock.py _scene_mood：感怀语境避免「眼睛亮了起来」等欢快动作描写",
+    "missing_topic_continuation": "mock.py _scene_reply：延续用户具体话题（宠物/事件），避免空泛开心复读",
 }
 
 

@@ -19,6 +19,8 @@ class TurnSpec:
     expect_comfort_avatar: bool = False
     expect_recall: bool = False
     recall_keywords: list[str] = field(default_factory=list)
+    expect_soft_avatar: bool = False
+    expect_topic_continuation: bool = False
 
 
 @dataclass
@@ -228,8 +230,11 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="3轮",
             description="应先记住用户提到的具体事实，后续能自然提起。",
             turns=[
-                TurnSpec("我养了一只叫橘子的猫，超粘人"),
-                TurnSpec("它今天又把杯子打翻了哈哈"),
+                TurnSpec("我养了一只叫橘子的猫，超粘人", expect_soft_avatar=True),
+                TurnSpec(
+                    "它今天又把杯子打翻了哈哈",
+                    expect_topic_continuation=True,
+                ),
                 TurnSpec(
                     "你还记得我的猫叫什么吗",
                     expect_recall=True,
@@ -275,8 +280,14 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="怀旧话题应顺着回忆共鸣，而非转移话题。",
             turns=[
-                TurnSpec("突然想到小时候外婆做的汤圆，好怀念"),
-                TurnSpec("那时候日子简单，现在好难静下来"),
+                TurnSpec(
+                    "突然想到小时候外婆做的汤圆，好怀念",
+                    expect_soft_avatar=True,
+                ),
+                TurnSpec(
+                    "那时候日子简单，现在好难静下来",
+                    expect_soft_avatar=True,
+                ),
             ],
             initial_affinity=28.0,
         ),
