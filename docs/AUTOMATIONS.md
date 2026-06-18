@@ -32,11 +32,11 @@ Dialogue Quality 跑完后也会再次尝试 merge（`workflow_run` 触发）。
 
 ## Automations 走 OpenSpec SDD
 
-若希望 **Automations 自动迭代先写 spec 再写代码**，见 **[AUTOMATIONS-SDD.md](AUTOMATIONS-SDD.md)**（若已合入 main）。
+若希望 **Automations 自动迭代先写 spec 再写代码**，见 **[AUTOMATIONS-SDD.md](AUTOMATIONS-SDD.md)**：
 
-## 对话质量测试 Automation（不开 PR）
-
-PR 合并后只做评测、记录失败、开 Issue，**禁止提交 PR** 的配置与 Prompt 见 **[AUTOMATIONS-DIALOGUE-QUALITY.md](AUTOMATIONS-DIALOGUE-QUALITY.md)**。
+- 可复制 **通用 Prompt 前缀** + 定时 / CI / PR 评论 / Issue 四类模板
+- 循环：**Propose → Apply → Verify → Archive → PR**
+- Cloud Agent 用自然语言「用 OpenSpec propose/apply/archive」，无需斜杠命令
 
 ## Automations 侧建议
 
