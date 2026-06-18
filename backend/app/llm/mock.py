@@ -104,6 +104,20 @@ def _pick_variant(options: list[str], seed: str) -> str:
     return options[idx]
 
 
+def _format_memory_recall(mem: str, user_text: str) -> str:
+    """把记忆条目口语化引用，避免复读「ta 说：」原文。"""
+    raw = mem.replace("ta 说：", "").strip()
+    if any(w in user_text for w in ("猫", "狗", "宠物", "叫什么")):
+        m = re.search(r"叫(.+?)的(?:猫|狗)", raw)
+        if m:
+            pet_name = m.group(1)
+            kind = "小猫" if "猫" in raw or "猫" in user_text else "小狗"
+            return f"当然记得呀，你的{kind}叫{pet_name}～"
+    if len(raw) <= 22:
+        return f"当然记得呀，{raw}"
+    return f"当然记得呀，{raw[:22]}……"
+
+
 def _clean_label(raw: str) -> str:
     """去掉括号内的数值说明，保留可读标签。"""
     return raw.split("（")[0].strip()
@@ -128,6 +142,11 @@ def _mood_prefix(emotion: str, seed: str = "") -> str:
 
 def _scene_mood(emotion: str, user_text: str) -> str:
     """用户倾诉时优先用安抚神态，避免 NPC 内在开心时却「弯嘴角」。"""
+    if any(w in user_text for w in ("怀念", "小时候", "外婆", "童年", "旧时光")):
+        return _pick_variant(
+            ("（声音放轻了些）", "（语气柔软下来）", "（微微弯了弯嘴角）"),
+            user_text + ":nostalgic",
+        )
     if _user_is_venting(user_text) or any(
         w in user_text for w in ("累", "辛苦", "撑", "难过", "烦", "孤独", "空")
     ):
@@ -380,6 +399,18 @@ def _scene_reply(
     if any(w in text for w in ("你是谁", "你叫什么", "叫什么名字")):
         return f"{mood}我是{name}呀～一个喜欢陪你聊天、听你说话的人。"
 
+    # 失恋后忍不住哭
+    user_history = " ".join(
+        m["content"] for m in (messages or []) if m["role"] == "user"
+    )
+    if any(w in text for w in ("想哭", "哭了", "忍不住哭")) and any(
+        w in user_history for w in ("分手", "失恋", "分开")
+    ):
+        return (
+            f"{dear}{mood}想哭就哭出来吧，不用忍着。分手这种事真的很耗人，"
+            f"我陪着你，想说多少说多少。"
+        )
+
     # 情绪低落 — 优先共情
     if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦")):
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")
@@ -410,8 +441,8 @@ def _scene_reply(
     # 记忆相关
     if any(w in text for w in ("记得", "还记得", "有没有忘")):
         if memories:
-            mem = memories[0]
-            return f"{dear}{mood}当然记得呀，{mem}——你说的时候我都记在心里了。"
+            recalled = _format_memory_recall(memories[0], text)
+            return f"{dear}{mood}{recalled}你说的时候我都记在心里了。"
         return f"{mood}嗯……你跟我说过的事我都想好好记住，你再提醒我一下好不好？"
 
     # 想念

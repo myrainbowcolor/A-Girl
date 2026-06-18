@@ -68,6 +68,14 @@ def test_analyze_lexicon_positive_offer():
     assert analyze_lexicon("我拿到 dream offer 了！！").sentiment > 0
 
 
+def test_analyze_lexicon_nostalgic_and_pet_warm():
+    """怀旧感怀、分享粘人宠物应触发柔和正向，驱动微笑表情。"""
+    assert analyze_lexicon("突然想到小时候外婆做的汤圆，好怀念").sentiment > 0
+    assert analyze_lexicon("我养了一只叫橘子的猫，超粘人").sentiment > 0
+    # 怀旧第二句仍保持中性（勿把「好难」单字入负面）
+    assert analyze_lexicon("那时候日子简单，现在好难静下来").sentiment == 0.0
+
+
 def test_analyze_text_lexicon_mode():
     r = analyze_text("今天天气一般", llm=None, mode="lexicon")
     assert r.sentiment == 0.0
