@@ -10,6 +10,8 @@
 
 规格真相源：`openspec/specs/`。详细说明见 [docs/OPENSPEC.md](docs/OPENSPEC.md)。
 
+**Cursor Automations**：定时「NPC训练」见 [docs/AUTOMATIONS-NPC-TRAINING.md](docs/AUTOMATIONS-NPC-TRAINING.md)（OpenSpec + 测通后 PR）；「情感 NPC 测试」见 [docs/AUTOMATIONS-DIALOGUE-QUALITY.md](docs/AUTOMATIONS-DIALOGUE-QUALITY.md)（只测不开 PR）。
+
 ## 在 Cursor 里怎么找到 OpenSpec？
 
 ### Cloud Agent（无本地仓库）

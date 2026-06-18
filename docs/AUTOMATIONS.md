@@ -30,6 +30,15 @@ Dialogue Quality 跑完后也会再次尝试 merge（`workflow_run` 触发）。
 2. **Settings → General → Pull Requests**：建议勾选 **Allow auto-merge**（作 fallback）  
 3. **Branch protection**：若 `main` 要求人工 Review，Actions 的 `GITHUB_TOKEN` 可能无法 bypass，需在规则里允许 GitHub Actions 合并，或去掉 mandatory review
 
+## Automations 分工
+
+| 文档 | Automation | 开 PR |
+|------|-----------|-------|
+| [AUTOMATIONS-NPC-TRAINING.md](AUTOMATIONS-NPC-TRAINING.md) | **NPC训练**（cron 每 12h 迭代优化） | 是 |
+| [AUTOMATIONS-DIALOGUE-QUALITY.md](AUTOMATIONS-DIALOGUE-QUALITY.md) | **情感 NPC 测试**（PR merged 后评测） | 否 |
+
+NPC 训练应优先处理 `dialogue-quality` label 的 GitHub Issue；测试 Automation 只开 Issue 不改代码。
+
 ## Automations 侧建议
 
 Cursor Automations **没有内置 merge 工具**，可选：
