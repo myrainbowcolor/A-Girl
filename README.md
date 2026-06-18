@@ -7,7 +7,8 @@
 ## 文档
 
 - 技术架构文档：[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- **OpenSpec 规范驱动开发**：[`docs/OPENSPEC.md`](docs/OPENSPEC.md) — 在 Agent 输入 `/` 后于 **Skills** 搜索 `openspec`
+- **OpenSpec 规范驱动开发**：[`docs/OPENSPEC.md`](docs/OPENSPEC.md)
+- **Automations 自动合并 PR**：[`docs/AUTOMATIONS.md`](docs/AUTOMATIONS.md)
 
 ## 核心骨架（已实现）
 

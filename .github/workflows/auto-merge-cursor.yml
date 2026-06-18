@@ -1,35 +1,106 @@
 name: Auto-merge Cursor PRs
 
+# Cloud Agent / Automations：PR 分支通常为 cursor/*，作者可能是 app/cursor 或成员账号
+
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, ready_for_review, reopened]
+  workflow_run:
+    workflows: ["Dialogue Quality"]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
 
 jobs:
-  ready-draft:
+  resolve-pr:
     runs-on: ubuntu-latest
     if: |
-      github.event.pull_request.user.login == 'cursor[bot]' &&
-      github.event.pull_request.draft == true &&
-      github.event.action == 'opened'
+      github.event_name == 'workflow_run' ||
+      startsWith(github.event.pull_request.head.ref, 'cursor/')
+    outputs:
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      is_draft: ${{ steps.resolve.outputs.is_draft }}
+    steps:
+      - name: Resolve target PR
+        id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          OWNER="${REPO%%/*}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "is_draft=${{ github.event.pull_request.draft }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [ -z "$BRANCH" ] || [[ ! "$BRANCH" == cursor/* ]]; then
+            echo "No cursor/* branch on workflow_run"
+            exit 0
+          fi
+
+          PR_NUMBER=$(gh pr list --repo "$REPO" --state open \
+            --head "${OWNER}:${BRANCH}" \
+            --json number,isDraft \
+            --jq '.[0].number // empty')
+          IS_DRAFT=$(gh pr list --repo "$REPO" --state open \
+            --head "${OWNER}:${BRANCH}" \
+            --json number,isDraft \
+            --jq '.[0].isDraft // false')
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR for branch $BRANCH"
+            exit 0
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "is_draft=$IS_DRAFT" >> "$GITHUB_OUTPUT"
+
+  ready-draft:
+    needs: resolve-pr
+    if: needs.resolve-pr.outputs.pr_number != '' && needs.resolve-pr.outputs.is_draft == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Mark draft PR ready for review
-        run: gh pr ready "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr ready "${{ needs.resolve-pr.outputs.pr_number }}"
 
-  auto-merge:
-    runs-on: ubuntu-latest
+  merge:
+    needs: resolve-pr
     if: |
-      github.event.pull_request.user.login == 'cursor[bot]' &&
-      github.event.pull_request.draft == false
+      needs.resolve-pr.outputs.pr_number != '' &&
+      needs.resolve-pr.outputs.is_draft != 'true'
+    runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge (squash)
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Wait for checks (best effort, up to 15 min)
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr checks "${{ needs.resolve-pr.outputs.pr_number }}" --watch --interval 15 \
+            || echo "checks watch ended (may still attempt merge)"
+
+      - name: Squash merge cursor PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ needs.resolve-pr.outputs.pr_number }}"
+
+          if gh pr view "$PR" --json mergeable -q '.mergeable' | grep -qx 'false'; then
+            echo "::warning::PR #$PR not mergeable — skip auto merge"
+            gh pr comment "$PR" --body "⚠️ **Auto-merge 跳过**：PR 不可合并（冲突或检查未通过）。请手动 rebase/修复。"
+            exit 0
+          fi
+
+          if gh pr merge "$PR" --squash --delete-branch; then
+            echo "Merged PR #$PR"
+          else
+            echo "::warning::Direct merge failed; enabling GitHub auto-merge as fallback"
+            gh pr merge "$PR" --auto --squash || true
+          fi
