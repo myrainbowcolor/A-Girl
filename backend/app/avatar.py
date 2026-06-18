@@ -92,7 +92,7 @@ def emotion_to_avatar(
     if p <= -0.3 and a >= 0.45:
         return AvatarCue(expression="担心", intensity=intensity, animation="comfort")
     if p <= -0.3:
-        return AvatarCue(expression="难过", intensity=intensity, animation="idle")
+        return AvatarCue(expression="难过", intensity=intensity, animation="comfort")
     if a >= 0.6:
         return AvatarCue(expression="惊讶", intensity=intensity, animation="idle")
     return AvatarCue(expression="平静", intensity=max(0.2, intensity), animation="idle")
