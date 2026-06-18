@@ -469,10 +469,10 @@ def rule_proactive_message(
     name = persona.name
     topic = analysis.topic_hint
     templates = {
-        "follow_up": f"刚才你说的「{topic}」，我后来还在想呢。愿意再跟我多说一点吗？",
-        "comfort": f"感觉你最近可能不太轻松。我不急着给建议，就想陪你说说话——现在怎么样？",
-        "celebrate": f"你之前说的那件事，听起来真的很棒！后来怎么样了？{name} 替你开心～",
-        "reconnect": f"有一阵子没聊了，有点想你～最近{analysis.state.replace('，', '')}吗？随便说点小事也行。",
+        "follow_up": f"刚才你说的「{topic}」，我后来还在想呢——愿意再跟我多说一点吗？",
+        "comfort": f"感觉你最近可能不太轻松。我不急着给建议，就想陪着你说说话——还好吗？",
+        "celebrate": f"你之前说的那件事，听起来真的很棒！{name} 替你开心～后来怎么样了？",
+        "reconnect": f"有一阵子没聊了，有点想你～最近还好吗？",
     }
     return templates.get(need, f"嗨，我是{name}～最近怎么样？")
 
