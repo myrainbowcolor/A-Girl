@@ -15,24 +15,26 @@ openspec/
   changes/             # 进行中的变更（proposal / specs / design / tasks）
     archive/           # 已完成并归档的变更
 .cursor/
-  commands/            # Cursor 斜杠命令：/opsx:propose 等
+  commands/            # Cursor 斜杠命令：/opsx-propose 等（见下方说明）
   skills/              # OpenSpec Agent Skills
 ```
 
 ## 日常流程（OPSX）
 
+> **注意**：Cursor 里命令名来自文件名，请用 **连字符** `/opsx-propose`，不是 `/opsx:propose`。输入 `/` 后搜索 `opsx` 或 `openspec-help`。
+
 | 步骤 | 命令 | 说明 |
 |------|------|------|
-| 1. 提想法 | `/opsx:propose 你的功能描述` | 生成 change 文件夹：proposal、specs、design、tasks |
-| 2. 探讨 | `/opsx:explore …` | 只讨论、不改文件（可选） |
-| 3. 实现 | `/opsx:apply` | 按 tasks.md 逐项实现并勾选 |
-| 4. 同步 | `/opsx:sync` | 将 delta spec 合并到主 specs（可选） |
-| 5. 归档 | `/opsx:archive` | 变更移入 archive，更新真相源 specs |
+| 1. 提想法 | `/opsx-propose 你的功能描述` | 生成 change 文件夹：proposal、specs、design、tasks |
+| 2. 探讨 | `/opsx-explore …` | 只讨论、不改文件（可选） |
+| 3. 实现 | `/opsx-apply` | 按 tasks.md 逐项实现并勾选 |
+| 4. 同步 | `/opsx-sync` | 将 delta spec 合并到主 specs（可选） |
+| 5. 归档 | `/opsx-archive` | 变更移入 archive，更新真相源 specs |
 
 ### 示例
 
 ```text
-/opsx:propose 增加 NPC 睡前晚安主动问候
+/opsx-propose 增加 NPC 睡前晚安主动问候
 
 # AI 创建 openspec/changes/bedtime-greeting/
 #   proposal.md  — 为什么做、改什么
@@ -40,9 +42,9 @@ openspec/
 #   design.md    — 技术方案
 #   tasks.md     — 实现清单
 
-/opsx:apply
+/opsx-apply
 
-/opsx:archive
+/opsx-archive
 ```
 
 ## 本地 CLI
@@ -81,9 +83,16 @@ npx openspec validate
 | `user-insight` | `backend/app/user_insight.py` |
 | `voice-avatar` | `backend/app/voice/`, `avatar.py` |
 
+## 看不到斜杠命令？
+
+1. **拉最新代码**：OpenSpec 文件在 `main` 分支的 `.cursor/commands/` 下，需 `git pull origin main`
+2. **重载窗口**：Cursor 命令面板 → `Developer: Reload Window`
+3. **在 Agent 聊天框输入 `/`**（Composer/Agent 模式），搜索 `opsx` 或 `/openspec-help`
+4. **命令格式**：`/opsx-propose`（连字符 `-`），OpenSpec 文档里的 `/opsx:propose`（冒号）在 Cursor 中对应 `-`
+
 ## 与 Cursor 的关系
 
-- 重启 IDE 后可用 `/opsx:*` 斜杠命令。
+- 重启 IDE 后可用 `/opsx-*` 斜杠命令。
 - Agent 会自动加载 `.cursor/skills/openspec-*` 与 `openspec/config.yaml` 中的项目上下文。
 - 云 Agent 开发同样遵循：先 propose，再 apply，最后 archive。
 
