@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
+from .emotion.analyzer import analyze_lexicon
 from .language import detect_user_language, language_instruction
 
 _STAGE_GUIDE = {
@@ -30,6 +31,15 @@ _EMOTION_TONE = {
     "怀旧": "语气柔软，顺着回忆共鸣；不急着拉回现实，让 ta 把画面说完。",
     "平和": "自然闲聊，像日常微信说话，偶尔用语气词（嗯、呀、呢）。",
 }
+
+# 用户本轮情感 → prompt 侧重（与 avatar/TTS 多模态共情对齐）
+_USER_TURN_TONE = {
+    "negative": "ta 这轮明显在倾诉或发泄；语气先接住感受，再轻问一句，不要轻快闲聊或急着给建议。",
+    "positive": "ta 这轮在分享好事；语气跟着亮起来，真心替 ta 高兴，别敷衍。",
+    "nostalgic": "ta 在怀旧；语气柔软，顺着回忆共鸣，不急着拉回现实。",
+}
+
+_NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 
 
 def default_persona() -> Persona:
@@ -71,6 +81,8 @@ def build_system_prompt(
     stage = relationship.stage.value
     stage_guide = _STAGE_GUIDE.get(stage, "")
     emotion_tone = _emotion_tone_hint(emotion.label())
+    user_turn_hint = _user_turn_tone_hint(user_text)
+    user_turn_block = f"\n【本轮侧重】{user_turn_hint}" if user_turn_hint else ""
 
     guard_block = f"{guard_prompt}\n" if guard_prompt else ""
     rel_block = f"\n【关系近况归纳】\n{relationship_summary}\n" if relationship_summary else ""
@@ -98,7 +110,7 @@ def build_system_prompt(
 
 【你此刻的内在状态】
 当前情绪：{emotion.label()}（愉悦度 {emotion.pleasure:.2f} / 激活度 {emotion.arousal:.2f}）
-语气微调：{emotion_tone}
+语气微调：{emotion_tone}{user_turn_block}
 关系阶段：{_stage_cn(stage)}（亲密度 {relationship.affinity:.0f}/100）
 关系指引：{stage_guide}{rel_block}
 
@@ -132,3 +144,17 @@ def _emotion_tone_hint(label: str) -> str:
         if key in label:
             return hint
     return _EMOTION_TONE["平和"]
+
+
+def _user_turn_tone_hint(user_text: str) -> str:
+    """根据用户本轮消息情感倾向，生成与 avatar/TTS 一致的语气侧重。"""
+    if not user_text.strip():
+        return ""
+    if any(kw in user_text for kw in _NOSTALGIC_KEYWORDS):
+        return _USER_TURN_TONE["nostalgic"]
+    result = analyze_lexicon(user_text)
+    if result.sentiment < -0.3:
+        return _USER_TURN_TONE["negative"]
+    if result.sentiment > 0.3:
+        return _USER_TURN_TONE["positive"]
+    return ""
