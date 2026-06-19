@@ -37,9 +37,11 @@ _USER_TURN_TONE = {
     "negative": "ta 这轮明显在倾诉或发泄；语气先接住感受，再轻问一句，不要轻快闲聊或急着给建议。",
     "positive": "ta 这轮在分享好事；语气跟着亮起来，真心替 ta 高兴，别敷衍。",
     "nostalgic": "ta 在怀旧；语气柔软，顺着回忆共鸣，不急着拉回现实。",
+    "angry": "ta 这轮在发泄怒气；先接住这股火，陪着听，别讲大道理也别催着冷静。",
 }
 
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
+_ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
 
 
 def default_persona() -> Persona:
@@ -152,6 +154,8 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return ""
     if any(kw in user_text for kw in _NOSTALGIC_KEYWORDS):
         return _USER_TURN_TONE["nostalgic"]
+    if any(kw in user_text for kw in _ANGER_KEYWORDS):
+        return _USER_TURN_TONE["angry"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]
