@@ -37,9 +37,33 @@ def test_prompt_user_turn_positive():
 
 def test_prompt_user_turn_neutral_omits_block():
     p = build_system_prompt(
-        Persona(), EmotionState(), Relationship(), [], user_text="嗯"
+        Persona(), EmotionState(), Relationship(), [], user_text="今天天气不错"
     )
     assert "【本轮侧重】" not in p
+
+
+def test_prompt_user_turn_closed_minimal():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text=".."
+    )
+    assert "【本轮侧重】" in p
+    assert "尊重边界" in p
+
+
+def test_prompt_user_turn_meta_pushback():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="为啥一定要跟你聊天?"
+    )
+    assert "【本轮侧重】" in p
+    assert "不强迫" in p
+
+
+def test_prompt_user_turn_identity():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="你是机器人吗"
+    )
+    assert "【本轮侧重】" in p
+    assert "AI" in p
 
 
 def test_prompt_user_turn_nostalgic():

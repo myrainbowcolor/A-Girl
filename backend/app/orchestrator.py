@@ -21,6 +21,7 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .reply_guard import polish_reply, prior_assistant_reply
 from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
@@ -219,8 +220,10 @@ class Orchestrator:
         retrieved: list,
         user_texts: list[str],
     ) -> str:
-        """记忆诚实校正 + 语言不匹配时重试一次。"""
+        """记忆诚实校正 + 防复读/套话兜底 + 语言不匹配时重试一次。"""
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        prior = prior_assistant_reply(history)
+        reply = polish_reply(user_text, reply, prior_reply=prior)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
@@ -230,6 +233,7 @@ class Orchestrator:
             retry = self._llm.generate(reinforced, history, temperature=0.65)
             if retry.strip():
                 reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
+                reply = polish_reply(user_text, reply, prior_reply=prior)
         return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
