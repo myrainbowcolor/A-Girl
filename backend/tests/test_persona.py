@@ -48,3 +48,27 @@ def test_prompt_user_turn_nostalgic():
     )
     assert "【本轮侧重】" in p
     assert "怀旧" in p
+
+
+def test_prompt_user_turn_angry():
+    """愤怒发泄句应使用独立侧重，而非通用低落共情。"""
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(),
+        [],
+        user_text="老板今天当众骂我，气死了！",
+    )
+    assert "【本轮侧重】" in p
+    assert "火气" in p or "怒气" in p
+    assert "先接住这股火" in p
+
+
+def test_prompt_user_turn_sad_not_angry():
+    """纯低落句仍走通用负向共情侧重。"""
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="回家还要哄娃，心好累"
+    )
+    assert "【本轮侧重】" in p
+    assert "先接住感受" in p
+    assert "火气" not in p and "怒气" not in p
