@@ -8,16 +8,28 @@ on:
   workflow_run:
     workflows: ["Dialogue Quality"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "手动重试合并的 PR 号"
+        required: true
+        type: number
 
 permissions:
   contents: write
   pull-requests: write
   checks: read
 
+concurrency:
+  group: auto-merge-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: |
+      github.event_name == 'workflow_dispatch' ||
       github.event_name == 'workflow_run' ||
       (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'cursor/'))
     steps:
@@ -32,25 +44,31 @@ jobs:
           set -euo pipefail
           REPO="${{ github.repository }}"
 
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "pr_number=${{ github.event.inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          if [ -z "$BRANCH" ] || [[ ! "$BRANCH" == cursor/* ]]; then
-            echo "No cursor/* branch on workflow_run"
-            exit 0
-          fi
-
-          # 同仓库 PR 用分支名即可；owner:branch 在同 repo 下会查不到
-          PR_NUMBER=$(gh pr list --repo "$REPO" --state open \
-            --head "$BRANCH" \
-            --json number \
-            --jq '.[0].number // empty')
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          PR_NUMBER=$(gh api "repos/$REPO/actions/runs/$RUN_ID" --jq '.pull_requests[0].number // empty')
 
           if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR for branch $BRANCH"
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [ -n "$BRANCH" ] && [[ "$BRANCH" == cursor/* ]]; then
+              PR_NUMBER=$(gh pr list --repo "$REPO" --state open \
+                --head "$BRANCH" \
+                --json number \
+                --jq '.[0].number // empty')
+            fi
+          fi
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR resolved from workflow_run"
             exit 0
           fi
 
@@ -69,14 +87,29 @@ jobs:
             sleep 10
           fi
 
-      - name: Wait for checks (best effort, up to 15 min)
+      - name: Wait for dialogue-quality (exclude self — avoid deadlock)
         if: steps.resolve.outputs.pr_number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh pr checks "${{ steps.resolve.outputs.pr_number }}" --watch --interval 15 \
-            || echo "checks watch ended (may still attempt merge)"
+          PR="${{ steps.resolve.outputs.pr_number }}"
+          echo "Waiting for dialogue-quality on PR #$PR..."
+          for i in $(seq 1 40); do
+            CONC=$(gh pr view "$PR" --json statusCheckRollup -q \
+              '[.statusCheckRollup[] | select(.name == "dialogue-quality") | .conclusion] | first // empty')
+            if [ "$CONC" = "SUCCESS" ]; then
+              echo "dialogue-quality passed"
+              exit 0
+            fi
+            if [ "$CONC" = "FAILURE" ] || [ "$CONC" = "CANCELLED" ]; then
+              echo "::warning::dialogue-quality $CONC — skip auto merge"
+              exit 1
+            fi
+            echo "attempt $i/40: dialogue-quality not ready yet"
+            sleep 15
+          done
+          echo "::warning::Timed out waiting for dialogue-quality"
 
       - name: Squash merge cursor PR
         if: steps.resolve.outputs.pr_number != ''
