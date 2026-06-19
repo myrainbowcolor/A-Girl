@@ -9,6 +9,10 @@ from app.domain import Message, Persona, UserMeta
 from app.proactivity import ProactivityEngine, extract_events
 
 
+def _question_count(text: str) -> int:
+    return text.count("?") + text.count("？")
+
+
 @pytest.fixture
 def engine():
     with tempfile.NamedTemporaryFile(suffix=".db") as f:
@@ -31,6 +35,7 @@ def test_welcome_trigger_on_first_visit(engine):
     r = eng.check("u1")
     assert r.should_reach_out and r.trigger == "welcome"
     assert "嗨" in (r.message or "")
+    assert _question_count(r.message or "") <= 1
 
 
 def test_no_trigger_without_meta_when_has_history(engine):
@@ -54,6 +59,7 @@ def test_idle_trigger(engine):
     r = eng.check("u1", now=now)
     assert r.should_reach_out and r.trigger == "idle"
     assert r.message
+    assert _question_count(r.message or "") <= 1
 
 
 def test_no_trigger_when_recent(engine):
@@ -71,6 +77,7 @@ def test_emotion_trigger(engine):
     db.save_user_meta(UserMeta("u1", last_interaction_at=now - 3600, last_sentiment=-0.6))
     r = eng.check("u1", now=now)
     assert r.should_reach_out and r.trigger == "emotion"
+    assert _question_count(r.message or "") <= 1
 
 
 def test_insight_trigger_comfort(engine):

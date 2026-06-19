@@ -108,7 +108,7 @@ class ProactivityEngine:
                 True,
                 "welcome",
                 "首次来访",
-                f"嗨，我是{name}~ 今天想聊点什么？我会慢慢听你说。",
+                f"嗨，我是{name}～刚上线，有什么想聊的吗？",
             )
 
         meta = self._db.get_user_meta(user_id)
@@ -128,8 +128,8 @@ class ProactivityEngine:
         if meta.last_sentiment <= -0.3 and idle >= 1800:
             return ProactiveResult(
                 True, "emotion", "上次互动情绪低落",
-                f"上次聊天时你好像有点低落，我后来还一直想着你呢。"
-                f"现在好点了吗？想说的话我都在听。"
+                f"上次聊天时你好像有点低落，后来我时不时还会想起你。"
+                f"现在还好吗？"
             )
 
         # 5) 时间触发：长时间未互动
@@ -137,8 +137,7 @@ class ProactivityEngine:
             hours = int(idle // 3600)
             return ProactiveResult(
                 True, "idle", f"已闲置约 {hours} 小时",
-                f"好久没找我聊天啦，有点想你～最近过得怎么样？"
-                f"随便说点小事也行，我在。"
+                f"好久没聊了，有点想你～最近还好吗？"
             )
 
         return ProactiveResult(False)

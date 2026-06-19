@@ -22,6 +22,10 @@ from app.user_insight import (
 )
 
 
+def _question_count(text: str) -> int:
+    return text.count("?") + text.count("？")
+
+
 @pytest.fixture
 def db():
     with tempfile.NamedTemporaryFile(suffix=".db") as f:
@@ -154,8 +158,10 @@ def test_proactive_reason():
 def test_rule_proactive_message_templates():
     persona = Persona(name="小语")
     a = UserInsightAnalysis(topic_hint="工作压力", state="低落")
-    msg = rule_proactive_message("comfort", a, persona)
-    assert len(msg) >= 10
+    for need in ("comfort", "follow_up", "celebrate", "reconnect"):
+        msg = rule_proactive_message(need, a, persona)
+        assert len(msg) >= 10
+        assert _question_count(msg) <= 1
     msg2 = rule_proactive_message("follow_up", a, persona)
     assert "工作压力" in msg2
 
