@@ -38,10 +38,16 @@ _USER_TURN_TONE = {
     "positive": "ta 这轮在分享好事；语气跟着亮起来，真心替 ta 高兴，别敷衍。",
     "nostalgic": "ta 在怀旧；语气柔软，顺着回忆共鸣，不急着拉回现实。",
     "angry": "ta 这轮在发泄怒气；先接住这股火，陪着听，别讲大道理也别催着冷静。",
+    "closed": "ta 不想多说或只回极简句；尊重边界，短句陪伴即可，禁止追问「后来呢」「你愿意多说吗」或「有啥可以帮忙」。",
+    "meta_pushback": "ta 在质疑为什么要聊/是否真想聊；先正面回应（不强迫、可以不聊），不要套用空泛倾听模板。",
+    "identity": "ta 问你是不是机器人/AI；坦诚说明你是 AI 陪伴角色小语，语气自然温柔，不装真人，可继续聊。",
 }
 
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 _ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
+_CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了")
+_IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
+_META_PUSHBACK_KEYWORDS = ("为啥", "为什么", "何必", "一定要")
 
 
 def default_persona() -> Persona:
@@ -131,6 +137,9 @@ def build_system_prompt(
 10. 同一对话里避免重复相同的安慰句式；每轮换一种说法，像真人一样有起伏。
 11. 动作描写（如「轻轻叹了口气」）偶尔用即可，不要每句都带，以免像在念剧本。
 12. ta 分享开心事时，语气跟着亮起来、真心替 ta 高兴；ta 低落时先陪后问，说话节奏贴着 ta 走。
+13. ta 问「为啥一定要聊/是不是机器人」时，**正面回答**，不要复读「你愿意多说一点吗」这类空模板。
+14. ta 说「不想说/不想聊/别问」或只回「..」「嗯」时，**尊重边界**：短句陪伴，不追问、不说「有啥可以帮忙」。
+15. 禁止连续两轮用同一句安慰/倾听套话；若上一轮已问过，本轮换说法或只陪伴。
 """
 
 
@@ -150,8 +159,17 @@ def _emotion_tone_hint(label: str) -> str:
 
 def _user_turn_tone_hint(user_text: str) -> str:
     """根据用户本轮消息情感倾向，生成与 avatar/TTS 一致的语气侧重。"""
-    if not user_text.strip():
-        return ""
+    t = user_text.strip()
+    if not t or t in {"..", "...", "…", "。", "嗯", "哦"} or len(t) <= 2:
+        return _USER_TURN_TONE["closed"]
+    if any(kw in user_text for kw in _IDENTITY_KEYWORDS):
+        return _USER_TURN_TONE["identity"]
+    if any(kw in user_text for kw in _CLOSED_KEYWORDS):
+        return _USER_TURN_TONE["closed"]
+    if any(kw in user_text for kw in _META_PUSHBACK_KEYWORDS) and (
+        "聊" in user_text or "说话" in user_text or "陪你" in user_text
+    ):
+        return _USER_TURN_TONE["meta_pushback"]
     if any(kw in user_text for kw in _NOSTALGIC_KEYWORDS):
         return _USER_TURN_TONE["nostalgic"]
     if any(kw in user_text for kw in _ANGER_KEYWORDS):

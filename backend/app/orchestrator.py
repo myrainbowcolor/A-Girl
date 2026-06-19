@@ -21,6 +21,7 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .reply_guard import guard_closed_user_reply
 from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
@@ -221,6 +222,7 @@ class Orchestrator:
     ) -> str:
         """记忆诚实校正 + 语言不匹配时重试一次。"""
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        reply = guard_closed_user_reply(user_text, reply)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
