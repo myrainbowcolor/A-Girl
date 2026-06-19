@@ -17,9 +17,12 @@ _BAD_LLM_MARKERS = (
     "有相似之处", "温暖的少女", "我是你的陪伴者，而你", "共同的爱好",
     "让你知道我在这", "让你知道我在这世界", "暂时不聊了", "需要时间适应",
 )
+_GENERIC_MOCK_MARKERS = (
+    "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
+    "你再多跟我说说", "嗯嗯，然后呢",
+)
 _META_PUSHBACK_MARKERS = ("为啥", "为什么", "何必", "一定要")
 _IDENTITY_MARKERS = ("机器人", "人工智能", "是不是人", "真人吗", "AI", "ai")
-_POSITIVE_MARKERS = ("真好", "谢谢", "感谢", "喜欢", "开心", "高兴", "温暖")
 
 _META_PUSHBACK_REPLIES = (
     "不用一定要呀，想聊就聊，不想聊也完全可以。我在这儿，不催你~",
@@ -37,11 +40,6 @@ _CLOSED_REPLIES = (
 _COMPANION_REPLIES = (
     "嗯，我陪着。不急着说~",
     "好，我在这儿。不急着开口~",
-)
-_POSITIVE_REPLIES = (
-    "嘿嘿，你这么说我也挺开心的~",
-    "听到你这么说，心里暖暖的。",
-    "嘻嘻，能陪着你我也挺高兴的~",
 )
 
 
@@ -65,16 +63,22 @@ def user_is_identity(user_text: str) -> bool:
     return any(m in user_text for m in _IDENTITY_MARKERS)
 
 
-def user_is_positive(user_text: str) -> bool:
-    return any(m in user_text for m in _POSITIVE_MARKERS)
-
-
 def reply_is_pushy(reply: str) -> bool:
     return any(m in reply for m in _PUSHY_REPLY_MARKERS)
 
 
 def reply_is_bad_llm(reply: str) -> bool:
     return any(m in reply for m in _BAD_LLM_MARKERS)
+
+
+def reply_is_generic_mock(reply: str) -> bool:
+    """Mock 未命中具体场景时的问卷式兜底，不宜直接采用。"""
+    return any(m in reply for m in _GENERIC_MOCK_MARKERS)
+
+
+def reply_is_self_talk(reply: str) -> bool:
+    """小模型把 NPC 写成在聊自己工作/生活。"""
+    return any(w in reply for w in ("我最近", "我的工作", "最近工作", "最近忙吗"))
 
 
 def _normalize_reply(text: str) -> str:
@@ -99,20 +103,31 @@ def reply_similarity(a: str, b: str) -> float:
     return len(sa & sb) / len(union)
 
 
+def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") -> bool:
+    """LLM 输出明显不可用，应回退到场景引擎（mock 的场景逻辑）。"""
+    if reply_is_bad_llm(reply) or reply_is_self_talk(reply):
+        return True
+    if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
+        return True
+    if user_is_closed(user_text) and reply_is_pushy(reply):
+        return True
+    if user_is_meta_pushback(user_text) and reply_is_pushy(reply):
+        return True
+    return False
+
+
 def _pick_variant(options: tuple[str, ...], seed: str) -> str:
     idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
     return options[idx]
 
 
 def scene_fallback_reply(user_text: str, *, prior_reply: str = "") -> str | None:
-    """关键场景下给出稳定、不追问的短回复。"""
+    """仅在最坏情况下使用的极短兜底（优先用 mock 场景引擎）。"""
     seed = user_text + prior_reply
     if user_is_identity(user_text):
         return _pick_variant(_IDENTITY_REPLIES, seed)
     if user_is_meta_pushback(user_text):
         return _pick_variant(_META_PUSHBACK_REPLIES, seed)
-    if user_is_positive(user_text):
-        return _pick_variant(_POSITIVE_REPLIES, seed)
     if user_is_closed(user_text):
         if any(w in user_text for w in ("不想说", "不想聊", "别问", "别烦")):
             return _pick_variant(_CLOSED_REPLIES, seed)
@@ -128,52 +143,19 @@ def guard_closed_user_reply(user_text: str, reply: str) -> str:
     return fb or "嗯，我陪着。不急着说~"
 
 
-def meta_pushback_ok(reply: str) -> bool:
-    return any(w in reply for w in ("不用", "不强迫", "没有必须", "不催", "不想聊也", "不必须"))
-
-
-def _identity_answered(reply: str) -> bool:
-    return any(w in reply for w in ("AI", "小语", "人工智能", "陪伴角色"))
-
-
-def reply_is_companion_only(reply: str) -> bool:
-    r = _normalize_reply(reply)
-    return any(p in r for p in ("不急着说", "不说也行", "我陪着。不"))
-
-
-def reply_is_companion_ok(reply: str) -> bool:
-    r = _normalize_reply(reply)
-    if reply_is_pushy(r):
-        return False
-    if len(r) > 48:
-        return False
-    return any(w in r for w in ("陪着", "不急着", "不说也行", "没关系", "不想说也", "嗯，好", "嗯，我"))
-
-
 def polish_reply(user_text: str, reply: str, *, prior_reply: str = "") -> str:
-    """统一兜底：坏套话、复读、场景不匹配时替换为短句。"""
+    """轻量后处理：只修追问/复读/坏套话，保留 LLM 或场景引擎的自然回复。"""
     reply = guard_closed_user_reply(user_text, reply)
 
-    needs_fallback = (
-        reply_is_bad_llm(reply)
-        or (user_is_meta_pushback(user_text) and (reply_is_pushy(reply) or not meta_pushback_ok(reply)))
-        or (user_is_identity(user_text) and (reply_is_bad_llm(reply) or not _identity_answered(reply)))
-        or (user_is_positive(user_text) and reply_is_companion_only(reply))
-        or (user_is_closed(user_text) and not reply_is_companion_ok(reply))
-    )
-    if needs_fallback:
+    if reply_is_bad_llm(reply):
         fb = scene_fallback_reply(user_text, prior_reply=prior_reply)
         if fb:
             return fb
 
-    if prior_reply and reply_similarity(reply, prior_reply) >= 0.82:
+    if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
         fb = scene_fallback_reply(user_text, prior_reply=prior_reply + reply)
-        if fb and reply_similarity(fb, prior_reply) < 0.82:
+        if fb and reply_similarity(fb, prior_reply) < 0.88:
             return fb
-        if user_is_positive(user_text):
-            return _pick_variant(_POSITIVE_REPLIES, prior_reply + user_text)
-        if user_is_closed(user_text):
-            return _pick_variant(_COMPANION_REPLIES, prior_reply + user_text + reply)
 
     return reply
 

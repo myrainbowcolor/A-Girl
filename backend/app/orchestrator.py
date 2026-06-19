@@ -21,7 +21,12 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
-from .reply_guard import polish_reply, prior_assistant_reply
+from .reply_guard import (
+    needs_mock_fallback,
+    polish_reply,
+    prior_assistant_reply,
+    reply_is_generic_mock,
+)
 from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
 from .voice.base import TTSResult
@@ -66,6 +71,39 @@ class Orchestrator:
         self._tts = tts
         self._audit = audit
         self._proactivity = ProactivityEngine(db, settings, self._persona, llm=llm)
+        self._scene_llm: LLMProvider | None = None
+
+    def _scene_engine(self) -> LLMProvider:
+        """场景化回复引擎（与 pytest mock 同源，含加班/宠物/情绪等分支逻辑）。"""
+        if self._scene_llm is None:
+            from .llm import MockLLMProvider
+            self._scene_llm = MockLLMProvider()
+        return self._scene_llm
+
+    def _generate_chat_reply(
+        self,
+        system_prompt: str,
+        history: list[dict[str, str]],
+        user_text: str,
+    ) -> str:
+        """生成回复：优先场景引擎（有上下文的分支），否则真实 LLM。"""
+        prior = prior_assistant_reply(history)
+        blend = self._s.llm_mock_fallback and self._llm.name != "mock"
+
+        scene_reply = ""
+        if blend:
+            scene_reply = self._scene_engine().generate(system_prompt, history)
+            if not reply_is_generic_mock(scene_reply):
+                return scene_reply
+
+        llm_reply = self._llm.generate(system_prompt, history)
+        if blend and needs_mock_fallback(llm_reply, user_text, prior_reply=prior):
+            if scene_reply and not reply_is_generic_mock(scene_reply):
+                return scene_reply
+            fallback = self._scene_engine().generate(system_prompt, history)
+            if not reply_is_generic_mock(fallback):
+                return fallback
+        return llm_reply
 
     @property
     def persona(self) -> Persona:
@@ -220,9 +258,14 @@ class Orchestrator:
         retrieved: list,
         user_texts: list[str],
     ) -> str:
-        """记忆诚实校正 + 防复读/套话兜底 + 语言不匹配时重试一次。"""
-        reply = enforce_memory_honesty(reply, retrieved, user_texts)
+        """记忆诚实校正 + 场景补位 + 轻量兜底 + 语言不匹配时重试。"""
         prior = prior_assistant_reply(history)
+        if self._s.llm_mock_fallback and self._llm.name != "mock":
+            if needs_mock_fallback(reply, user_text, prior_reply=prior):
+                scene = self._scene_engine().generate(system_prompt, history)
+                if not reply_is_generic_mock(scene):
+                    reply = scene
+        reply = enforce_memory_honesty(reply, retrieved, user_texts)
         reply = polish_reply(user_text, reply, prior_reply=prior)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
@@ -310,7 +353,7 @@ class Orchestrator:
             {"role": m.role, "content": m.content}
             for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
         ]
-        reply = self._llm.generate(system_prompt, history)
+        reply = self._generate_chat_reply(system_prompt, history, user_text)
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
         reply = self._finalize_reply(reply, system_prompt, history, user_text, retrieved, user_texts)
 

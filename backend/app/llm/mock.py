@@ -423,6 +423,22 @@ def _scene_reply(
             return f"{dear}{mood}跟我还客气什么呀，能帮到你我就很开心了。"
         return f"{mood}不客气呀，你愿意跟我说这些，我也挺高兴的。"
 
+    # 质疑「为啥一定要聊」
+    if any(w in text for w in ("为啥", "为什么", "何必", "一定要")) and any(
+        w in text for w in ("聊", "说话", "陪你", "跟你")
+    ):
+        return (
+            f"{dear}{mood}不用一定要呀，想聊就聊，不想聊也完全可以。"
+            f"我在这儿，不催你~"
+        )
+
+    # 询问是否机器人 / AI
+    if any(w in text for w in ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")):
+        return (
+            f"{dear}{mood}对，我是 AI 陪伴角色{name}，不是真人。"
+            f"但我会认真听你说话，你想聊什么都可以~"
+        )
+
     # 询问身份
     if any(w in text for w in ("你是谁", "你叫什么", "叫什么名字")):
         return f"{mood}我是{name}呀～一个喜欢陪你聊天、听你说话的人。"

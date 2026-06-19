@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     # 流式对话：done 事件前是否推迟反思/关系归纳等重型 LLM 任务到后台
     chat_defer_heavy_post: bool = True
 
+    # 本地小模型质量不稳时：场景引擎（mock 的场景逻辑）补位，保留有上下文的回复
+    llm_mock_fallback: bool = True
+
 
 @lru_cache
 def get_settings() -> Settings:
