@@ -96,3 +96,26 @@ def test_prompt_user_turn_sad_not_angry():
     assert "【本轮侧重】" in p
     assert "先接住感受" in p
     assert "火气" not in p and "怒气" not in p
+
+
+def test_prompt_user_turn_insomnia():
+    """失眠反刍句应使用独立侧重，禁止助眠建议式指引。"""
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(),
+        [],
+        user_text="又失眠了，脑子停不下来",
+    )
+    assert "【本轮侧重】" in p
+    assert "失眠" in p or "脑子停" in p
+    assert "数羊" in p or "助眠" in p
+
+
+def test_prompt_user_turn_sad_not_insomnia():
+    """纯低落句不走失眠侧重。"""
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="回家还要哄娃，心好累"
+    )
+    assert "【本轮侧重】" in p
+    assert "数羊" not in p and "助眠" not in p
