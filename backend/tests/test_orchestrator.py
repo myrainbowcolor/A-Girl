@@ -87,3 +87,33 @@ def test_minor_adult_content_blocked_via_orchestrator(orch):
     assert res.llm == "safety"
     assert res.safety_category == "adult"
     assert res.avatar.expression in {"微笑", "大笑", "平静", "惊讶", "难过", "担心"}
+
+
+class _BadLLM:
+    """模拟本地小模型乱回复，触发场景引擎补位。"""
+
+    name = "openai_compatible:bad"
+
+    def generate(self, system_prompt: str, messages: list[dict], temperature: float = 0.8) -> str:
+        return "哈哈，很高兴你和我有相似之处，小确幸很多呢。"
+
+    def generate_stream(self, system_prompt: str, messages: list[dict], temperature: float = 0.8):
+        text = self.generate(system_prompt, messages, temperature=temperature)
+        for i in range(0, len(text), 2):
+            yield text[i : i + 2]
+
+
+def test_scene_blend_on_bad_llm():
+    with tempfile.NamedTemporaryFile(suffix=".db") as f:
+        s = Settings(db_path=f.name, llm_mock_fallback=True)
+        db = Database(f.name)
+        mem = MemoryStore(db, HashEmbeddingProvider(dim=256), s)
+        o = Orchestrator(db, mem, EmotionEngine(), _BadLLM(), s)
+        try:
+            res = o.chat("u1", "sess1", "我养了一只叫橘子的猫")
+            assert "相似之处" not in res.reply
+            assert "小确幸" not in res.reply
+            assert "猫" in res.reply or "橘" in res.reply
+        finally:
+            db.close()
+
