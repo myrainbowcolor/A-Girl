@@ -8,6 +8,7 @@ from .openai_compatible import OpenAICompatibleLLMProvider
 
 
 def build_llm_provider(settings: Settings) -> LLMProvider:
+    """构建 LLM。mock 仅用于 pytest/CI；用户聊天应配置 openai_compatible。"""
     if settings.llm_provider == "openai_compatible" and settings.llm_api_key:
         return OpenAICompatibleLLMProvider(
             base_url=settings.llm_base_url,

@@ -29,5 +29,6 @@
 ## 项目要点
 
 - 后端：`backend/app/`，测试 `cd backend && python -m pytest`
+- **启动聊天**：`bash scripts/start-remote-llm.sh`（真实 LLM）；**mock 仅 pytest/CI**
 - 默认受众未成年人，安全优先
 - 回复风格：口语化，每轮最多一个问句

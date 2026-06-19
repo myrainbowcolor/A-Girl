@@ -24,36 +24,51 @@
 
 ## 快速开始
 
+> **默认启动 = 真实 LLM；mock 仅用于 pytest / CI。**  
+> 直接 `uvicorn` 且无 `.env` 时会静默退化为 mock（模板回复，听不懂你在说什么）。  
+> **聊天请用下面推荐方式启动。**
+
+### 推荐：一键启动（LLM + 聊天服务）
+
 ```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8011
+bash scripts/start-remote-llm.sh
 # 打开 http://127.0.0.1:8011/
 ```
 
-无需任何 API Key 即可运行（默认 mock LLM + 哈希 embedding）。
+脚本会：下载/加载本地 GGUF 或 Ollama 模型 → 起 llama-cpp 服务 → 写 `backend/.env` → 起 A-Girl。
 
-### 接入真实大模型 / 语音（OpenAI 或自托管）
-
-填环境变量即切换，`base_url` 可指向自托管服务（vLLM/Ollama/TGI 等）：
+### 或：本机 Ollama / 云端 API
 
 ```bash
-# LLM
-export AGIRL_LLM_PROVIDER=openai_compatible
-export AGIRL_LLM_BASE_URL=https://api.openai.com/v1     # 自托管改为你的地址
-export AGIRL_LLM_API_KEY=sk-xxx
-export AGIRL_LLM_MODEL=gpt-4o-mini
-# 语音 TTS/STT（免费推荐 Edge TTS，无需 Key）
-export AGIRL_TTS_PROVIDER=edge
-export AGIRL_EDGE_TTS_VOICE=zh-CN-XiaoxiaoNeural   # 晓晓温柔女声；可换 zh-CN-XiaoyiNeural
-# 或使用 OpenAI 兼容付费/自托管语音：
-# export AGIRL_TTS_PROVIDER=openai_compatible
-# export AGIRL_VOICE_BASE_URL=https://api.openai.com/v1
-# export AGIRL_VOICE_API_KEY=sk-xxx
-export AGIRL_STT_PROVIDER=mock
+cp backend/.env.example backend/.env   # 按注释改 LLM 地址与 Key
+cd backend && pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8011
 ```
 
-无 Key 时本地验证可用桩服务：`python -m uvicorn examples.openai_stub_server:app --port 9000`，再把上面 `*_BASE_URL` 指向 `http://127.0.0.1:9000/v1`。
+```bash
+# 本机 Ollama 示例
+AGIRL_LLM_PROVIDER=openai_compatible
+AGIRL_LLM_BASE_URL=http://127.0.0.1:11434/v1
+AGIRL_LLM_API_KEY=ollama
+AGIRL_LLM_MODEL=llama3
+
+# 云端 OpenAI / DeepSeek 示例
+AGIRL_LLM_BASE_URL=https://api.deepseek.com/v1
+AGIRL_LLM_API_KEY=sk-xxx
+AGIRL_LLM_MODEL=deepseek-chat
+```
+
+### mock 是什么？什么时候用？
+
+| 场景 | LLM |
+|------|-----|
+| **你实际聊天** | 真实 LLM（Ollama / llama-cpp / API） |
+| **pytest / GitHub CI** | mock（确定性、无 Key、快） |
+| **对话质量基线** | mock strict（测编排规则，不测模型智商） |
+
+无 Key 时本地验证 OpenAI 兼容链路可用桩服务：`python -m uvicorn examples.openai_stub_server:app --port 9000`，再把 `AGIRL_LLM_BASE_URL` 指向 `http://127.0.0.1:9000/v1`（仍是假回复，不是 mock 模板）。
+
+### 语音（Edge TTS 免费，无需 Key）
 
 ### 主动关心
 
@@ -73,7 +88,7 @@ curl http://127.0.0.1:8011/api/proactive/<user_id>
 
 ```bash
 cd backend
-python -m pytest
+python -m pytest          # conftest 固定 mock LLM，无需外部 API
 # 对话拟真度场景评测（多场景/情绪/关系/时长）+ 失败记录
 python scripts/run_dialogue_quality.py
 # 数字人口型同步的无头浏览器确定性验证（需先启动服务）
