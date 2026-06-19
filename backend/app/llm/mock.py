@@ -1,7 +1,7 @@
-"""离线 Mock Provider。
+"""离线 Mock Provider（仅 pytest / CI / 对话质量基线）。
 
-不依赖外部 API，根据用户情绪线索与关系阶段生成有共情感的回复，
-便于无 Key 环境下验证整条编排链路。
+不调用真实大模型，用关键词模板生成确定性回复，便于自动化测试。
+**用户实际聊天请勿使用 mock**——请配置 LLM 或运行 scripts/start-remote-llm.sh。
 """
 from __future__ import annotations
 

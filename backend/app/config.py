@@ -1,7 +1,7 @@
 """运行配置。
 
-通过环境变量覆盖默认值；无任何 Key 时退化为可离线运行的 mock 模式，
-保证骨架在没有外部依赖的情况下也能完整跑通与测试。
+默认 llm_provider=mock 仅作**无 .env 时的代码兜底**（pytest/CI 显式使用 mock）。
+实际启动聊天服务请配置真实 LLM：复制 backend/.env.example，或运行 scripts/start-remote-llm.sh。
 """
 from __future__ import annotations
 

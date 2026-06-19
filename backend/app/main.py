@@ -278,6 +278,13 @@ _scheduler = ProactiveScheduler(_db, _orchestrator, settings, push=_push)
 
 @app.on_event("startup")
 def _on_startup() -> None:
+    if settings.llm_provider == "mock" or not settings.llm_api_key:
+        import logging
+
+        logging.getLogger("uvicorn.error").warning(
+            "AGIRL 当前为 mock LLM（关键词模板，听不懂自由对话）。"
+            "实际聊天请配置 backend/.env 中的 LLM，或运行: bash scripts/start-remote-llm.sh"
+        )
     _scheduler.start()
 
 

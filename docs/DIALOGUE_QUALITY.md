@@ -29,6 +29,8 @@
 
 ## 运行方式
 
+> CI / 基线评测默认 **mock LLM**（确定性规则检查）。评估真实拟真度请接入 LLM 后人工复核或 Automation 抽检（见 [AUTOMATIONS-DIALOGUE-QUALITY.md](AUTOMATIONS-DIALOGUE-QUALITY.md)）。
+
 ```bash
 cd backend
 
