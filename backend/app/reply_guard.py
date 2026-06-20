@@ -27,8 +27,10 @@ _FILLER_HEAD_RE = re.compile(r"^(（[^）]*）)?(嗯+[…\.~]?|呃+)+[，,]?")
 _GENERIC_MOCK_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
     "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
-    "你继续说", "慢慢说", "我懂。然后呢", "接着说，我听着呢",
+    "你继续说", "我懂。然后呢", "接着说，我听着呢",
     "嘿，后来怎么样了", "你再多跟我说说呗",
+    "我听到了。是最近", "一直压着你", "从哪儿说起都行", "先吐槽还是先理理",
+    "今天这事你想先聊哪一块",
 )
 _META_PUSHBACK_MARKERS = ("为啥", "为什么", "何必", "一定要")
 _IDENTITY_MARKERS = ("机器人", "人工智能", "是不是人", "真人吗", "AI", "ai")
@@ -249,7 +251,9 @@ def polish_reply(
         if alt and reply_similarity(alt, prior_reply) < 0.88:
             return alt
 
-    return reply
+    return ensure_reply_diversity(
+        reply, user_text, history or [], prior_reply=prior_reply
+    )
 
 
 def prior_assistant_reply(history: list[dict[str, str]]) -> str:
@@ -257,3 +261,74 @@ def prior_assistant_reply(history: list[dict[str, str]]) -> str:
         if m.get("role") == "assistant":
             return m.get("content", "")
     return ""
+
+
+def recent_assistant_replies(
+    history: list[dict[str, str]], limit: int = 6
+) -> list[str]:
+    out: list[str] = []
+    for m in reversed(history):
+        if m.get("role") == "assistant":
+            text = (m.get("content") or "").strip()
+            if text:
+                out.append(text)
+            if len(out) >= limit:
+                break
+    return out
+
+
+def reply_repeats_history(
+    reply: str,
+    history: list[dict[str, str]] | list[str],
+    *,
+    threshold: float = 0.82,
+) -> bool:
+    """是否与近期 assistant 回复高度相似（会话级防复读）。"""
+    if isinstance(history, list) and history and isinstance(history[0], str):
+        recent = history
+    else:
+        recent = recent_assistant_replies(history)  # type: ignore[arg-type]
+    return any(reply_similarity(reply, prev) >= threshold for prev in recent)
+
+
+_DIVERSITY_REPLIES = (
+    "嗯，我在呢。你先随便丢几个词给我也行~",
+    "好，我收到了。不用一次说完~",
+    "我听着。哪一块你现在最想提？",
+    "嗯，这事不急。你想从哪儿开始说？",
+    "好，我接住了。慢慢讲~",
+    "我在。你想到什么就说什么~",
+    "嗯，不用整理成完整句子。我听得懂~",
+    "好，先歇口气再说也行~",
+)
+
+
+def ensure_reply_diversity(
+    reply: str,
+    user_text: str,
+    history: list[dict[str, str]],
+    *,
+    prior_reply: str = "",
+) -> str:
+    """根治复读：与近几轮 assistant 回复撞车则强制换句。"""
+    recent = recent_assistant_replies(history)
+    if not reply_repeats_history(reply, recent):
+        return reply
+
+    from .dialogue_compose import compose_open_reply
+
+    alt = compose_open_reply(
+        user_text,
+        history,
+        prior_reply=prior_reply,
+        avoid=recent + [reply],
+    )
+    if alt and not reply_repeats_history(alt, recent):
+        return alt
+
+    seed_base = user_text + prior_reply + "".join(recent[:2])
+    for i in range(len(_DIVERSITY_REPLIES) * 2):
+        alt = _pick_variant(_DIVERSITY_REPLIES, seed_base + f"#{i}")
+        if not reply_repeats_history(alt, recent):
+            return alt
+    return reply

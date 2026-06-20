@@ -28,6 +28,72 @@ def _last_assistant(history: list[dict[str, str]]) -> str:
     return ""
 
 
+def _too_similar(candidate: str, avoid: list[str], threshold: float = 0.82) -> bool:
+    from .reply_guard import reply_similarity
+
+    return any(reply_similarity(candidate, prev) >= threshold for prev in avoid if prev)
+
+
+def compose_open_reply(
+    user_text: str,
+    history: list[dict[str, str]],
+    *,
+    prior_reply: str = "",
+    avoid: list[str] | None = None,
+) -> str:
+    """开放话题兜底：根据近期上下文生成不重复接话（scene/compose 均未命中时）。"""
+    avoid = list(avoid or [])
+    text = user_text.strip()
+    prior_users = _user_history(history)
+    prior_assistant = prior_reply or _last_assistant(history)
+    repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
+    seed_base = text + prior_users[-100:] + prior_assistant[-40:] + f"#{repeat_n}"
+
+    topic = ""
+    for line in reversed([m.get("content", "") for m in history if m.get("role") == "user"]):
+        t = line.strip()
+        if len(t) >= 3 and t not in ("嗯", "哦", "好", "行", "还行", "还好"):
+            topic = t[:14] + ("…" if len(t) > 14 else "")
+            break
+
+    pool: list[str] = []
+    ctx = prior_users + text
+    if any(w in ctx for w in ("烦", "累", "难过", "委屈", "压力", "焦虑", "心累")):
+        pool.extend(
+            [
+                "听起来你心里挺沉的。是突然这样，还是已经有一阵子了？",
+                "嗯，这种时候先别逼自己想明白。我陪着，你想从哪一句开始？",
+                "我收到了。今天最耗你的是哪一块？",
+            ]
+        )
+    if any(w in ctx for w in ("工作", "上班", "公司", "老板", "加班")):
+        pool.extend(
+            [
+                "工作的事啊……是事情堆太多，还是某一件特别委屈？",
+                "嗯，上班确实容易把人掏空。你想先吐槽还是先理理？",
+                "我听着。是最近都这样，还是就今天特别难？",
+            ]
+        )
+    if topic:
+        pool.append(f"嗯，{topic} 这事你想先聊哪一块？")
+    pool.extend(
+        [
+            "嗯，我在呢。你先随便丢几个词给我也行~",
+            "好，我收到了。不用一次说完~",
+            "我听着。哪一块你现在最想提？",
+            "嗯，这事不急。你想从哪儿开始说？",
+            "好，我接住了。慢慢讲~",
+            "我在。你想到什么就说什么~",
+        ]
+    )
+
+    for i in range(max(len(pool) * 3, 12)):
+        candidate = _pick(tuple(pool), seed_base + f"@{i}")
+        if not _too_similar(candidate, avoid):
+            return candidate
+    return pool[0]
+
+
 def compose_contextual_reply(
     user_text: str,
     history: list[dict[str, str]],
@@ -61,7 +127,7 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text in ("还行", "还行吧", "一般", "还好吧") or re.fullmatch(r"还?行吧?", text):
+    if text in ("还行", "还行吧", "一般", "还好吧", "还好") or re.fullmatch(r"还?行吧?", text):
         return _pick(
             (
                 "还行呀……是今天平平淡淡，还是其实有点什么事憋着？",
@@ -170,7 +236,7 @@ def compose_contextual_reply(
             return _pick(
                 (
                     "后来有没有稍微缓一点？还是一直绷到回家？",
-                    "加班那件事后来怎么样了？不想细说也没关系~",
+                    "工作那件事后来怎么样了？不想细说也没关系~",
                 ),
                 seed,
             )

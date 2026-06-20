@@ -21,7 +21,7 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
-from .dialogue_compose import compose_contextual_reply
+from .dialogue_compose import compose_contextual_reply, compose_open_reply
 from .in_world_guard import reply_in_world_ok
 from .scene_engine import SceneReplyEngine, is_generic_scene_reply
 from .reply_guard import (
@@ -29,6 +29,7 @@ from .reply_guard import (
     polish_reply,
     prior_assistant_reply,
     reply_is_pushy,
+    reply_repeats_history,
     reply_similarity,
     scene_fallback_reply,
     user_is_closed,
@@ -99,7 +100,7 @@ class Orchestrator:
             composed = compose_contextual_reply(user_text, history, prior_reply=prior)
             if composed:
                 return composed
-            if not is_generic_scene_reply(scene_reply):
+            if scene_reply.strip() and not is_generic_scene_reply(scene_reply):
                 if user_is_closed(user_text) and reply_is_pushy(scene_reply):
                     composed = compose_contextual_reply(user_text, history)
                     if composed:
@@ -107,27 +108,33 @@ class Orchestrator:
                     fb = scene_fallback_reply(user_text, prior_reply=prior)
                     if fb:
                         return fb
-                if prior and reply_similarity(scene_reply, prior) >= 0.88:
-                    composed = compose_contextual_reply(
+                if reply_repeats_history(scene_reply, history):
+                    open_reply = compose_open_reply(
                         user_text, history, prior_reply=prior
                     )
-                    if composed and reply_similarity(composed, prior) < 0.88:
-                        return composed
-                return scene_reply
-            composed = compose_contextual_reply(user_text, history)
-            if composed:
-                return composed
+                    if open_reply:
+                        return open_reply
+                elif prior and reply_similarity(scene_reply, prior) >= 0.88:
+                    open_reply = compose_open_reply(
+                        user_text, history, prior_reply=prior
+                    )
+                    if open_reply:
+                        return open_reply
+                else:
+                    return scene_reply
+            open_reply = compose_open_reply(user_text, history, prior_reply=prior)
+            if open_reply:
+                return open_reply
             if self._llm.name != "mock":
                 llm_reply = self._llm.generate(system_prompt, history, temperature=0.55)
                 if (
                     reply_in_world_ok(llm_reply, user_text)
                     and not needs_mock_fallback(llm_reply, user_text, prior_reply=prior)
+                    and not reply_repeats_history(llm_reply, history)
                 ):
                     return llm_reply
-            from .reply_guard import scene_fallback_reply
-
             fb = scene_fallback_reply(user_text, prior_reply=prior)
-            return fb or scene_reply
+            return fb or open_reply
 
         # local_blend（默认旧逻辑）
         blend = self._s.scene_fallback and self._llm.name != "mock"

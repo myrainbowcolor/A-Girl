@@ -68,5 +68,14 @@ def test_compose_that_is_all():
     assert "然后呢" not in out
 
 
+def test_compose_open_avoids_recent():
+    from app.dialogue_compose import compose_open_reply
+
+    avoid = ["我听到了。是最近这事一直压着你吗？"]
+    out = compose_open_reply("嗯", [], avoid=avoid)
+    assert out not in avoid
+    assert "一直压着你" not in out
+
+
 def test_in_world_accepts_chinese():
     assert reply_in_world_ok("嗨～我是小语。今天想聊点什么？", "hello")

@@ -111,3 +111,52 @@ def test_polish_strips_pushy_fallback():
     out = polish_reply("工作上的事", "嗯嗯，我懂。然后呢？")
     assert not out.startswith("，")
     assert "我懂。然后呢" not in out
+
+
+def test_ensure_reply_diversity():
+    from app.reply_guard import ensure_reply_diversity
+
+    hist = [
+        {"role": "user", "content": "有点烦"},
+        {"role": "assistant", "content": "我听到了。是最近这事一直压着你吗？"},
+    ]
+    out = ensure_reply_diversity(
+        "我听到了。是最近这事一直压着你吗？",
+        "嗯",
+        hist,
+        prior_reply=hist[-1]["content"],
+    )
+    assert out != hist[-1]["content"]
+    assert "一直压着你" not in out or out.count("一直压着你") == 0
+
+
+def test_no_repeat_across_vague_turns():
+    import tempfile
+    import time
+    from app.config import Settings
+    from app.db import Database
+    from app.domain import Relationship
+    from app.emotion import EmotionEngine
+    from app.llm import MockLLMProvider
+    from app.memory import HashEmbeddingProvider, MemoryStore
+    from app.orchestrator import Orchestrator
+    from app.reply_guard import reply_similarity
+
+    with tempfile.NamedTemporaryFile(suffix=".db") as f:
+        db = Database(f.name)
+        settings = Settings(reflection_every_n_memories=999, dialogue_strategy="scene_first")
+        mem = MemoryStore(db, HashEmbeddingProvider(dim=256), settings)
+        orch = Orchestrator(db, mem, EmotionEngine(), MockLLMProvider(), settings)
+        uid, sid = "u", "s"
+        rel = Relationship(affinity=28.0)
+        rel.recompute_stage()
+        db.save_relationship(uid, rel, time.time())
+        replies = []
+        for t in ["工作上的事", "嗯", "就那样", "有点烦", "嗯嗯", "不知道"]:
+            r = orch.chat(uid, sid, t).reply
+            replies.append(r)
+            for prev in replies[:-1]:
+                assert reply_similarity(r, prev) < 0.88, (t, r, prev)
+            assert "一直压着你" not in r or all(
+                "一直压着你" not in p for p in replies[:-1]
+            )

@@ -27,5 +27,5 @@ def is_generic_scene_reply(reply: str) -> bool:
     if any(m in reply for m in GENERIC_SCENE_MARKERS):
         return True
     return reply_is_pushy(reply) and any(
-        w in reply for w in ("我懂", "我在听", "接着说", "继续", "多说")
+        w in reply for w in ("我懂。然后呢", "接着说", "你继续说", "多说一点")
     )

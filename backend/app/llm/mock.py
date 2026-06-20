@@ -718,8 +718,10 @@ def _fallback_reply(
 GENERIC_SCENE_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
     "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
-    "你继续说", "慢慢说", "我懂。然后呢", "接着说，我听着呢",
+    "你继续说", "我懂。然后呢", "接着说，我听着呢",
     "嘿，后来怎么样了", "你再多跟我说说呗",
+    "我听到了。是最近", "一直压着你", "从哪儿说起都行", "先吐槽还是先理理",
+    "今天这事你想先聊哪一块",
 )
 
 
@@ -746,7 +748,7 @@ def generate_scene_reply(system_prompt: str, messages: list[dict]) -> str:
         return MockLLMProvider._warm_reply(user_last, stage, name)
     if _user_is_greeting(user_last):
         return MockLLMProvider._greet_reply(stage, name)
-    return _fallback_reply(user_last, emotion, stage, name, memories, messages=messages)
+    return ""
 
 
 class MockLLMProvider(LLMProvider):
