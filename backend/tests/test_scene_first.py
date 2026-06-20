@@ -24,7 +24,7 @@ def test_scene_first_avoids_generic_and_english():
         s = Settings(
             db_path=f.name,
             dialogue_strategy="scene_first",
-            llm_mock_fallback=True,
+            scene_fallback=True,
         )
         db = Database(f.name)
         mem = MemoryStore(db, HashEmbeddingProvider(dim=256), s)

@@ -102,9 +102,12 @@ def reply_is_bad_llm(reply: str) -> bool:
     return any(m in reply for m in _BAD_LLM_MARKERS)
 
 
-def reply_is_generic_mock(reply: str) -> bool:
-    """Mock 未命中具体场景时的问卷式兜底，不宜直接采用。"""
+def reply_is_generic_scene(reply: str) -> bool:
+    """场景引擎未命中具体分支时的问卷式兜底，不宜直接采用。"""
     return any(m in reply for m in _GENERIC_MOCK_MARKERS)
+
+
+reply_is_generic_mock = reply_is_generic_scene  # 兼容旧名
 
 
 def reply_is_self_talk(reply: str) -> bool:

@@ -12,6 +12,15 @@
 
 结论：**嘴巴可以接本地小模型，但「说什么」应由场景 + 状态决定，而不是让模型自由发挥。**
 
+### Mock 与场景引擎的区别
+
+| 组件 | 用途 | 生产环境 |
+|------|------|----------|
+| **`SceneReplyEngine`** | 关键词场景分支（加班、宠物、情绪…） | ✅ scene_first 主路径 |
+| **`MockLLMProvider`** | pytest/CI 离线测试 | ❌ 勿设 `AGIRL_LLM_PROVIDER=mock` |
+
+场景逻辑在 `app/scene_engine.py`，与 mock 测试 Provider **同源但不同名**；生产不依赖 mock。
+
 ## 2. 推荐架构：Scene-First（场景优先）
 
 ```
@@ -58,7 +67,9 @@ AGIRL_DIALOGUE_STRATEGY=scene_first
 AGIRL_LLM_PROVIDER=openai_compatible
 AGIRL_LLM_BASE_URL=http://127.0.0.1:11435/v1   # 本机 llama-cpp
 AGIRL_LLM_MODEL=qwen2.5-1.5b-instruct          # 比 0.5B 自然，仍纯本地
-AGIRL_LLM_MOCK_FALLBACK=true
+AGIRL_SCENE_FALLBACK=true
+
+# pytest/CI 才用 mock；生产路径是 SceneReplyEngine，不是 MockLLMProvider
 
 # 游戏世界观（注入 system，禁止聊界外内容）
 AGIRL_GAME_WORLD_BRIEF=你是「星港城」里的陪伴者小语。只聊城里的事、冒险见闻和玩家心情。不要提现实公司、公文写作、联网查资料。

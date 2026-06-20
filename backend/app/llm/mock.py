@@ -1,7 +1,7 @@
-"""离线 Mock Provider（仅 pytest / CI / 对话质量基线）。
+"""离线 Mock Provider（仅 pytest / CI）。
 
-不调用真实大模型，用关键词模板生成确定性回复，便于自动化测试。
-**用户实际聊天请勿使用 mock**——请配置 LLM 或运行 scripts/start-remote-llm.sh。
+生产对话请用 scene_first + SceneReplyEngine + 本地 LLM，勿将 AGIRL_LLM_PROVIDER 设为 mock。
+场景分支逻辑见 app/scene_engine.py / llm/mock.generate_scene_reply。
 """
 from __future__ import annotations
 
@@ -712,34 +712,46 @@ def _fallback_reply(
     return _pick_variant(options, user_last + stage)
 
 
+# 场景引擎未命中具体分支时的通用问卷式兜底（生产路径应尽量避免）
+GENERIC_SCENE_MARKERS = (
+    "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
+    "你再多跟我说说", "嗯嗯，然后呢",
+)
+
+
+def generate_scene_reply(system_prompt: str, messages: list[dict]) -> str:
+    """关键词场景回复（scene_first 生产路径；与 MockLLMProvider 同源）。"""
+    user_last = ""
+    for m in reversed(messages):
+        if m["role"] == "user":
+            user_last = m["content"]
+            break
+
+    stage = _extract("关系阶段", system_prompt, "陌生")
+    name = _extract("你的名字", system_prompt, "小语")
+    emotion = _extract("当前情绪", system_prompt, "平和")
+    memories = _extract_memories(system_prompt)
+
+    scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
+    if scene:
+        return scene
+
+    if _user_is_venting(user_last):
+        return MockLLMProvider._empathy_reply(user_last, stage, name)
+    if _user_is_positive(user_last):
+        return MockLLMProvider._warm_reply(user_last, stage, name)
+    if _user_is_greeting(user_last):
+        return MockLLMProvider._greet_reply(stage, name)
+    return _fallback_reply(user_last, emotion, stage, name, memories)
+
+
 class MockLLMProvider(LLMProvider):
     @property
     def name(self) -> str:
         return "mock"
 
     def generate(self, system_prompt: str, messages: list[dict], temperature: float = 0.8) -> str:
-        user_last = ""
-        for m in reversed(messages):
-            if m["role"] == "user":
-                user_last = m["content"]
-                break
-
-        stage = _extract("关系阶段", system_prompt, "陌生")
-        name = _extract("你的名字", system_prompt, "小语")
-        emotion = _extract("当前情绪", system_prompt, "平和")
-        memories = _extract_memories(system_prompt)
-
-        scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
-        if scene:
-            return scene
-
-        if _user_is_venting(user_last):
-            return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
-            return self._warm_reply(user_last, stage, name)
-        if _user_is_greeting(user_last):
-            return self._greet_reply(stage, name)
-        return _fallback_reply(user_last, emotion, stage, name, memories)
+        return generate_scene_reply(system_prompt, messages)
 
     @staticmethod
     def _empathy_reply(user_text: str, stage: str, name: str) -> str:
