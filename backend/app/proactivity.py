@@ -198,8 +198,8 @@ class ProactivityEngine:
         name = self._persona.name
         templates = {
             "birthday": (
-                f"今天是特别的日子吧？生日快乐呀！🎂 "
-                f"有没有给自己留一点放松的时间？{name} 替你开心～"
+                f"今天是你的大日子吧？生日快乐呀！🎂 "
+                f"记得给自己留点放松时间，{name} 替你开心～"
             ),
             "interview": (
                 "今天是不是有面试呀？深呼吸一下，做你自己就很好。"
