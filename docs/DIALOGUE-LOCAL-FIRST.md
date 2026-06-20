@@ -106,9 +106,10 @@ bash scripts/start-local-game.sh
 
 | 模型 | 体积 | 建议 |
 |------|------|------|
-| Qwen2.5-0.5B Q4 | ~400MB | 仅兜底，开放聊仍僵 |
-| **Qwen2.5-1.5B Q4** | ~1GB | **推荐默认**，scene_first 下够用 |
-| Qwen2.5-3B Q4 | ~2GB | 机器允许时可再升 |
+| Qwen2.5-0.5B Q4 | ~400MB | 不推荐（易嗯嗯/空套话） |
+| Qwen2.5-1.5B Q4 | ~1GB | 低配机器 |
+| **Qwen2.5-3B Q4** | **~2GB** | **默认推荐** |
+| Qwen2.5-7B Q4 | ~4.7GB | 16GB+ 内存可试 `AGIRL_LOCAL_LLM_TIER=7b` |
 
 均通过 `llama-cpp-python` + HuggingFace GGUF，与现有 `examples/llama_cpp_server.py` 兼容。
 
