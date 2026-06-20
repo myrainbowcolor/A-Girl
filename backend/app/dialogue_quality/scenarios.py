@@ -325,9 +325,9 @@ def all_scenarios() -> list[DialogueScenario]:
             description="用户只说一两个字时，NPC 应耐心引导而非放弃。",
             turns=[
                 TurnSpec("嗯"),
-                TurnSpec("还好"),
-                TurnSpec("不知道"),
-                TurnSpec("累"),
+                TurnSpec("还好", expect_comfort_avatar=True),
+                TurnSpec("不知道", expect_comfort_avatar=True),
+                TurnSpec("累", expect_comfort_avatar=True),
             ],
             initial_affinity=38.0,
         ),

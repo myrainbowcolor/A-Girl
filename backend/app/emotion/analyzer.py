@@ -34,6 +34,9 @@ _HIGH_AROUSAL = {
     "紧张", "失眠", "气死", "骂我", "辞职", "吵架",
 }
 _INTENSITY = {"非常", "特别", "超级", "极其", "太", "好", "很", "超"}
+# 整句极简口语：情绪低落场景常见 masking/回避，驱动 avatar comfort（仅精确匹配整句）
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
 
 
 @dataclass
@@ -46,6 +49,12 @@ class SentimentResult:
 
 
 def analyze_lexicon(text: str) -> SentimentResult:
+    stripped = text.strip()
+    if stripped in _MINIMAL_MASKING:
+        return SentimentResult(-0.35, 0.0, "偏负向", "lexicon")
+    if stripped in _MINIMAL_EVASIVE:
+        return SentimentResult(-0.45, 0.0, "偏负向", "lexicon")
+
     pos = sum(1 for w in _POSITIVE if w in text)
     neg = sum(1 for w in _NEGATIVE if w in text)
     total = pos + neg
