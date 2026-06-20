@@ -411,6 +411,14 @@ def _scene_reply(
         )
 
 
+    # 随便聊聊 / 开放闲聊
+    if any(w in text for w in ("随便聊聊", "随便聊", "闲聊")):
+        return f"{dear}{mood}好呀～今天过得怎么样，有什么想跟我分享的？"
+
+    # 空落落 / 无具体原因
+    if any(w in text for w in ("空空的", "空落", "没原因", "没啥具体", "也没啥")):
+        return f"{dear}{mood}空落落的时候不一定非得有事才行。我陪着，你想说就说~"
+
     # 晚安 / 道别
     if any(w in text for w in ("晚安", "睡了", "再见", "拜拜", "先走了")):
         if stage in ("朋友", "亲密"):
@@ -540,9 +548,17 @@ def _scene_reply(
             f"这种时候难受很正常，我陪你待着，慢慢说。"
         )
 
-    # 被责骂 / 愤怒发泄
-    if any(w in text for w in ("气死", "骂我", "骂", "辞职", "老板")):
-        if "辞职" in text and ("想" in text or "立刻" in text):
+    # 被责骂 / 愤怒发泄（排除「辞职信」等文书请求）
+    if ("辞职信" in text or ("帮我写" in text and "信" in text)):
+        return (
+            f"{dear}{mood}正式文书我帮你写不合适～但你要是想聊聊为什么想走、"
+            f"最委屈的是哪一块，我可以认真听。"
+        )
+
+    if any(w in text for w in ("气死", "骂我", "骂", "老板")) or (
+        "辞职" in text and ("想" in text or "要" in text) and "信" not in text
+    ):
+        if "辞职" in text and ("想" in text or "立刻" in text) and "信" not in text:
             return (
                 f"{dear}{mood}冲动辞职的念头我理解，但先别急着做决定。"
                 f"今晚先把自己从气里捞出来，明天清醒了再想想？"

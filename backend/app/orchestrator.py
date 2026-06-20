@@ -21,6 +21,8 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .dialogue_compose import compose_contextual_reply
+from .in_world_guard import reply_in_world_ok
 from .reply_guard import (
     needs_mock_fallback,
     polish_reply,
@@ -86,15 +88,33 @@ class Orchestrator:
         history: list[dict[str, str]],
         user_text: str,
     ) -> str:
-        """生成回复：优先场景引擎（有上下文的分支），否则真实 LLM。"""
+        """生成回复：scene_first 优先场景/拼装，本地 LLM 仅最后手段。"""
         prior = prior_assistant_reply(history)
-        blend = self._s.llm_mock_fallback and self._llm.name != "mock"
+        strategy = (self._s.dialogue_strategy or "scene_first").lower()
+        scene_reply = self._scene_engine().generate(system_prompt, history)
 
-        scene_reply = ""
-        if blend:
-            scene_reply = self._scene_engine().generate(system_prompt, history)
+        if strategy == "scene_first":
             if not reply_is_generic_mock(scene_reply):
                 return scene_reply
+            composed = compose_contextual_reply(user_text, history)
+            if composed:
+                return composed
+            if self._llm.name != "mock":
+                llm_reply = self._llm.generate(system_prompt, history, temperature=0.55)
+                if (
+                    reply_in_world_ok(llm_reply, user_text)
+                    and not needs_mock_fallback(llm_reply, user_text, prior_reply=prior)
+                ):
+                    return llm_reply
+            from .reply_guard import scene_fallback_reply
+
+            fb = scene_fallback_reply(user_text, prior_reply=prior)
+            return fb or scene_reply
+
+        # local_blend（默认旧逻辑）
+        blend = self._s.llm_mock_fallback and self._llm.name != "mock"
+        if blend and not reply_is_generic_mock(scene_reply):
+            return scene_reply
 
         llm_reply = self._llm.generate(system_prompt, history)
         if blend and needs_mock_fallback(llm_reply, user_text, prior_reply=prior):
@@ -268,7 +288,9 @@ class Orchestrator:
         """记忆诚实校正 + 场景补位 + 轻量兜底 + 语言不匹配时重试。"""
         prior = prior_assistant_reply(history)
         if self._s.llm_mock_fallback and self._llm.name != "mock":
-            if needs_mock_fallback(reply, user_text, prior_reply=prior):
+            if needs_mock_fallback(reply, user_text, prior_reply=prior) or not reply_in_world_ok(
+                reply, user_text
+            ):
                 scene = self._scene_engine().generate(system_prompt, history)
                 if not reply_is_generic_mock(scene):
                     reply = scene
@@ -355,6 +377,7 @@ class Orchestrator:
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
             user_text=user_text,
+            game_world_brief=self._s.game_world_brief,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -458,6 +481,7 @@ class Orchestrator:
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
             user_text=user_text,
+            game_world_brief=self._s.game_world_brief,
         )
         history = [
             {"role": m.role, "content": m.content}

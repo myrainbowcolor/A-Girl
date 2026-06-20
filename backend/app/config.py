@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # 本地小模型质量不稳时：场景引擎（mock 的场景逻辑）补位，保留有上下文的回复
     llm_mock_fallback: bool = True
 
+    # 对话策略：scene_first（游戏推荐）| local_blend | local_llm
+    dialogue_strategy: str = "scene_first"
+
+    # 游戏世界观摘要，注入 system；非空时禁止聊界外内容
+    game_world_brief: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

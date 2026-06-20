@@ -64,6 +64,7 @@ def build_system_prompt(
     guard_prompt: str = "",
     relationship_summary: str = "",
     user_text: str = "",
+    game_world_brief: str = "",
 ) -> str:
     """把人格 + 当前情绪 + 关系 + 检索到的记忆组装为 system 提示。
 
@@ -98,9 +99,15 @@ def build_system_prompt(
     rel_block = f"\n【关系近况归纳】\n{relationship_summary}\n" if relationship_summary else ""
     user_lang = detect_user_language(user_text)
     lang_block = language_instruction(user_lang)
+    world_block = ""
+    if game_world_brief.strip():
+        world_block = (
+            f"\n【游戏世界观（仅在此范围内聊天，禁止引入界外现实建议）】\n"
+            f"{game_world_brief.strip()}\n"
+        )
 
     return f"""{guard_block}你是一个长期陪伴用户的情感陪伴角色。请始终保持人格一致，像真实的人一样自然交流。
-
+{world_block}
 {lang_block}
 
 【人物设定】
