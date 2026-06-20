@@ -105,3 +105,9 @@ def test_polish_avoids_exact_repeat():
     prior = "嗯，我陪着。不急着说~"
     out = polish_reply("..", prior, prior_reply=prior)
     assert reply_similarity(out, prior) < 0.88
+
+
+def test_polish_strips_pushy_fallback():
+    out = polish_reply("工作上的事", "嗯嗯，我懂。然后呢？")
+    assert not out.startswith("，")
+    assert "我懂。然后呢" not in out

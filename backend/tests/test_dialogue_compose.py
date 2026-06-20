@@ -55,5 +55,18 @@ def test_compose_repeat_casual_chat():
     assert out != hist[-1]["content"]
 
 
+def test_compose_work_topic():
+    out = compose_contextual_reply("工作上的事", [])
+    assert out
+    assert "然后呢" not in out
+    assert "我懂" not in out
+
+
+def test_compose_that_is_all():
+    out = compose_contextual_reply("就那样吧", [])
+    assert out
+    assert "然后呢" not in out
+
+
 def test_in_world_accepts_chinese():
     assert reply_in_world_ok("嗨～我是小语。今天想聊点什么？", "hello")

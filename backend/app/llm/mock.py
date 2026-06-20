@@ -670,9 +670,13 @@ def _fallback_reply(
     stage: str,
     name: str,
     memories: list[str],
+    *,
+    messages: list[dict] | None = None,
 ) -> str:
     dear = _endearment(stage)
     mood = _mood_prefix(emotion, user_last)
+    prior_a = _prior_assistant(messages or [])
+    seed = user_last + stage + prior_a[-48:]
     snippet = user_last.strip()
     if len(snippet) > 20:
         snippet = snippet[:20] + "…"
@@ -683,25 +687,23 @@ def _fallback_reply(
         mem_hint = memories[-1][:16] + ("…" if len(memories[-1]) > 16 else "")
         return (
             f"{dear}{mood}关于「{snippet}」……嗯，我想起来了，{mem_hint}"
-            f"你再多跟我说说呗？"
+            f"你愿意的话，再跟我多说两句~"
         )
 
     templates = {
         "陌生": [
-            f"{mood}嗯，我在听呢——后来呢，发生什么了？",
-            f"{mood}嗯……你愿意多说一点吗？我听着。",
+            f"{mood}嗯，我在呢。你想从哪儿说起都行~",
+            f"{mood}好，我听着。不急着一次说完~",
         ],
         "熟悉": [
-            f"{dear}{mood}嗯嗯，我懂。然后呢？",
-            f"{dear}{mood}嗯，接着说，我听着呢。",
+            f"{dear}{mood}嗯，我听到了。是最近这事一直压着你吗？",
+            f"{dear}{mood}好，我在这儿。你想先吐槽还是先理理思路？",
         ],
         "朋友": [
-            f"{dear}{mood}嗯……我听着呢，慢慢说。"
+            f"{dear}{mood}嗯……我陪着呢，慢慢说。"
             if is_heavy
-            else f"{dear}{mood}嘿，后来怎么样了？",
-            f"{dear}{mood}我在呢，你继续说。"
-            if is_heavy
-            else f"{dear}{mood}嗯嗯，然后呢？",
+            else f"{dear}{mood}我在呢。今天这事你想先聊哪一块？",
+            f"{dear}{mood}好，我听着。不用整理成完整句子~",
         ],
         "亲密": [
             f"{dear}{mood}嗯，我在听～你想让我怎么陪你？",
@@ -709,14 +711,15 @@ def _fallback_reply(
         ],
     }
     options = templates.get(stage, templates["陌生"])
-    return _pick_variant(options, user_last + stage)
+    return _pick_variant(options, seed)
 
 
 # 场景引擎未命中具体分支时的通用问卷式兜底（生产路径应尽量避免）
 GENERIC_SCENE_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
     "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
-    "你继续说", "慢慢说",
+    "你继续说", "慢慢说", "我懂。然后呢", "接着说，我听着呢",
+    "嘿，后来怎么样了", "你再多跟我说说呗",
 )
 
 
@@ -743,7 +746,7 @@ def generate_scene_reply(system_prompt: str, messages: list[dict]) -> str:
         return MockLLMProvider._warm_reply(user_last, stage, name)
     if _user_is_greeting(user_last):
         return MockLLMProvider._greet_reply(stage, name)
-    return _fallback_reply(user_last, emotion, stage, name, memories)
+    return _fallback_reply(user_last, emotion, stage, name, memories, messages=messages)
 
 
 class MockLLMProvider(LLMProvider):
