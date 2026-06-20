@@ -9,6 +9,12 @@ import hashlib
 import re
 
 from .base import LLMProvider
+from ..sentiment_lexicon import (
+    contains_keyword,
+    contains_any,
+    is_positive_utterance,
+    user_complains_bot_reply,
+)
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
 # 注意：「无聊」不算倾诉，走闲聊分支
@@ -40,7 +46,7 @@ def _user_is_venting(text: str) -> bool:
 
 
 def _user_is_positive(text: str) -> bool:
-    return any(w in text for w in _POSITIVE)
+    return is_positive_utterance(text)
 
 
 def _user_is_greeting(text: str) -> bool:
@@ -71,7 +77,7 @@ def _user_tone(text: str) -> str:
         "不开心", "委屈", "分手", "失恋", "原地踏步", "踏步", "自卑", "迷茫",
     )):
         return "negative"
-    if any(w in t for w in ("开心", "高兴", "喜欢", "谢谢", "棒", "哈哈", "幸福", "温暖")):
+    if is_positive_utterance(t):
         return "positive"
     if any(w in t for w in ("我", "今天", "刚才", "最近")) and len(t) >= 8:
         return "share"
@@ -201,6 +207,31 @@ def _scene_reply(
     mood = _scene_mood(emotion, text)
     prior = _prior_assistant(messages or [])
     turn_no = _user_turn_count(messages or [])
+
+    # 用户纠正 NPC 接话（应先安慰、别跑题回忆）
+    if user_complains_bot_reply(text):
+        return _pick_variant(
+            [
+                f"{dear}{mood}对不起，刚才确实是我没接对。你现在不开心的感受我听见了，"
+                f"我先陪着你，不急着扯别的。",
+                f"{dear}{mood}你说得对，我应该先安慰你。抱歉刚才跑偏了——"
+                f"此刻你最难受的是哪一块？",
+                f"{dear}{mood}嗯，是我刚才没接住。先别管回忆那些事了，我在这儿，"
+                f"你想怎么说都行。",
+            ],
+            text + prior,
+        )
+
+    # 不开心（须在「开心报喜」分支之前）
+    if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
+        return _pick_variant(
+            [
+                f"{dear}{mood}嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                f"{dear}{mood}听起来你现在心里挺沉的。对不起如果刚才没接对，我在呢。",
+                f"{dear}{mood}我听见你不开心了。先缓口气，我哪儿也不去。",
+            ],
+            text + stage,
+        )
 
     # 问候
     if re.search(r"^(你好|嗨|哈喽|hello|hi)", text, re.I):
@@ -502,9 +533,11 @@ def _scene_reply(
             f"不想说太多也没关系，我就在这儿陪着你。"
         )
 
-    # 开心分享
-    if any(w in text for w in ("开心", "高兴", "太棒", "哈哈", "喜欢", "offer", "录取", "通过")):
-        if any(w in text for w in ("城市", "去", "搬")):
+    # 开心分享（否定词安全：「不开心」不会误入）
+    if is_positive_utterance(text):
+        if "城市" in text and any(
+            w in text for w in ("去", "搬", "喜欢", "期待")
+        ):
             return (
                 f"{dear}{mood}要去喜欢的城市呀，光听着就替你开心！"
                 f"那边有什么你最期待的事？"

@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from ..llm.base import LLMProvider
+from ..sentiment_lexicon import contains_keyword, is_positive_utterance
 
 _POSITIVE = {
     "喜欢", "开心", "高兴", "爱", "谢谢", "感谢", "想你", "想念", "好棒", "厉害",
@@ -46,7 +46,7 @@ class SentimentResult:
 
 
 def analyze_lexicon(text: str) -> SentimentResult:
-    pos = sum(1 for w in _POSITIVE if w in text)
+    pos = sum(1 for w in _POSITIVE if contains_keyword(text, w))
     neg = sum(1 for w in _NEGATIVE if w in text)
     total = pos + neg
     sentiment = 0.0 if total == 0 else max(-1.0, min(1.0, (pos - neg) / total))

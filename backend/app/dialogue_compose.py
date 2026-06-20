@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import re
 
+from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
+
 
 def _pick(options: tuple[str, ...], seed: str) -> str:
     idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
@@ -106,6 +108,26 @@ def compose_contextual_reply(
     prior_assistant = prior_reply or _last_assistant(history)
     repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
     seed = text + prior_users[-80:] + prior_assistant[-40:] + f"#{repeat_n}"
+
+    if user_complains_bot_reply(text):
+        return _pick(
+            (
+                "对不起，刚才确实是我没接对。你现在不开心的感受我听见了，我先陪着你。",
+                "你说得对，我应该先安慰你。抱歉刚才跑偏了——此刻你最难受的是哪一块？",
+                "嗯，是我刚才没接住。先别管回忆那些事了，我在这儿，你想怎么说都行。",
+            ),
+            seed,
+        )
+
+    if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
+        return _pick(
+            (
+                "嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                "听起来你现在心里挺沉的。我在呢，你想从哪一句开始说都行。",
+                "我听见你不开心了。先缓口气，我哪儿也不去。",
+            ),
+            seed,
+        )
 
     if any(w in text for w in ("随便聊聊", "随便聊", "闲聊一下", "闲聊")):
         return _pick(
