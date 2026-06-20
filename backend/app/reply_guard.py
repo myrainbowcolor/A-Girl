@@ -6,6 +6,7 @@ import re
 
 _CLOSED_MARKERS = (
     "不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "算了",
+    "不想说话", "不是很想说话", "不太想说话",
 )
 _MINIMAL_UTTERANCES = {"..", "...", "…", "。", "嗯", "哦", "额"}
 _PUSHY_REPLY_MARKERS = (
@@ -17,6 +18,10 @@ _BAD_LLM_MARKERS = (
     "有相似之处", "温暖的少女", "我是你的陪伴者，而你", "共同的爱好",
     "让你知道我在这", "让你知道我在这世界", "暂时不聊了", "需要时间适应",
 )
+_GENERIC_LLM_MARKERS = (
+    "有什么新鲜事", "咱们聊聊天吧", "我理解了", "我明白了", "我听说你们",
+)
+_FILLER_HEAD_RE = re.compile(r"^(（[^）]*）)?(嗯+[…\.~]?|呃+)+")
 _GENERIC_MOCK_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
     "你再多跟我说说", "嗯嗯，然后呢",
@@ -41,6 +46,10 @@ _COMPANION_REPLIES = (
     "嗯，我陪着。不急着说~",
     "好，我在这儿。不急着开口~",
 )
+_APOLOGY_REPLIES = (
+    "抱歉刚才太敷衍了。我认真听，你慢慢说~",
+    "对不起，我不该一直嗯嗯的。你想聊什么，我好好回应~",
+)
 
 
 def user_is_closed(user_text: str) -> bool:
@@ -60,7 +69,29 @@ def user_is_meta_pushback(user_text: str) -> bool:
 
 
 def user_is_identity(user_text: str) -> bool:
-    return any(m in user_text for m in _IDENTITY_MARKERS)
+    return any(m in user_text for m in _IDENTITY_MARKERS) or any(
+        w in user_text for w in ("怎么称呼", "称呼你", "叫什么")
+    )
+
+
+def user_complains_filler(user_text: str) -> bool:
+    return any(w in user_text for w in ("别嗯", "不要嗯", "嗯嗯", "敷衍", "太敷衍"))
+
+
+def reply_is_filler_heavy(reply: str) -> bool:
+    r = _normalize_reply(reply)
+    if _FILLER_HEAD_RE.match(reply.strip()):
+        return True
+    if r.count("嗯") >= 2 and len(r) <= 64:
+        return True
+    return bool(re.search(r"(嗯+[…\.~]?){2,}", r))
+
+
+def reply_is_generic_llm(reply: str) -> bool:
+    r = _normalize_reply(reply)
+    if any(m in r for m in _GENERIC_LLM_MARKERS) and len(r) <= 56:
+        return True
+    return r.startswith("嗯") and reply_is_pushy(r)
 
 
 def reply_is_pushy(reply: str) -> bool:
@@ -107,6 +138,10 @@ def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") ->
     """LLM 输出明显不可用，应回退到场景引擎（mock 的场景逻辑）。"""
     if reply_is_bad_llm(reply) or reply_is_self_talk(reply):
         return True
+    if reply_is_filler_heavy(reply) or reply_is_generic_llm(reply):
+        return True
+    if user_complains_filler(user_text):
+        return True
     if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
         return True
     if user_is_closed(user_text) and reply_is_pushy(reply):
@@ -126,6 +161,8 @@ def scene_fallback_reply(user_text: str, *, prior_reply: str = "") -> str | None
     seed = user_text + prior_reply
     if user_is_identity(user_text):
         return _pick_variant(_IDENTITY_REPLIES, seed)
+    if user_complains_filler(user_text):
+        return _pick_variant(_APOLOGY_REPLIES, seed)
     if user_is_meta_pushback(user_text):
         return _pick_variant(_META_PUSHBACK_REPLIES, seed)
     if user_is_closed(user_text):
@@ -147,10 +184,18 @@ def polish_reply(user_text: str, reply: str, *, prior_reply: str = "") -> str:
     """轻量后处理：只修追问/复读/坏套话，保留 LLM 或场景引擎的自然回复。"""
     reply = guard_closed_user_reply(user_text, reply)
 
-    if reply_is_bad_llm(reply):
+    if (
+        reply_is_bad_llm(reply)
+        or reply_is_filler_heavy(reply)
+        or reply_is_generic_llm(reply)
+        or user_complains_filler(user_text)
+    ):
         fb = scene_fallback_reply(user_text, prior_reply=prior_reply)
         if fb:
             return fb
+        cleaned = _FILLER_HEAD_RE.sub("", reply).strip()
+        if cleaned and not reply_is_filler_heavy(cleaned):
+            reply = cleaned
 
     if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
         fb = scene_fallback_reply(user_text, prior_reply=prior_reply + reply)

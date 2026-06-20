@@ -103,6 +103,13 @@ class Orchestrator:
             fallback = self._scene_engine().generate(system_prompt, history)
             if not reply_is_generic_mock(fallback):
                 return fallback
+            from .reply_guard import scene_fallback_reply
+
+            fb = scene_fallback_reply(user_text, prior_reply=prior)
+            if fb:
+                return fb
+            if scene_reply:
+                return scene_reply
         return llm_reply
 
     @property

@@ -2,6 +2,8 @@ from app.reply_guard import (
     guard_closed_user_reply,
     needs_mock_fallback,
     polish_reply,
+    reply_is_filler_heavy,
+    reply_is_generic_llm,
     reply_is_generic_mock,
     reply_similarity,
     scene_fallback_reply,
@@ -61,6 +63,24 @@ def test_polish_fixes_bad_llm():
     out = polish_reply("你是机器人吗", bad)
     assert "相似之处" not in out
     assert "小确幸" not in out
+
+
+def test_reply_is_filler_heavy():
+    assert reply_is_filler_heavy("嗯……嗯……我理解了。你想聊什么？")
+    assert reply_is_filler_heavy("嗯嗯，有什么新鲜事吗？")
+    assert not reply_is_filler_heavy("叫我小语就好，很高兴认识你。")
+
+
+def test_needs_mock_fallback_filler():
+    bad = "嗯嗯，有什么新鲜事吗？"
+    assert needs_mock_fallback(bad, "能别嗯嗯的回答吗")
+
+
+def test_polish_filler_complaint():
+    bad = "嗯嗯，有什么新鲜事吗？"
+    out = polish_reply("能别嗯嗯的回答吗", bad)
+    assert not out.startswith("嗯")
+    assert "抱歉" in out or "对不起" in out
 
 
 def test_polish_avoids_exact_repeat():
