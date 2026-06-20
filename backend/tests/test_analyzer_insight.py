@@ -35,6 +35,18 @@ def test_analyze_lexicon_bored_is_neutral():
     assert r.label == "中性"
 
 
+def test_analyze_lexicon_minimal_short_replies():
+    """整句极简口语应偏负向，驱动 avatar comfort；长句不误判。"""
+    assert analyze_lexicon("还好").sentiment < -0.2
+    assert analyze_lexicon("还行").sentiment < -0.2
+    assert analyze_lexicon("一般").sentiment < -0.2
+    assert analyze_lexicon("不知道").sentiment < -0.2
+    assert analyze_lexicon("说不清").sentiment < -0.2
+    assert analyze_lexicon("说不上").sentiment < -0.2
+    assert analyze_lexicon("我不知道该怎么办").sentiment == 0.0
+    assert analyze_lexicon("今天天气一般").sentiment == 0.0
+
+
 def test_analyze_lexicon_self_doubt_and_emo():
     assert analyze_lexicon("同学都升职了，就我还原地踏步").sentiment < 0
     assert analyze_lexicon("emo了今天").sentiment < 0
