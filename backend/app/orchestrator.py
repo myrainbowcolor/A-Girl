@@ -28,6 +28,10 @@ from .reply_guard import (
     needs_mock_fallback,
     polish_reply,
     prior_assistant_reply,
+    reply_is_pushy,
+    reply_similarity,
+    scene_fallback_reply,
+    user_is_closed,
 )
 from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
@@ -92,7 +96,23 @@ class Orchestrator:
         scene_reply = self._scene_engine().generate(system_prompt, history)
 
         if strategy == "scene_first":
+            composed = compose_contextual_reply(user_text, history, prior_reply=prior)
+            if composed:
+                return composed
             if not is_generic_scene_reply(scene_reply):
+                if user_is_closed(user_text) and reply_is_pushy(scene_reply):
+                    composed = compose_contextual_reply(user_text, history)
+                    if composed:
+                        return composed
+                    fb = scene_fallback_reply(user_text, prior_reply=prior)
+                    if fb:
+                        return fb
+                if prior and reply_similarity(scene_reply, prior) >= 0.88:
+                    composed = compose_contextual_reply(
+                        user_text, history, prior_reply=prior
+                    )
+                    if composed and reply_similarity(composed, prior) < 0.88:
+                        return composed
                 return scene_reply
             composed = compose_contextual_reply(user_text, history)
             if composed:
@@ -293,7 +313,7 @@ class Orchestrator:
                 if not is_generic_scene_reply(scene):
                     reply = scene
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
-        reply = polish_reply(user_text, reply, prior_reply=prior)
+        reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
@@ -303,7 +323,7 @@ class Orchestrator:
             retry = self._llm.generate(reinforced, history, temperature=0.65)
             if retry.strip():
                 reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
-                reply = polish_reply(user_text, reply, prior_reply=prior)
+                reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
         return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:

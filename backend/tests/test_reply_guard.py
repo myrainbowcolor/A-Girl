@@ -14,8 +14,26 @@ from app.reply_guard import (
 def test_user_is_closed():
     assert user_is_closed("不想说")
     assert user_is_closed("..")
+    assert user_is_closed("嗯")
+    assert not user_is_closed("你好")
+    assert not user_is_closed("嗨")
     assert not user_is_closed("今天加班好累")
     assert not user_is_closed("随便聊聊")
+
+
+def test_polish_fixes_generic_scene():
+    bad = "嗯，我在听呢——后来呢，发生什么了？"
+    out = polish_reply("后来呢", bad, history=[{"role": "user", "content": "去公园逛了逛"}])
+    assert "后来呢，发生什么了" not in out
+    assert "愿意多说" not in out
+
+
+def test_polish_repeat_greeting():
+    prior = "你好呀，我是小语，很高兴认识你～"
+    hist = [{"role": "assistant", "content": prior}]
+    out = polish_reply("你好", prior, prior_reply=prior, history=hist)
+    assert out != prior
+    assert "愿意多说" not in out
 
 
 def test_guard_replaces_pushy_on_closed():

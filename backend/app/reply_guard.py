@@ -8,7 +8,8 @@ _CLOSED_MARKERS = (
     "不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "算了",
     "不想说话", "不是很想说话", "不太想说话",
 )
-_MINIMAL_UTTERANCES = {"..", "...", "…", "。", "嗯", "哦", "额"}
+_MINIMAL_UTTERANCES = {"..", "...", "…", "。", "嗯", "哦", "额", "好", "行"}
+_GREETING_SHORT = {"你好", "嗨", "哈喽", "在吗", "早上好", "晚上好", "午安"}
 _PUSHY_REPLY_MARKERS = (
     "愿意多说", "你愿意多", "后来呢", "接着说", "有啥事", "可以帮忙", "多跟我说",
     "发生什么了", "想聊什么", "聊点什么", "聊点啥", "聊啥", "我们就聊", "有什么想聊",
@@ -24,7 +25,8 @@ _GENERIC_LLM_MARKERS = (
 _FILLER_HEAD_RE = re.compile(r"^(（[^）]*）)?(嗯+[…\.~]?|呃+)+")
 _GENERIC_MOCK_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
-    "你再多跟我说说", "嗯嗯，然后呢",
+    "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
+    "你继续说", "慢慢说",
 )
 _META_PUSHBACK_MARKERS = ("为啥", "为什么", "何必", "一定要")
 _IDENTITY_MARKERS = ("机器人", "人工智能", "是不是人", "真人吗", "AI", "ai")
@@ -54,7 +56,11 @@ _APOLOGY_REPLIES = (
 
 def user_is_closed(user_text: str) -> bool:
     t = user_text.strip()
-    if not t or t in _MINIMAL_UTTERANCES or len(t) <= 2:
+    if not t:
+        return True
+    if t in _GREETING_SHORT or re.fullmatch(r"(?i)hi|hello", t):
+        return False
+    if t in _MINIMAL_UTTERANCES:
         return True
     if t in {"随便", "算了"}:
         return True
@@ -141,7 +147,7 @@ def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") ->
     """LLM 输出明显不可用，应回退到场景引擎（mock 的场景逻辑）。"""
     if reply_is_bad_llm(reply) or reply_is_self_talk(reply):
         return True
-    if reply_is_filler_heavy(reply) or reply_is_generic_llm(reply):
+    if reply_is_filler_heavy(reply) or reply_is_generic_llm(reply) or reply_is_generic_scene(reply):
         return True
     if user_complains_filler(user_text):
         return True
@@ -151,7 +157,17 @@ def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") ->
         return True
     if user_is_meta_pushback(user_text) and reply_is_pushy(reply):
         return True
+    if reply_is_pushy(reply) and user_wants_wrap_up(user_text):
+        return True
     return False
+
+
+def user_wants_wrap_up(user_text: str) -> bool:
+    """用户表示话题结束，不应再追问「后来呢」类套话。"""
+    t = user_text.strip()
+    return t in ("后来呢", "然后呢", "接着呢", "还有呢") or any(
+        w in t for w in ("没啥了", "就这些", "没别的", "没有了", "不说了")
+    )
 
 
 def _pick_variant(options: tuple[str, ...], seed: str) -> str:
@@ -183,7 +199,29 @@ def guard_closed_user_reply(user_text: str, reply: str) -> str:
     return fb or "嗯，我陪着。不急着说~"
 
 
-def polish_reply(user_text: str, reply: str, *, prior_reply: str = "") -> str:
+def _compose_or_fallback(
+    user_text: str,
+    *,
+    prior_reply: str = "",
+    history: list[dict[str, str]] | None = None,
+) -> str | None:
+    from .dialogue_compose import compose_contextual_reply
+
+    composed = compose_contextual_reply(
+        user_text, history or [], prior_reply=prior_reply
+    )
+    if composed:
+        return composed
+    return scene_fallback_reply(user_text, prior_reply=prior_reply)
+
+
+def polish_reply(
+    user_text: str,
+    reply: str,
+    *,
+    prior_reply: str = "",
+    history: list[dict[str, str]] | None = None,
+) -> str:
     """轻量后处理：只修追问/复读/坏套话，保留 LLM 或场景引擎的自然回复。"""
     reply = guard_closed_user_reply(user_text, reply)
 
@@ -191,19 +229,23 @@ def polish_reply(user_text: str, reply: str, *, prior_reply: str = "") -> str:
         reply_is_bad_llm(reply)
         or reply_is_filler_heavy(reply)
         or reply_is_generic_llm(reply)
+        or reply_is_generic_scene(reply)
         or user_complains_filler(user_text)
+        or (reply_is_pushy(reply) and user_wants_wrap_up(user_text))
     ):
-        fb = scene_fallback_reply(user_text, prior_reply=prior_reply)
-        if fb:
-            return fb
+        alt = _compose_or_fallback(user_text, prior_reply=prior_reply, history=history)
+        if alt:
+            return alt
         cleaned = _FILLER_HEAD_RE.sub("", reply).strip()
         if cleaned and not reply_is_filler_heavy(cleaned):
             reply = cleaned
 
     if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
-        fb = scene_fallback_reply(user_text, prior_reply=prior_reply + reply)
-        if fb and reply_similarity(fb, prior_reply) < 0.88:
-            return fb
+        alt = _compose_or_fallback(
+            user_text, prior_reply=prior_reply + reply, history=history
+        )
+        if alt and reply_similarity(alt, prior_reply) < 0.88:
+            return alt
 
     return reply
 

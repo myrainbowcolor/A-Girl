@@ -21,11 +21,25 @@ def _last_user(history: list[dict[str, str]]) -> str:
     return ""
 
 
-def compose_contextual_reply(user_text: str, history: list[dict[str, str]]) -> str | None:
+def _last_assistant(history: list[dict[str, str]]) -> str:
+    for m in reversed(history):
+        if m.get("role") == "assistant":
+            return m.get("content", "")
+    return ""
+
+
+def compose_contextual_reply(
+    user_text: str,
+    history: list[dict[str, str]],
+    *,
+    prior_reply: str = "",
+) -> str | None:
     """根据本轮 + 近期用户话拼装自然回复；未覆盖返回 None。"""
     text = user_text.strip()
     prior_users = _user_history(history)
-    seed = text + prior_users[-80:]
+    prior_assistant = prior_reply or _last_assistant(history)
+    repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
+    seed = text + prior_users[-80:] + prior_assistant[-40:] + f"#{repeat_n}"
 
     if any(w in text for w in ("随便聊聊", "随便聊", "闲聊一下", "闲聊")):
         return _pick(
@@ -87,11 +101,82 @@ def compose_contextual_reply(user_text: str, history: list[dict[str, str]]) -> s
             "最委屈的是哪一块，我可以认真听。"
         )
 
-    if text in ("?", "？", "…", "..", "...") or len(text) <= 1:
+    if text in ("?", "？", "…", "..", "...") or text in ("嗯", "哦", "额", "好", "行"):
         return "我在这儿呢。不急着说，你想开口了再说~"
 
-    if any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12:
-        return "嗨～我是小语。今天想聊点什么？"
+    if text in ("你好", "嗨", "哈喽", "在吗") or (
+        any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12
+    ):
+        if prior_assistant and ("小语" in prior_assistant or "你好" in prior_assistant):
+            return _pick(
+                (
+                    "又见面啦～今天怎么样？",
+                    "嗨，在呢。想接着聊，还是换点别的？",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("hello", "hi", "HI", "Hello")):
+            return "嗨～我是小语。今天想聊点什么？"
+        return _pick(
+            (
+                "你好呀，我是小语，很高兴认识你～",
+                "嗨～在呢，今天想聊点什么？",
+            ),
+            seed,
+        )
+
+    if text in ("后来呢", "然后呢", "接着呢", "还有呢"):
+        ctx = prior_users + prior_assistant
+        if any(w in ctx for w in ("公园", "逛", "散步")):
+            return _pick(
+                (
+                    "公园那边怎么样？是随便走走，还是碰到什么好玩的了？",
+                    "嗯，逛完心情有没有松一点？有没有哪一幕印象特别深？",
+                ),
+                seed,
+            )
+        if any(w in ctx for w in ("加班", "下班", "工作", "累")):
+            return _pick(
+                (
+                    "后来有没有稍微缓一点？还是一直绷到回家？",
+                    "加班那件事后来怎么样了？不想细说也没关系~",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "嗯，你刚才说到哪儿了？再跟我讲讲~",
+                "我在呢，你想从哪一段继续？",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("没啥了", "就这些", "没别的", "没有了", "就这些了")):
+        ctx = prior_users + prior_assistant
+        if any(w in ctx for w in ("公园", "逛", "散步")):
+            return _pick(
+                (
+                    "嗯，随便走走也挺好的。愿意的话，我们聊点别的也行~",
+                    "好呀，那先歇会儿。你接下来想聊什么？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "好，那就先这样。我陪着，你想聊别的随时开口~",
+                "嗯，收到。不急着说，想换话题也行~",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("公园", "逛了", "散步")) and len(text) <= 16:
+        return _pick(
+            (
+                "公园呀，出去走走挺好的。今天天气怎么样？",
+                "嗯，逛公园挺治愈的。是一个人去的吗？",
+            ),
+            seed,
+        )
 
     if any(w in text for w in ("不愿意", "不想聊", "别说了")):
         return "好，不聊也行。我陪着，你想说的时候再说~"

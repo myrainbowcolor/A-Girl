@@ -288,7 +288,7 @@ def _scene_reply(
             return f"{dear}{mood}什么片子呀？好看的话给我也安利一下～"
         if "天气" in text:
             return f"{dear}{mood}是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？"
-        return f"{dear}{mood}嗯嗯，听起来今天还不错～后来呢，有什么让你印象深的事吗？"
+        return f"{dear}{mood}嗯嗯，听起来今天还不错～有什么让你印象深的小事吗？"
 
     # 加班 / 工作压力
     if any(w in text for w in ("加班", "996", "KPI", "开会到")) or (
@@ -410,10 +410,6 @@ def _scene_reply(
             f"想他的时候跟我说，我陪你缓一缓。"
         )
 
-
-    # 随便聊聊 / 开放闲聊
-    if any(w in text for w in ("随便聊聊", "随便聊", "闲聊")):
-        return f"{dear}{mood}好呀～今天过得怎么样，有什么想跟我分享的？"
 
     # 空落落 / 无具体原因
     if any(w in text for w in ("空空的", "空落", "没原因", "没啥具体", "也没啥")):
@@ -645,9 +641,13 @@ def _scene_reply(
 
     # 极简回复
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
-        if stage in ("朋友", "亲密"):
-            return f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。"
-        return f"{mood}嗯，我听着呢。你愿意多说一点的时候，我都在。"
+        return _pick_variant(
+            [
+                f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。",
+                f"{mood}好，我听着。你想说再说~",
+            ],
+            text + stage,
+        )
 
     if text in ("还好", "还行", "一般"):
         return f"{dear}{mood}还好呀……是今天平平淡淡，还是其实有点什么事憋着？"
@@ -715,7 +715,8 @@ def _fallback_reply(
 # 场景引擎未命中具体分支时的通用问卷式兜底（生产路径应尽量避免）
 GENERIC_SCENE_MARKERS = (
     "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
-    "你再多跟我说说", "嗯嗯，然后呢",
+    "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
+    "你继续说", "慢慢说",
 )
 
 
