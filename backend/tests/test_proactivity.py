@@ -137,6 +137,18 @@ def test_insight_skipped_when_idle_too_short(engine):
     assert not r.should_reach_out or r.trigger != "insight"
 
 
+def test_event_messages_single_question(engine):
+    eng, _, _ = engine
+    from app.domain import Event
+
+    kinds = ("birthday", "interview", "exam", "other")
+    for kind in kinds:
+        ev = Event(user_id="u1", kind=kind, label="测试事件", trigger_at=0.0, created_at=0.0)
+        msg = eng._event_message(ev)
+        assert msg
+        assert _question_count(msg) <= 1, f"{kind} 文案叠问: {msg}"
+
+
 def test_event_trigger_has_priority(engine):
     eng, db, _ = engine
     _seed_history(db)
