@@ -113,6 +113,16 @@ bash scripts/start-local-game.sh
 
 均通过 `llama-cpp-python` + HuggingFace GGUF，与现有 `examples/llama_cpp_server.py` 兼容。
 
+**升级后清理旧模型**（如已弃用的 0.5B）：
+
+```bash
+bash scripts/clean-local-llm-models.sh              # 删 0.5B
+bash scripts/clean-local-llm-models.sh --unused-tiers   # 只保留当前档位（默认 3b）
+bash scripts/clean-local-llm-models.sh --dry-run        # 预览
+```
+
+`start-local-game.sh` / `start-remote-llm.sh` 启动时会自动删除 0.5B 缓存。
+
 ## 7. 游戏侧接入要点
 
 1. `user_id` / `session_id` 用存档 ID，保证记忆连续  

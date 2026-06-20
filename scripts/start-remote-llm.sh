@@ -10,6 +10,7 @@ pip install -q -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirement
 
 resolve_local_gguf
 export LLAMA_GGUF_PATH
+bash "$ROOT/scripts/clean-local-llm-models.sh" --obsolete-only 2>/dev/null || true
 
 SESSION_LLM="llama-cpp-server"
 SESSION_APP="agirl-server"
