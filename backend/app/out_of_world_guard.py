@@ -53,6 +53,82 @@ _FACTUAL_REPLY_MARKERS = (
     "指的是", "是世界上", "如下：", "如下:", "步骤如下", "方法如下",
 )
 
+_STIFF_DEFLECTION_MARKERS = (
+    "现实里", "现实问题", "百科资料", "查资料", "不是我的活儿",
+    "游戏里的陪伴", "答不上来", "不太擅长这类", "联网查",
+)
+
+
+def _pick(options: tuple[str, ...], seed: str) -> str:
+    import hashlib
+
+    idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
+    return options[idx]
+
+
+def _topic_hint(user_text: str) -> str:
+    """从用户句里摘一个可接话的名词片段，便于自然承接。"""
+    t = user_text.strip()
+    m = _ENCYCLOPEDIA_RE.search(t)
+    if m:
+        return m.group(1)
+    for pat in (
+        re.compile(r"([\u4e00-\u9fffA-Za-z·]{2,8})首都是"),
+        re.compile(r"帮我查(?:一下)?(.{2,10})"),
+        re.compile(r"(今天|明天|后天).{0,4}(天气|气温)"),
+    ):
+        hit = pat.search(t)
+        if hit:
+            return hit.group(1)
+    return ""
+
+
+def compose_out_of_world_reply(user_text: str, *, seed: str = "") -> str:
+    """界外提问的委婉岔开：不直说「不会/现实问题」，像陪伴者自然接不住。"""
+    t = user_text.strip()
+    topic = _topic_hint(t)
+    seed = seed or t
+
+    if any(m in t for m in _LOOKUP_MARKERS):
+        pool = (
+            "我这边没法帮你查诶～你是急着要用吗？",
+            "搜这种事得靠你比我快啦。找得顺利吗，还是已经搜烦了？",
+            "嗯，我帮不上查资料这忙～你是为了什么事在找？",
+        )
+    elif any(m in t for m in _HOMEWORK_MARKERS) or _WRITING_TASK_RE.search(t) or _TECH_HELP_RE.search(t):
+        pool = (
+            "这类题我一碰就头大～你是为了交作业，还是工作里要用？",
+            "唔，这个真帮不上忙。学/写这些的时候，会不会觉得特别耗神？",
+            "哈哈这个把我难住了。你是卡在哪个环节了？",
+        )
+    elif ("天气" in t or "气温" in t or "多少度" in t or "下雨" in t):
+        pool = (
+            "我感受不到外面的温度～你那会儿冷吗，穿得够吗？",
+            "唔，我看不到窗外。你是打算出门，还是在纠结要不要带伞？",
+            "我这边没有天气预报～你那儿现在是晒还是阴？",
+        )
+    elif topic:
+        pool = (
+            f"{topic}啊……我细节记不清了，只记得个模糊印象。你怎么忽然想到问这个？",
+            f"诶，{topic}？这个得靠你比我懂～是好奇，还是哪儿卡住了？",
+            f"嗯……{topic}我脑子里只剩一团糊的。你是在哪儿看到的呀？",
+            f"哈哈，{topic}把我问住了。你想聊它的哪一块？",
+        )
+    else:
+        pool = (
+            "诶，这个得靠你比我清楚～怎么突然想到问这个？",
+            "嗯……我脑子里关于这个只剩一团模糊了。你是好奇，还是哪儿卡住了？",
+            "哈哈这个把我问住了。你想聊它的哪一块？",
+            "唔，细节我说不好～你为啥忽然问起这个？",
+        )
+
+    return _pick(pool, seed)
+
+
+def reply_is_stiff_deflection(reply: str) -> bool:
+    """婉拒是否过于生硬、像在念规则。"""
+    return any(m in reply for m in _STIFF_DEFLECTION_MARKERS)
+
 
 def _has_emotional_companion_context(text: str) -> bool:
     return any(m in text for m in _EMOTIONAL_COMPANION_MARKERS)

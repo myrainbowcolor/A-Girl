@@ -149,9 +149,16 @@ def reply_similarity(a: str, b: str) -> float:
 
 def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") -> bool:
     """LLM 输出明显不可用，应回退到场景引擎（mock 的场景逻辑）。"""
-    from .out_of_world_guard import reply_looks_factual_encyclopedia, user_asks_out_of_world
+    from .out_of_world_guard import (
+        compose_out_of_world_reply,
+        reply_is_stiff_deflection,
+        reply_looks_factual_encyclopedia,
+        user_asks_out_of_world,
+    )
 
     if user_asks_out_of_world(user_text) or reply_looks_factual_encyclopedia(reply):
+        return True
+    if reply_is_stiff_deflection(reply):
         return True
     if reply_is_bad_llm(reply) or reply_is_self_talk(reply):
         return True
@@ -189,9 +196,9 @@ def scene_fallback_reply(user_text: str, *, prior_reply: str = "") -> str | None
 
     seed = user_text + prior_reply
     if user_asks_out_of_world(user_text):
-        from .dialogue_compose import compose_contextual_reply
+        from .out_of_world_guard import compose_out_of_world_reply
 
-        return compose_contextual_reply(user_text, [], prior_reply=prior_reply)
+        return compose_out_of_world_reply(user_text, seed=seed)
     if user_is_identity(user_text):
         return _pick_variant(_IDENTITY_REPLIES, seed)
     if user_complains_filler(user_text):
@@ -239,11 +246,17 @@ def polish_reply(
     """轻量后处理：只修追问/复读/坏套话，保留 LLM 或场景引擎的自然回复。"""
     reply = guard_closed_user_reply(user_text, reply)
 
-    from .out_of_world_guard import reply_looks_factual_encyclopedia, user_asks_out_of_world
+    from .out_of_world_guard import (
+        compose_out_of_world_reply,
+        reply_is_stiff_deflection,
+        reply_looks_factual_encyclopedia,
+        user_asks_out_of_world,
+    )
 
     if (
         user_asks_out_of_world(user_text)
         or reply_looks_factual_encyclopedia(reply)
+        or reply_is_stiff_deflection(reply)
         or reply_is_bad_llm(reply)
         or reply_is_filler_heavy(reply)
         or reply_is_generic_llm(reply)
