@@ -8,6 +8,10 @@ _CLOSED_MARKERS = (
     "不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "算了",
 )
 _MINIMAL_UTTERANCES = {"..", "...", "…", "。", "嗯", "哦", "额"}
+# 整句极简 masking/回避口语：需轻柔共情，非封闭边界（与 emotion.analyzer 对齐）
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
+_MINIMAL_FATIGUE = frozenset({"累"})
 _PUSHY_REPLY_MARKERS = (
     "愿意多说", "你愿意多", "后来呢", "接着说", "有啥事", "可以帮忙", "多跟我说",
     "发生什么了", "想聊什么", "聊点什么", "聊点啥", "聊啥", "我们就聊", "有什么想聊",
@@ -45,6 +49,8 @@ _COMPANION_REPLIES = (
 
 def user_is_closed(user_text: str) -> bool:
     t = user_text.strip()
+    if t in _MINIMAL_MASKING or t in _MINIMAL_EVASIVE or t in _MINIMAL_FATIGUE:
+        return False
     if not t or t in _MINIMAL_UTTERANCES or len(t) <= 2:
         return True
     if t in {"随便", "算了"}:

@@ -14,6 +14,9 @@ def test_user_is_closed():
     assert user_is_closed("..")
     assert not user_is_closed("今天加班好累")
     assert not user_is_closed("随便聊聊")
+    assert not user_is_closed("还好")
+    assert not user_is_closed("不知道")
+    assert not user_is_closed("累")
 
 
 def test_guard_replaces_pushy_on_closed():

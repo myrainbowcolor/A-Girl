@@ -50,6 +50,33 @@ def test_prompt_user_turn_closed_minimal():
     assert "尊重边界" in p
 
 
+def test_prompt_user_turn_masked_low_haohao():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="还好"
+    )
+    assert "【本轮侧重】" in p
+    assert "压着情绪" in p or "轻轻接住" in p
+    assert "尊重边界" not in p.split("【本轮侧重】")[1].split("\n")[0]
+
+
+def test_prompt_user_turn_masked_low_evasive():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="不知道"
+    )
+    assert "【本轮侧重】" in p
+    assert "压着情绪" in p or "轻轻接住" in p
+    assert "尊重边界" not in p.split("【本轮侧重】")[1].split("\n")[0]
+
+
+def test_prompt_user_turn_masked_low_fatigue():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="累"
+    )
+    assert "【本轮侧重】" in p
+    assert "压着情绪" in p or "轻轻接住" in p
+    assert "尊重边界" not in p.split("【本轮侧重】")[1].split("\n")[0]
+
+
 def test_prompt_user_turn_meta_pushback():
     p = build_system_prompt(
         Persona(), EmotionState(), Relationship(), [], user_text="为啥一定要跟你聊天?"
