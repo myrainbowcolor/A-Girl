@@ -108,8 +108,8 @@ bash scripts/start-local-game.sh
 |------|------|------|
 | Qwen2.5-0.5B Q4 | ~400MB | 不推荐（易嗯嗯/空套话） |
 | Qwen2.5-1.5B Q4 | ~1GB | 低配机器 |
-| **Qwen2.5-3B Q4** | **~2GB** | **默认推荐** |
-| Qwen2.5-7B Q4 | ~4.7GB | 16GB+ 内存可试 `AGIRL_LOCAL_LLM_TIER=7b` |
+| **Qwen2.5-7B Q4** | **~4.7GB** | **纯本地推荐（start-local-game 默认）** |
+| Qwen2.5-3B Q4 | ~2GB | 低配 `AGIRL_LOCAL_LLM_TIER=3b` |
 
 均通过 `llama-cpp-python` + HuggingFace GGUF，与现有 `examples/llama_cpp_server.py` 兼容。
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 游戏 NPC 推荐启动：scene_first + 本机 Qwen2.5-3B（无云 LLM）
+# 游戏 NPC 推荐启动：scene_first + 本机 Qwen2.5-7B（无云 LLM）
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/resolve-local-gguf.sh
@@ -8,7 +8,7 @@ source "$ROOT/scripts/lib/resolve-local-gguf.sh"
 export AGIRL_DIALOGUE_STRATEGY=scene_first
 export AGIRL_DEPLOYMENT_MODE="${AGIRL_DEPLOYMENT_MODE:-embedded}"
 export AGIRL_GAME_WORLD_BRIEF="${AGIRL_GAME_WORLD_BRIEF:-你是游戏世界里的陪伴角色小语。只聊当前世界、冒险与玩家心情；不要提现实公司、公文写作、联网查资料。}"
-export AGIRL_LOCAL_LLM_TIER="${AGIRL_LOCAL_LLM_TIER:-3b}"
+export AGIRL_LOCAL_LLM_TIER="${AGIRL_LOCAL_LLM_TIER:-7b}"
 
 pip install -q -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirements-llm.txt" huggingface-hub
 
@@ -29,7 +29,7 @@ AGIRL_LLM_PROVIDER=openai_compatible
 AGIRL_LLM_BASE_URL=http://127.0.0.1:11435/v1
 AGIRL_LLM_API_KEY=local
 AGIRL_LLM_MODEL=${LLM_MODEL_NAME}
-AGIRL_LLM_TIMEOUT_SECONDS=180
+AGIRL_LLM_TIMEOUT_SECONDS=240
 AGIRL_DIALOGUE_STRATEGY=scene_first
 AGIRL_SCENE_FALLBACK=true
 AGIRL_DEPLOYMENT_MODE=${AGIRL_DEPLOYMENT_MODE}
@@ -43,8 +43,8 @@ AGIRL_EDGE_TTS_VOICE=zh-CN-XiaoxiaoNeural
 AGIRL_STT_PROVIDER=mock
 EOF
 
-echo ">> 等待本地 LLM 加载（${LLM_MODEL_NAME}）..."
-for i in $(seq 1 60); do
+echo ">> 等待本地 LLM 加载（${LLM_MODEL_NAME}，7B 首次约 4.7GB）..."
+for i in $(seq 1 90); do
   if curl -sf "http://127.0.0.1:11435/health" | grep -q '"exists":true'; then
     break
   fi
@@ -61,4 +61,4 @@ sleep 3
 echo "=== 策略: scene_first | 模型: ${LLM_MODEL_NAME} ==="
 curl -s "http://127.0.0.1:8011/health"
 echo
-echo ">> http://127.0.0.1:8011/  |  更大模型: AGIRL_LOCAL_LLM_TIER=7b"
+echo ">> http://127.0.0.1:8011/  |  低配可改: AGIRL_LOCAL_LLM_TIER=3b"

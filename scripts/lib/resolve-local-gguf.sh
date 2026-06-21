@@ -2,7 +2,7 @@
 # 解析本机 GGUF 路径与模型名（供 start-*.sh 引用）
 # 环境变量：
 #   LLAMA_GGUF_PATH        已有时跳过下载
-#   AGIRL_LOCAL_LLM_TIER    1.5b | 3b（默认）| 7b
+#   AGIRL_LOCAL_LLM_TIER    1.5b | 3b | 7b（start-local-game 默认）
 resolve_local_gguf() {
   if [ -n "${LLAMA_GGUF_PATH:-}" ] && [ -f "${LLAMA_GGUF_PATH}" ]; then
     export LLAMA_GGUF_PATH
@@ -26,8 +26,8 @@ resolve_local_gguf() {
       _size="约 1GB"
       ;;
     7b|7B)
-      _repo="Qwen/Qwen2.5-7B-Instruct-GGUF"
-      _file="qwen2.5-7b-instruct-q4_k_m.gguf"
+      _repo="bartowski/Qwen2.5-7B-Instruct-GGUF"
+      _file="Qwen2.5-7B-Instruct-Q4_K_M.gguf"
       LLM_MODEL_NAME="qwen2.5-7b-instruct"
       _size="约 4.7GB"
       ;;
