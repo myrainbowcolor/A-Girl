@@ -6,6 +6,7 @@ __pycache__/
 venv/
 .pytest_cache/
 backend/reports/
+.local/
 .DS_Store
 node_modules/
 package-lock.json
