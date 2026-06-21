@@ -139,6 +139,19 @@ def test_prompt_user_turn_insomnia():
     assert "数羊" in p or "助眠" in p
 
 
+def test_prompt_user_turn_fatigue_talk():
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(),
+        [],
+        user_text="今天过得好累，想靠着你说说",
+    )
+    assert "【本轮侧重】" in p
+    assert "累了但想跟你聊" in p or "邀请慢慢说" in p
+    assert "不想说也没关系" not in p.split("【本轮侧重】")[1].split("\n")[0]
+
+
 def test_prompt_user_turn_sad_not_insomnia():
     """纯低落句不走失眠侧重。"""
     p = build_system_prompt(

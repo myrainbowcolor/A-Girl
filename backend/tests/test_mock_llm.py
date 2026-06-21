@@ -66,6 +66,20 @@ def test_mock_pet_antics_followup():
     assert "跟着开心起来了" not in reply
 
 
+def test_mock_fatigue_wants_to_talk():
+    """疲惫但想倾诉时不应套用「不想说也没关系」封闭话术。"""
+    reply = MockLLMProvider().generate(
+        _system("亲密"),
+        [
+            {"role": "user", "content": "好久没聊了，有点想你"},
+            {"role": "assistant", "content": "我也想你呀！"},
+            {"role": "user", "content": "今天过得好累，想靠着你说说"},
+        ],
+    )
+    assert "不想说" not in reply
+    assert any(w in reply for w in ("靠着", "慢慢说", "听着", "陪着", "哪儿也不去"))
+
+
 def test_mock_breakup_crying_empathy():
     reply = MockLLMProvider().generate(
         _system("朋友"),

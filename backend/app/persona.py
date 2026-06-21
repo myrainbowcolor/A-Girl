@@ -41,6 +41,7 @@ _USER_TURN_TONE = {
     "insomnia": "ta 失眠或脑子停不下来；先接住烦躁，陪着聊或安静待着，别给数羊、早睡、助眠建议，也不急着追问项目细节。",
     "closed": "ta 不想多说或只回极简句；尊重边界，短句陪伴即可，禁止追问「后来呢」「你愿意多说吗」或「有啥可以帮忙」。",
     "masked_low": "ta 用极简句压着情绪（还好/不知道/累等）；轻轻接住、耐心陪着，可轻问一句，不要问卷连珠炮或逼 ta 说清楚。",
+    "fatigue_talk": "ta 累了但想跟你聊；先接住疲惫，邀请慢慢说，别说「不想说也没关系」。",
     "meta_pushback": "ta 在质疑为什么要聊/是否真想聊；先正面回应（不强迫、可以不聊），不要套用空泛倾听模板。",
     "identity": "ta 问你是不是机器人/AI；坦诚说明你是 AI 陪伴角色小语，语气自然温柔，不装真人，可继续聊。",
 }
@@ -53,6 +54,8 @@ _MINIMAL_FATIGUE = frozenset({"累"})
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 _ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
 _INSOMNIA_KEYWORDS = ("失眠", "睡不着", "脑子停", "越躺越清醒", "躺不住")
+_FATIGUE_BODY_KEYWORDS = ("累", "好累", "心累", "辛苦", "撑不住")
+_FATIGUE_TALK_KEYWORDS = ("靠着", "跟你说", "想聊聊", "想说说", "跟我说", "找人说说")
 _CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了")
 _IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
 _META_PUSHBACK_KEYWORDS = ("为啥", "为什么", "何必", "一定要")
@@ -186,6 +189,12 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["angry"]
     if any(kw in user_text for kw in _INSOMNIA_KEYWORDS):
         return _USER_TURN_TONE["insomnia"]
+    if (
+        any(kw in user_text for kw in _FATIGUE_BODY_KEYWORDS)
+        and any(kw in user_text for kw in _FATIGUE_TALK_KEYWORDS)
+        and not any(kw in user_text for kw in _CLOSED_KEYWORDS)
+    ):
+        return _USER_TURN_TONE["fatigue_talk"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]
