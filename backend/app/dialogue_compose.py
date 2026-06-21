@@ -4,7 +4,15 @@ from __future__ import annotations
 import hashlib
 import re
 
+from .out_of_world_guard import user_asks_out_of_world
 from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
+
+_OUT_OF_WORLD_REPLIES = (
+    "现实里那些百科资料我搞不太懂啦～我是来陪你的，你现在心情怎么样？",
+    "这类现实问题我不太擅长诶。我们聊点别的？比如你最近有什么想跟我分享的~",
+    "我是游戏里的陪伴者，查资料写答案不是我的活儿～想跟我说说你的近况吗？",
+    "这个我答不上来～不过我可以听你讲。今天有没有什么事想跟我聊聊？",
+)
 
 
 def _pick(options: tuple[str, ...], seed: str) -> str:
@@ -108,6 +116,9 @@ def compose_contextual_reply(
     prior_assistant = prior_reply or _last_assistant(history)
     repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
     seed = text + prior_users[-80:] + prior_assistant[-40:] + f"#{repeat_n}"
+
+    if user_asks_out_of_world(text):
+        return _pick(_OUT_OF_WORLD_REPLIES, seed)
 
     if user_complains_bot_reply(text):
         return _pick(

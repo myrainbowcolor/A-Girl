@@ -528,14 +528,22 @@ class Orchestrator:
             meta_ctx=meta_ctx,
         )
 
-        parts: list[str] = []
-        for piece in self._llm.generate_stream(system_prompt, history):
-            parts.append(piece)
-            yield {"type": "token", "text": piece}
+        strategy = (self._s.dialogue_strategy or "scene_first").lower()
+        if strategy == "scene_first":
+            reply = self._generate_chat_reply(system_prompt, history, user_text)
+            reply = self._finalize_reply(
+                reply, system_prompt, history, user_text, retrieved, user_texts
+            )
+            yield {"type": "token", "text": reply}
+        else:
+            parts: list[str] = []
+            for piece in self._llm.generate_stream(system_prompt, history):
+                parts.append(piece)
+                yield {"type": "token", "text": piece}
 
-        reply = self._finalize_reply(
-            "".join(parts), system_prompt, history, user_text, retrieved, user_texts
-        )
+            reply = self._finalize_reply(
+                "".join(parts), system_prompt, history, user_text, retrieved, user_texts
+            )
 
         self._db.save_emotion(user_id, emotion, time.time())
         self._db.save_relationship(user_id, relationship, time.time())

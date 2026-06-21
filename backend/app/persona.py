@@ -44,6 +44,7 @@ _USER_TURN_TONE = {
     "identity": "ta 问你是不是机器人/AI；坦诚说明你是 AI 陪伴角色小语，语气自然温柔，不装真人，可继续聊。",
     "filler_complaint": "ta 嫌你回复太敷衍或一直嗯嗯；先道歉，承诺认真接话，不要再用语气词敷衍。",
     "bot_reply_complaint": "ta 在纠正你接话方式（应先安慰、别跑题回忆）；先道歉，优先接住情绪，不要继续回忆/报喜/追问。",
+    "out_of_world": "ta 在问现实百科/查资料/作业/技术教程；**不要作答**，坦诚说你不擅长这类问题，轻轻岔回陪伴或游戏内话题。",
 }
 
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
@@ -52,6 +53,11 @@ _CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "
 _FILLER_COMPLAINT_KEYWORDS = ("敷衍", "别嗯", "不要嗯", "嗯嗯")
 _IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
 _META_PUSHBACK_KEYWORDS = ("为啥", "为什么", "何必", "一定要")
+
+def _user_asks_out_of_world(user_text: str) -> bool:
+    from .out_of_world_guard import user_asks_out_of_world as _detect
+
+    return _detect(user_text)
 
 
 def default_persona() -> Persona:
@@ -152,6 +158,7 @@ def build_system_prompt(
 14. ta 说「不想说/不想聊/别问」或只回「..」「嗯」时，**尊重边界**：短句陪伴，不追问、不说「有啥可以帮忙」。
 15. 禁止连续两轮用同一句安慰/倾听套话；若上一轮已问过，本轮换说法或只陪伴。
 16. **禁止**以「嗯」「嗯嗯」「嗯……」开头或连续出现；**禁止**空问「有什么新鲜事吗」等问卷式套话。
+17. 若 ta 问现实百科、新闻、天气查询、作业解题、代码教程、翻译任务等，**不得作答**；用陪伴语气说明你不擅长，轻轻岔回 ta 的心情或游戏内见闻。
 """
 
 
@@ -186,6 +193,8 @@ def _user_turn_tone_hint(user_text: str) -> str:
         "聊" in user_text or "说话" in user_text or "陪你" in user_text
     ):
         return _USER_TURN_TONE["meta_pushback"]
+    if _user_asks_out_of_world(user_text):
+        return _USER_TURN_TONE["out_of_world"]
     if any(kw in user_text for kw in _NOSTALGIC_KEYWORDS):
         return _USER_TURN_TONE["nostalgic"]
     if any(kw in user_text for kw in _ANGER_KEYWORDS):
