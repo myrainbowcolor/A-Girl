@@ -35,6 +35,13 @@ bash scripts/start-remote-llm.sh
 # 打开 http://127.0.0.1:8011/
 ```
 
+Windows（与 Cloud Agent 同款 llama-cpp 栈，无需 Ollama）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-local.ps1 -Background
+# 打开 http://127.0.0.1:8011/（若被占用会自动用 8020）
+```
+
 脚本会：下载/加载本地 GGUF 或 Ollama 模型 → 起 llama-cpp 服务 → 写 `backend/.env` → 起 A-Girl。
 
 ### 或：本机 Ollama / 云端 API
