@@ -40,9 +40,15 @@ _USER_TURN_TONE = {
     "angry": "ta 这轮在发泄怒气；先接住这股火，陪着听，别讲大道理也别催着冷静。",
     "insomnia": "ta 失眠或脑子停不下来；先接住烦躁，陪着聊或安静待着，别给数羊、早睡、助眠建议，也不急着追问项目细节。",
     "closed": "ta 不想多说或只回极简句；尊重边界，短句陪伴即可，禁止追问「后来呢」「你愿意多说吗」或「有啥可以帮忙」。",
+    "masked_low": "ta 用极简句压着情绪（还好/不知道/累等）；轻轻接住、耐心陪着，可轻问一句，不要问卷连珠炮或逼 ta 说清楚。",
     "meta_pushback": "ta 在质疑为什么要聊/是否真想聊；先正面回应（不强迫、可以不聊），不要套用空泛倾听模板。",
     "identity": "ta 问你是不是机器人/AI；坦诚说明你是 AI 陪伴角色小语，语气自然温柔，不装真人，可继续聊。",
 }
+
+# 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
+_MINIMAL_FATIGUE = frozenset({"累"})
 
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 _ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
@@ -162,6 +168,8 @@ def _emotion_tone_hint(label: str) -> str:
 def _user_turn_tone_hint(user_text: str) -> str:
     """根据用户本轮消息情感倾向，生成与 avatar/TTS 一致的语气侧重。"""
     t = user_text.strip()
+    if t in _MINIMAL_MASKING or t in _MINIMAL_EVASIVE or t in _MINIMAL_FATIGUE:
+        return _USER_TURN_TONE["masked_low"]
     if not t or t in {"..", "...", "…", "。", "嗯", "哦"} or len(t) <= 2:
         return _USER_TURN_TONE["closed"]
     if any(kw in user_text for kw in _IDENTITY_KEYWORDS):
