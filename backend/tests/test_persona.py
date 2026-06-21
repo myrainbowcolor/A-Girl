@@ -2,7 +2,10 @@ from app.domain import EmotionState, Persona, Relationship
 from app.persona import build_system_prompt
 
 
-def test_prompt_forbids_fake_memory_when_empty():
+def test_prompt_includes_virtual_world_boundary():
+    p = build_system_prompt(Persona(), EmotionState(), Relationship(), [])
+    assert "【虚拟世界边界】" in p
+    assert "现实国家" in p
     p = build_system_prompt(Persona(), EmotionState(), Relationship(), [])
     assert "禁止" in p and "你说过" in p
     assert "不是 ta 的" in p

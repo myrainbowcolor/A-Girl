@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# 默认启动 A-Girl + 本机 llama-cpp（无云 LLM）
-# 默认模型 Qwen2.5-7B；低配：AGIRL_LOCAL_LLM_TIER=1.5b
+# 游戏 NPC 推荐启动：scene_first + 本机 Qwen2.5-7B（无云 LLM）
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/resolve-local-gguf.sh
 source "$ROOT/scripts/lib/resolve-local-gguf.sh"
 
+export AGIRL_DIALOGUE_STRATEGY=scene_first
+export AGIRL_DEPLOYMENT_MODE="${AGIRL_DEPLOYMENT_MODE:-embedded}"
+export AGIRL_GAME_WORLD_BRIEF="${AGIRL_GAME_WORLD_BRIEF:-你是游戏世界里的陪伴角色小语。只聊城里见闻、冒险任务与玩家心情；禁止在回复中出现现实地名、名人、品牌或任何现实社会常识。}"
 export AGIRL_LOCAL_LLM_TIER="${AGIRL_LOCAL_LLM_TIER:-7b}"
 
 pip install -q -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirements-llm.txt" huggingface-hub
@@ -30,27 +32,24 @@ AGIRL_LLM_MODEL=${LLM_MODEL_NAME}
 AGIRL_LLM_TIMEOUT_SECONDS=240
 AGIRL_DIALOGUE_STRATEGY=scene_first
 AGIRL_SCENE_FALLBACK=true
+AGIRL_DEPLOYMENT_MODE=${AGIRL_DEPLOYMENT_MODE}
+AGIRL_GAME_WORLD_BRIEF=${AGIRL_GAME_WORLD_BRIEF}
 AGIRL_SENTIMENT_MODE=lexicon
 AGIRL_USER_INSIGHT_USE_LLM=false
-AGIRL_USER_INSIGHT_HISTORY_LIMIT=40
-AGIRL_USER_INSIGHT_LLM_EVERY_N=2
-AGIRL_RELATIONSHIP_SUMMARY_EVERY_N=6
 AGIRL_CHAT_DEFER_HEAVY_POST=true
 AGIRL_RECENT_MESSAGES_WINDOW=6
-AGIRL_LLM_MOCK_FALLBACK=true
 AGIRL_TTS_PROVIDER=edge
 AGIRL_EDGE_TTS_VOICE=zh-CN-XiaoxiaoNeural
 AGIRL_STT_PROVIDER=mock
 EOF
 
-echo ">> 等待 LLM 加载（${LLM_MODEL_NAME}）..."
-for i in $(seq 1 60); do
+echo ">> 等待本地 LLM 加载（${LLM_MODEL_NAME}，7B 首次约 4.7GB）..."
+for i in $(seq 1 90); do
   if curl -sf "http://127.0.0.1:11435/health" | grep -q '"exists":true'; then
     break
   fi
   sleep 2
 done
-curl -sf "http://127.0.0.1:11435/health" >/dev/null
 
 pkill -f "uvicorn app.main:app.*8011" 2>/dev/null || true
 tmux -f /exec-daemon/tmux.portal.conf kill-session -t "$SESSION_APP" 2>/dev/null || true
@@ -59,10 +58,7 @@ tmux -f /exec-daemon/tmux.portal.conf send-keys -t "$SESSION_APP:0.0" \
   "cd $ROOT/backend && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8011" C-m
 
 sleep 3
-echo "=== LLM health ==="
-curl -s "http://127.0.0.1:11435/health"
-echo
-echo "=== A-Girl health ==="
+echo "=== 策略: scene_first | 模型: ${LLM_MODEL_NAME} ==="
 curl -s "http://127.0.0.1:8011/health"
 echo
-echo ">> 模型: ${LLM_MODEL_NAME} | 策略: scene_first | http://127.0.0.1:8011/"
+echo ">> http://127.0.0.1:8011/  |  低配可改: AGIRL_LOCAL_LLM_TIER=1.5b"

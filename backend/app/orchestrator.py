@@ -21,10 +21,18 @@ from .persona import build_system_prompt, default_persona
 from .compliance import AuditLogger
 from .proactivity import ProactiveResult, ProactivityEngine, extract_events
 from .safety import SafetyCategory, check_safety, minor_guard_prompt
+from .dialogue_compose import compose_contextual_reply, compose_open_reply
+from .in_world_guard import reply_in_world_ok
+from .scene_engine import SceneReplyEngine, is_generic_scene_reply
 from .reply_guard import (
     needs_mock_fallback,
     polish_reply,
     prior_assistant_reply,
+    reply_is_pushy,
+    reply_repeats_history,
+    reply_similarity,
+    scene_fallback_reply,
+    user_is_closed,
     reply_is_generic_mock,
 )
 from .user_insight import analyze_user, meta_to_insight_dict
@@ -71,14 +79,12 @@ class Orchestrator:
         self._tts = tts
         self._audit = audit
         self._proactivity = ProactivityEngine(db, settings, self._persona, llm=llm)
-        self._scene_llm: LLMProvider | None = None
+        self._scene: SceneReplyEngine | None = None
 
-    def _scene_engine(self) -> LLMProvider:
-        """场景化回复引擎（与 pytest mock 同源，含加班/宠物/情绪等分支逻辑）。"""
-        if self._scene_llm is None:
-            from .llm import MockLLMProvider
-            self._scene_llm = MockLLMProvider()
-        return self._scene_llm
+    def _scene_engine(self) -> SceneReplyEngine:
+        if self._scene is None:
+            self._scene = SceneReplyEngine()
+        return self._scene
 
     def _generate_chat_reply(
         self,
@@ -86,23 +92,68 @@ class Orchestrator:
         history: list[dict[str, str]],
         user_text: str,
     ) -> str:
-        """生成回复：优先场景引擎（有上下文的分支），否则真实 LLM。"""
+        """生成回复：scene_first 优先场景/拼装，本地 LLM 仅最后手段。"""
         prior = prior_assistant_reply(history)
-        blend = self._s.llm_mock_fallback and self._llm.name != "mock"
+        strategy = (self._s.dialogue_strategy or "scene_first").lower()
+        scene_reply = self._scene_engine().generate(system_prompt, history)
 
-        scene_reply = ""
-        if blend:
-            scene_reply = self._scene_engine().generate(system_prompt, history)
-            if not reply_is_generic_mock(scene_reply):
-                return scene_reply
+        if strategy == "scene_first":
+            composed = compose_contextual_reply(user_text, history, prior_reply=prior)
+            if composed:
+                return composed
+            if scene_reply.strip() and not is_generic_scene_reply(scene_reply):
+                if user_is_closed(user_text) and reply_is_pushy(scene_reply):
+                    composed = compose_contextual_reply(user_text, history)
+                    if composed:
+                        return composed
+                    fb = scene_fallback_reply(user_text, prior_reply=prior)
+                    if fb:
+                        return fb
+                if reply_repeats_history(scene_reply, history):
+                    open_reply = compose_open_reply(
+                        user_text, history, prior_reply=prior
+                    )
+                    if open_reply:
+                        return open_reply
+                elif prior and reply_similarity(scene_reply, prior) >= 0.88:
+                    open_reply = compose_open_reply(
+                        user_text, history, prior_reply=prior
+                    )
+                    if open_reply:
+                        return open_reply
+                else:
+                    return scene_reply
+            open_reply = compose_open_reply(user_text, history, prior_reply=prior)
+            if open_reply:
+                return open_reply
+            if self._llm.name != "mock":
+                llm_reply = self._llm.generate(system_prompt, history, temperature=0.55)
+                if (
+                    reply_in_world_ok(llm_reply, user_text)
+                    and not needs_mock_fallback(llm_reply, user_text, prior_reply=prior)
+                    and not reply_repeats_history(llm_reply, history)
+                ):
+                    return llm_reply
+            fb = scene_fallback_reply(user_text, prior_reply=prior)
+            return fb or open_reply
+
+        # local_blend（默认旧逻辑）
+        blend = self._s.scene_fallback and self._llm.name != "mock"
+        if blend and not is_generic_scene_reply(scene_reply):
+            return scene_reply
 
         llm_reply = self._llm.generate(system_prompt, history)
         if blend and needs_mock_fallback(llm_reply, user_text, prior_reply=prior):
-            if scene_reply and not reply_is_generic_mock(scene_reply):
+            if scene_reply and not is_generic_scene_reply(scene_reply):
                 return scene_reply
             fallback = self._scene_engine().generate(system_prompt, history)
-            if not reply_is_generic_mock(fallback):
+            if not is_generic_scene_reply(fallback):
                 return fallback
+            fb = scene_fallback_reply(user_text, prior_reply=prior)
+            if fb:
+                return fb
+            if scene_reply:
+                return scene_reply
         return llm_reply
 
     @property
@@ -260,13 +311,15 @@ class Orchestrator:
     ) -> str:
         """记忆诚实校正 + 场景补位 + 轻量兜底 + 语言不匹配时重试。"""
         prior = prior_assistant_reply(history)
-        if self._s.llm_mock_fallback and self._llm.name != "mock":
-            if needs_mock_fallback(reply, user_text, prior_reply=prior):
+        if self._s.scene_fallback and self._llm.name != "mock":
+            if needs_mock_fallback(reply, user_text, prior_reply=prior) or not reply_in_world_ok(
+                reply, user_text
+            ):
                 scene = self._scene_engine().generate(system_prompt, history)
-                if not reply_is_generic_mock(scene):
+                if not is_generic_scene_reply(scene):
                     reply = scene
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
-        reply = polish_reply(user_text, reply, prior_reply=prior)
+        reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
@@ -276,7 +329,7 @@ class Orchestrator:
             retry = self._llm.generate(reinforced, history, temperature=0.65)
             if retry.strip():
                 reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
-                reply = polish_reply(user_text, reply, prior_reply=prior)
+                reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
         return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
@@ -348,6 +401,7 @@ class Orchestrator:
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
             user_text=user_text,
+            game_world_brief=self._s.game_world_brief,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -451,6 +505,7 @@ class Orchestrator:
             guard_prompt=guard,
             relationship_summary=meta_ctx.relationship_summary,
             user_text=user_text,
+            game_world_brief=self._s.game_world_brief,
         )
         history = [
             {"role": m.role, "content": m.content}
@@ -472,14 +527,22 @@ class Orchestrator:
             meta_ctx=meta_ctx,
         )
 
-        parts: list[str] = []
-        for piece in self._llm.generate_stream(system_prompt, history):
-            parts.append(piece)
-            yield {"type": "token", "text": piece}
+        strategy = (self._s.dialogue_strategy or "scene_first").lower()
+        if strategy == "scene_first":
+            reply = self._generate_chat_reply(system_prompt, history, user_text)
+            reply = self._finalize_reply(
+                reply, system_prompt, history, user_text, retrieved, user_texts
+            )
+            yield {"type": "token", "text": reply}
+        else:
+            parts: list[str] = []
+            for piece in self._llm.generate_stream(system_prompt, history):
+                parts.append(piece)
+                yield {"type": "token", "text": piece}
 
-        reply = self._finalize_reply(
-            "".join(parts), system_prompt, history, user_text, retrieved, user_texts
-        )
+            reply = self._finalize_reply(
+                "".join(parts), system_prompt, history, user_text, retrieved, user_texts
+            )
 
         self._db.save_emotion(user_id, emotion, time.time())
         self._db.save_relationship(user_id, relationship, time.time())

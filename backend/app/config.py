@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,8 +97,17 @@ class Settings(BaseSettings):
     # 流式对话：done 事件前是否推迟反思/关系归纳等重型 LLM 任务到后台
     chat_defer_heavy_post: bool = True
 
-    # 本地小模型质量不稳时：场景引擎（mock 的场景逻辑）补位，保留有上下文的回复
-    llm_mock_fallback: bool = True
+    # 本地 LLM 明显不可用时的场景回退（scene_first 下很少触发）
+    scene_fallback: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("scene_fallback", "llm_mock_fallback"),
+    )
+
+    # 对话策略：scene_first（游戏推荐）| local_blend | local_llm
+    dialogue_strategy: str = "scene_first"
+
+    # 游戏世界观摘要，注入 system；非空时禁止聊界外内容
+    game_world_brief: str = ""
 
 
 @lru_cache

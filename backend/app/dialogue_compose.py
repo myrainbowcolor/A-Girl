@@ -1,0 +1,317 @@
+"""开放话题的上下文拼装（scene_first 第二层，无 LLM）。"""
+from __future__ import annotations
+
+import hashlib
+import re
+
+from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_world
+from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
+
+
+def _pick(options: tuple[str, ...], seed: str) -> str:
+    idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
+    return options[idx]
+
+
+def _user_history(history: list[dict[str, str]]) -> str:
+    return " ".join(m.get("content", "") for m in history if m.get("role") == "user")
+
+
+def _last_user(history: list[dict[str, str]]) -> str:
+    for m in reversed(history):
+        if m.get("role") == "user":
+            return m.get("content", "")
+    return ""
+
+
+def _last_assistant(history: list[dict[str, str]]) -> str:
+    for m in reversed(history):
+        if m.get("role") == "assistant":
+            return m.get("content", "")
+    return ""
+
+
+def _too_similar(candidate: str, avoid: list[str], threshold: float = 0.82) -> bool:
+    from .reply_guard import reply_similarity
+
+    return any(reply_similarity(candidate, prev) >= threshold for prev in avoid if prev)
+
+
+def compose_open_reply(
+    user_text: str,
+    history: list[dict[str, str]],
+    *,
+    prior_reply: str = "",
+    avoid: list[str] | None = None,
+) -> str:
+    """开放话题兜底：根据近期上下文生成不重复接话（scene/compose 均未命中时）。"""
+    avoid = list(avoid or [])
+    text = user_text.strip()
+    prior_users = _user_history(history)
+    prior_assistant = prior_reply or _last_assistant(history)
+    repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
+    seed_base = text + prior_users[-100:] + prior_assistant[-40:] + f"#{repeat_n}"
+
+    topic = ""
+    for line in reversed([m.get("content", "") for m in history if m.get("role") == "user"]):
+        t = line.strip()
+        if len(t) >= 3 and t not in ("嗯", "哦", "好", "行", "还行", "还好"):
+            topic = t[:14] + ("…" if len(t) > 14 else "")
+            break
+
+    pool: list[str] = []
+    ctx = prior_users + text
+    if any(w in ctx for w in ("烦", "累", "难过", "委屈", "压力", "焦虑", "心累")):
+        pool.extend(
+            [
+                "听起来你心里挺沉的。是突然这样，还是已经有一阵子了？",
+                "嗯，这种时候先别逼自己想明白。我陪着，你想从哪一句开始？",
+                "我收到了。今天最耗你的是哪一块？",
+            ]
+        )
+    if any(w in ctx for w in ("工作", "上班", "公司", "老板", "加班")):
+        pool.extend(
+            [
+                "工作的事啊……是事情堆太多，还是某一件特别委屈？",
+                "嗯，上班确实容易把人掏空。你想先吐槽还是先理理？",
+                "我听着。是最近都这样，还是就今天特别难？",
+            ]
+        )
+    if topic:
+        pool.append(f"嗯，{topic} 这事你想先聊哪一块？")
+    pool.extend(
+        [
+            "嗯，我在呢。你先随便丢几个词给我也行~",
+            "好，我收到了。不用一次说完~",
+            "我听着。哪一块你现在最想提？",
+            "嗯，这事不急。你想从哪儿开始说？",
+            "好，我接住了。慢慢讲~",
+            "我在。你想到什么就说什么~",
+        ]
+    )
+
+    for i in range(max(len(pool) * 3, 12)):
+        candidate = _pick(tuple(pool), seed_base + f"@{i}")
+        if not _too_similar(candidate, avoid):
+            return candidate
+    return pool[0]
+
+
+def compose_contextual_reply(
+    user_text: str,
+    history: list[dict[str, str]],
+    *,
+    prior_reply: str = "",
+) -> str | None:
+    """根据本轮 + 近期用户话拼装自然回复；未覆盖返回 None。"""
+    text = user_text.strip()
+    prior_users = _user_history(history)
+    prior_assistant = prior_reply or _last_assistant(history)
+    repeat_n = sum(1 for m in history if m.get("role") == "user" and m.get("content") == text)
+    seed = text + prior_users[-80:] + prior_assistant[-40:] + f"#{repeat_n}"
+
+    if user_asks_out_of_world(text):
+        return compose_out_of_world_reply(text, seed=seed)
+
+    if user_complains_bot_reply(text):
+        return _pick(
+            (
+                "对不起，刚才确实是我没接对。你现在不开心的感受我听见了，我先陪着你。",
+                "你说得对，我应该先安慰你。抱歉刚才跑偏了——此刻你最难受的是哪一块？",
+                "嗯，是我刚才没接住。先别管回忆那些事了，我在这儿，你想怎么说都行。",
+            ),
+            seed,
+        )
+
+    if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
+        return _pick(
+            (
+                "嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                "听起来你现在心里挺沉的。我在呢，你想从哪一句开始说都行。",
+                "我听见你不开心了。先缓口气，我哪儿也不去。",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("随便聊聊", "随便聊", "闲聊一下", "闲聊")):
+        return _pick(
+            (
+                "好呀～今天过得怎么样，有没有一件小事想跟我分享？",
+                "行，咱慢慢聊。你现在是放松下来了，还是心里还绷着？",
+                "嗯，我在这儿。你想从今天的事聊起，还是就随便发发呆也行~",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("空空的", "空落", "心里空", "没原因", "没啥具体", "也没啥")):
+        return _pick(
+            (
+                "空落落的时候不一定非得有事才行。我陪着，你想说就说~",
+                "嗯，这种没来由的空我也懂。不用逼自己找原因，先歇一会儿？",
+                "没具体的事也会难受的。我在这儿，不急着把你问明白~",
+            ),
+            seed,
+        )
+
+    if text in ("还行", "还行吧", "一般", "还好吧", "还好") or re.fullmatch(r"还?行吧?", text):
+        return _pick(
+            (
+                "还行呀……是今天平平淡淡，还是其实有点什么事憋着？",
+                "嗯，听起来不糟也不特别开心？要是愿意，可以跟我多聊一句~",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("哈哈哈", "哈哈", "嘿嘿")):
+        return _pick(
+            (
+                "哈哈，听你笑我也跟着轻松点了～发生什么好事啦？",
+                "嘻嘻，今天心情不错呀？",
+            ),
+            seed,
+        )
+
+    if "怎么办" in text or "咋办" in text:
+        ctx = prior_users + text
+        if any(w in ctx for w in ("猫", "狗", "宠物", "橘子", "打翻", "杯子")):
+            return _pick(
+                (
+                    "先别跟它置气啦～把易碎的东西收一收，等它消停一会儿再理它？",
+                    "捣蛋完有时会怂怂的哈哈。你先看看它躲哪了，别急着骂~",
+                ),
+                seed,
+            )
+        if any(w in ctx for w in ("老板", "加班", "工作", "辞职")):
+            return (
+                "工作上的事先别急着做决定。今晚把自己从情绪里捞出来，"
+                "明天清醒了再想想下一步？"
+            )
+
+    if "辞职信" in text or ("帮我写" in text and "信" in text):
+        return (
+            "正式文书我帮你写不合适～但你要是想聊聊为什么想走、"
+            "最委屈的是哪一块，我可以认真听。"
+        )
+
+    if any(w in text for w in ("工作上的事", "工作的事", "公司的事", "单位的事")) or (
+        any(w in text for w in ("工作", "上班", "公司", "老板")) and len(text) <= 12
+    ):
+        return _pick(
+            (
+                "工作上的事啊……是最近特别耗你，还是某一件具体的事卡住了？",
+                "嗯，我听出来了。你想先吐槽，还是先理理最委屈的是哪一块？",
+                "工作的事确实容易压着人。是忙不过来，还是心里觉得不公平？",
+            ),
+            seed,
+        )
+
+    if text in ("就那样", "就那样吧", "不知道怎么说", "说不清", "说不上来"):
+        return _pick(
+            (
+                "嗯，说不清也没关系。不用逼自己想明白，我陪着~",
+                "好，那就先这样待着。你想开口了再从随便哪一句开始~",
+                "不用整理成完整故事。丢几个词给我也行，我听得懂~",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
+        return _pick(
+            (
+                "嗯，听起来心里挺堵的。是突然这样的，还是已经有一阵子了？",
+                "烦的时候先别逼自己消化。愿意的话，跟我说是哪件事最缠人？",
+            ),
+            seed,
+        )
+
+    if text in ("?", "？", "…", "..", "...") or text in ("嗯", "哦", "额", "好", "行"):
+        return "我在这儿呢。不急着说，你想开口了再说~"
+
+    if text in ("你好", "嗨", "哈喽", "在吗") or (
+        any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12
+    ):
+        if prior_assistant and ("小语" in prior_assistant or "你好" in prior_assistant):
+            return _pick(
+                (
+                    "又见面啦～今天怎么样？",
+                    "嗨，在呢。想接着聊，还是换点别的？",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("hello", "hi", "HI", "Hello")):
+            return "嗨～我是小语。今天想聊点什么？"
+        return _pick(
+            (
+                "你好呀，我是小语，很高兴认识你～",
+                "嗨～在呢，今天想聊点什么？",
+            ),
+            seed,
+        )
+
+    if text in ("后来呢", "然后呢", "接着呢", "还有呢"):
+        ctx = prior_users + prior_assistant
+        if any(w in ctx for w in ("公园", "逛", "散步")):
+            return _pick(
+                (
+                    "公园那边怎么样？是随便走走，还是碰到什么好玩的了？",
+                    "嗯，逛完心情有没有松一点？有没有哪一幕印象特别深？",
+                ),
+                seed,
+            )
+        if any(w in ctx for w in ("加班", "下班", "工作", "累")):
+            return _pick(
+                (
+                    "后来有没有稍微缓一点？还是一直绷到回家？",
+                    "工作那件事后来怎么样了？不想细说也没关系~",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "嗯，上一段我还没听够呢，再讲一点好不好~",
+                "我在呢，你想从哪一段继续？",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("没啥了", "就这些", "没别的", "没有了", "就这些了")):
+        ctx = prior_users + prior_assistant
+        if any(w in ctx for w in ("公园", "逛", "散步")):
+            return _pick(
+                (
+                    "嗯，随便走走也挺好的。愿意的话，我们聊点别的也行~",
+                    "好呀，那先歇会儿。你接下来想聊什么？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "好，那就先这样。我陪着，你想聊别的随时开口~",
+                "嗯，收到。不急着说，想换话题也行~",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("公园", "逛了", "散步")) and len(text) <= 16:
+        return _pick(
+            (
+                "公园呀，出去走走挺好的。今天天气怎么样？",
+                "嗯，逛公园挺治愈的。是一个人去的吗？",
+            ),
+            seed,
+        )
+
+    if any(w in text for w in ("不愿意", "不想聊", "别说了")):
+        return "好，不聊也行。我陪着，你想说的时候再说~"
+
+    # 承接上一轮：用户纠正「请教你/什么意思」
+    if any(w in text for w in ("请教你", "什么意思", "你在说啥", "没听懂")):
+        topic = _last_user(history)
+        if any(w in topic for w in ("女朋友", "男朋友", "对象", "拉近")):
+            return (
+                "抱歉刚才没说明白。我是想问你：你们最近见面多吗？"
+                "有没有一件你想主动做的小事？"
+            )
+        return "抱歉，我刚才没接准。你再说具体一点，我认真帮你理~"
+
+    return None

@@ -1,7 +1,7 @@
-"""离线 Mock Provider（仅 pytest / CI / 对话质量基线）。
+"""离线 Mock Provider（仅 pytest / CI）。
 
-不调用真实大模型，用关键词模板生成确定性回复，便于自动化测试。
-**用户实际聊天请勿使用 mock**——请配置 LLM 或运行 scripts/start-remote-llm.sh。
+生产对话请用 scene_first + SceneReplyEngine + 本地 LLM，勿将 AGIRL_LLM_PROVIDER 设为 mock。
+场景分支逻辑见 app/scene_engine.py / llm/mock.generate_scene_reply。
 """
 from __future__ import annotations
 
@@ -9,6 +9,12 @@ import hashlib
 import re
 
 from .base import LLMProvider
+from ..sentiment_lexicon import (
+    contains_keyword,
+    contains_any,
+    is_positive_utterance,
+    user_complains_bot_reply,
+)
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
 # 注意：「无聊」不算倾诉，走闲聊分支
@@ -40,7 +46,7 @@ def _user_is_venting(text: str) -> bool:
 
 
 def _user_is_positive(text: str) -> bool:
-    return any(w in text for w in _POSITIVE)
+    return is_positive_utterance(text)
 
 
 def _user_is_greeting(text: str) -> bool:
@@ -71,7 +77,7 @@ def _user_tone(text: str) -> str:
         "不开心", "委屈", "分手", "失恋", "原地踏步", "踏步", "自卑", "迷茫",
     )):
         return "negative"
-    if any(w in t for w in ("开心", "高兴", "喜欢", "谢谢", "棒", "哈哈", "幸福", "温暖")):
+    if is_positive_utterance(t):
         return "positive"
     if any(w in t for w in ("我", "今天", "刚才", "最近")) and len(t) >= 8:
         return "share"
@@ -202,6 +208,31 @@ def _scene_reply(
     prior = _prior_assistant(messages or [])
     turn_no = _user_turn_count(messages or [])
 
+    # 用户纠正 NPC 接话（应先安慰、别跑题回忆）
+    if user_complains_bot_reply(text):
+        return _pick_variant(
+            [
+                f"{dear}{mood}对不起，刚才确实是我没接对。你现在不开心的感受我听见了，"
+                f"我先陪着你，不急着扯别的。",
+                f"{dear}{mood}你说得对，我应该先安慰你。抱歉刚才跑偏了——"
+                f"此刻你最难受的是哪一块？",
+                f"{dear}{mood}嗯，是我刚才没接住。先别管回忆那些事了，我在这儿，"
+                f"你想怎么说都行。",
+            ],
+            text + prior,
+        )
+
+    # 不开心（须在「开心报喜」分支之前）
+    if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
+        return _pick_variant(
+            [
+                f"{dear}{mood}嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                f"{dear}{mood}听起来你现在心里挺沉的。对不起如果刚才没接对，我在呢。",
+                f"{dear}{mood}我听见你不开心了。先缓口气，我哪儿也不去。",
+            ],
+            text + stage,
+        )
+
     # 问候
     if re.search(r"^(你好|嗨|哈喽|hello|hi)", text, re.I):
         if stage == "亲密":
@@ -288,7 +319,7 @@ def _scene_reply(
             return f"{dear}{mood}什么片子呀？好看的话给我也安利一下～"
         if "天气" in text:
             return f"{dear}{mood}是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？"
-        return f"{dear}{mood}嗯嗯，听起来今天还不错～后来呢，有什么让你印象深的事吗？"
+        return f"{dear}{mood}嗯嗯，听起来今天还不错～有什么让你印象深的小事吗？"
 
     # 加班 / 工作压力
     if any(w in text for w in ("加班", "996", "KPI", "开会到")) or (
@@ -411,6 +442,10 @@ def _scene_reply(
         )
 
 
+    # 空落落 / 无具体原因
+    if any(w in text for w in ("空空的", "空落", "没原因", "没啥具体", "也没啥")):
+        return f"{dear}{mood}空落落的时候不一定非得有事才行。我陪着，你想说就说~"
+
     # 晚安 / 道别
     if any(w in text for w in ("晚安", "睡了", "再见", "拜拜", "先走了")):
         if stage in ("朋友", "亲密"):
@@ -437,6 +472,33 @@ def _scene_reply(
         return (
             f"{dear}{mood}对，我是 AI 陪伴角色{name}，不是真人。"
             f"但我会认真听你说话，你想聊什么都可以~"
+        )
+
+    # 怎么称呼 / 名字（排除「记得猫叫什么」等记忆追问）
+    if "记得" not in text and any(
+        w in text for w in ("怎么称呼", "称呼你", "你叫什么", "你名字", "叫什么名字")
+    ):
+        return f"{dear}{mood}叫我{name}就好～{name}，很高兴认识你。"
+
+    # 用户表示没听懂 / 请重新接话
+    if any(w in text for w in ("你在说啥", "什么意思", "没听懂", "请教你", "接准")):
+        return (
+            f"{dear}{mood}抱歉，我刚才没接准你的意思。"
+            f"你再说具体一点，我认真帮你理~"
+        )
+
+    # 用户吐槽回复太敷衍 / 别嗯嗯
+    if any(w in text for w in ("敷衍", "别嗯", "不要嗯", "嗯嗯")):
+        return (
+            f"{dear}{mood}抱歉刚才太敷衍了。我会好好接话，"
+            f"你慢慢说，我认真听~"
+        )
+
+    # 恋爱 / 拉近关系（轻建议，不说教）
+    if any(w in text for w in ("女朋友", "男朋友", "对象", "伴侣", "拉近", "更进一步")):
+        return (
+            f"{dear}{mood}想拉近关系呀……我觉得真诚比套路重要。"
+            f"你们平时是见面多还是线上多？最近有没有一件你想主动做的小事？"
         )
 
     # 询问身份
@@ -471,9 +533,11 @@ def _scene_reply(
             f"不想说太多也没关系，我就在这儿陪着你。"
         )
 
-    # 开心分享
-    if any(w in text for w in ("开心", "高兴", "太棒", "哈哈", "喜欢", "offer", "录取", "通过")):
-        if any(w in text for w in ("城市", "去", "搬")):
+    # 开心分享（否定词安全：「不开心」不会误入）
+    if is_positive_utterance(text):
+        if "城市" in text and any(
+            w in text for w in ("去", "搬", "喜欢", "期待")
+        ):
             return (
                 f"{dear}{mood}要去喜欢的城市呀，光听着就替你开心！"
                 f"那边有什么你最期待的事？"
@@ -513,9 +577,17 @@ def _scene_reply(
             f"这种时候难受很正常，我陪你待着，慢慢说。"
         )
 
-    # 被责骂 / 愤怒发泄
-    if any(w in text for w in ("气死", "骂我", "骂", "辞职", "老板")):
-        if "辞职" in text and ("想" in text or "立刻" in text):
+    # 被责骂 / 愤怒发泄（排除「辞职信」等文书请求）
+    if ("辞职信" in text or ("帮我写" in text and "信" in text)):
+        return (
+            f"{dear}{mood}正式文书我帮你写不合适～但你要是想聊聊为什么想走、"
+            f"最委屈的是哪一块，我可以认真听。"
+        )
+
+    if any(w in text for w in ("气死", "骂我", "骂", "老板")) or (
+        "辞职" in text and ("想" in text or "要" in text) and "信" not in text
+    ):
+        if "辞职" in text and ("想" in text or "立刻" in text) and "信" not in text:
             return (
                 f"{dear}{mood}冲动辞职的念头我理解，但先别急着做决定。"
                 f"今晚先把自己从气里捞出来，明天清醒了再想想？"
@@ -602,9 +674,13 @@ def _scene_reply(
 
     # 极简回复
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
-        if stage in ("朋友", "亲密"):
-            return f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。"
-        return f"{mood}嗯，我听着呢。你愿意多说一点的时候，我都在。"
+        return _pick_variant(
+            [
+                f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。",
+                f"{mood}好，我听着。你想说再说~",
+            ],
+            text + stage,
+        )
 
     if text in ("还好", "还行", "一般"):
         return f"{dear}{mood}还好呀……是今天平平淡淡，还是其实有点什么事憋着？"
@@ -627,9 +703,13 @@ def _fallback_reply(
     stage: str,
     name: str,
     memories: list[str],
+    *,
+    messages: list[dict] | None = None,
 ) -> str:
     dear = _endearment(stage)
     mood = _mood_prefix(emotion, user_last)
+    prior_a = _prior_assistant(messages or [])
+    seed = user_last + stage + prior_a[-48:]
     snippet = user_last.strip()
     if len(snippet) > 20:
         snippet = snippet[:20] + "…"
@@ -640,25 +720,23 @@ def _fallback_reply(
         mem_hint = memories[-1][:16] + ("…" if len(memories[-1]) > 16 else "")
         return (
             f"{dear}{mood}关于「{snippet}」……嗯，我想起来了，{mem_hint}"
-            f"你再多跟我说说呗？"
+            f"你愿意的话，再跟我多说两句~"
         )
 
     templates = {
         "陌生": [
-            f"{mood}嗯，我在听呢——后来呢，发生什么了？",
-            f"{mood}嗯……你愿意多说一点吗？我听着。",
+            f"{mood}嗯，我在呢。你想从哪儿说起都行~",
+            f"{mood}好，我听着。不急着一次说完~",
         ],
         "熟悉": [
-            f"{dear}{mood}嗯嗯，我懂。然后呢？",
-            f"{dear}{mood}嗯，接着说，我听着呢。",
+            f"{dear}{mood}嗯，我听到了。是最近这事一直压着你吗？",
+            f"{dear}{mood}好，我在这儿。你想先吐槽还是先理理思路？",
         ],
         "朋友": [
-            f"{dear}{mood}嗯……我听着呢，慢慢说。"
+            f"{dear}{mood}嗯……我陪着呢，慢慢说。"
             if is_heavy
-            else f"{dear}{mood}嘿，后来怎么样了？",
-            f"{dear}{mood}我在呢，你继续说。"
-            if is_heavy
-            else f"{dear}{mood}嗯嗯，然后呢？",
+            else f"{dear}{mood}我在呢。今天这事你想先聊哪一块？",
+            f"{dear}{mood}好，我听着。不用整理成完整句子~",
         ],
         "亲密": [
             f"{dear}{mood}嗯，我在听～你想让我怎么陪你？",
@@ -666,7 +744,44 @@ def _fallback_reply(
         ],
     }
     options = templates.get(stage, templates["陌生"])
-    return _pick_variant(options, user_last + stage)
+    return _pick_variant(options, seed)
+
+
+# 场景引擎未命中具体分支时的通用问卷式兜底（生产路径应尽量避免）
+GENERIC_SCENE_MARKERS = (
+    "愿意多说一点吗", "后来呢，发生什么了", "嗯，我在听呢——后来呢",
+    "你再多跟我说说", "嗯嗯，然后呢", "我在听呢", "接着说，我听着",
+    "你继续说", "我懂。然后呢", "接着说，我听着呢",
+    "嘿，后来怎么样了", "你再多跟我说说呗",
+    "我听到了。是最近", "一直压着你", "从哪儿说起都行", "先吐槽还是先理理",
+    "今天这事你想先聊哪一块",
+)
+
+
+def generate_scene_reply(system_prompt: str, messages: list[dict]) -> str:
+    """关键词场景回复（scene_first 生产路径；与 MockLLMProvider 同源）。"""
+    user_last = ""
+    for m in reversed(messages):
+        if m["role"] == "user":
+            user_last = m["content"]
+            break
+
+    stage = _extract("关系阶段", system_prompt, "陌生")
+    name = _extract("你的名字", system_prompt, "小语")
+    emotion = _extract("当前情绪", system_prompt, "平和")
+    memories = _extract_memories(system_prompt)
+
+    scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
+    if scene:
+        return scene
+
+    if _user_is_venting(user_last):
+        return MockLLMProvider._empathy_reply(user_last, stage, name)
+    if _user_is_positive(user_last):
+        return MockLLMProvider._warm_reply(user_last, stage, name)
+    if _user_is_greeting(user_last):
+        return MockLLMProvider._greet_reply(stage, name)
+    return ""
 
 
 class MockLLMProvider(LLMProvider):
@@ -675,28 +790,7 @@ class MockLLMProvider(LLMProvider):
         return "mock"
 
     def generate(self, system_prompt: str, messages: list[dict], temperature: float = 0.8) -> str:
-        user_last = ""
-        for m in reversed(messages):
-            if m["role"] == "user":
-                user_last = m["content"]
-                break
-
-        stage = _extract("关系阶段", system_prompt, "陌生")
-        name = _extract("你的名字", system_prompt, "小语")
-        emotion = _extract("当前情绪", system_prompt, "平和")
-        memories = _extract_memories(system_prompt)
-
-        scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
-        if scene:
-            return scene
-
-        if _user_is_venting(user_last):
-            return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
-            return self._warm_reply(user_last, stage, name)
-        if _user_is_greeting(user_last):
-            return self._greet_reply(stage, name)
-        return _fallback_reply(user_last, emotion, stage, name, memories)
+        return generate_scene_reply(system_prompt, messages)
 
     @staticmethod
     def _empathy_reply(user_text: str, stage: str, name: str) -> str:

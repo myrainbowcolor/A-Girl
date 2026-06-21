@@ -105,7 +105,7 @@ class _BadLLM:
 
 def test_scene_blend_on_bad_llm():
     with tempfile.NamedTemporaryFile(suffix=".db") as f:
-        s = Settings(db_path=f.name, llm_mock_fallback=True)
+        s = Settings(db_path=f.name, scene_fallback=True)
         db = Database(f.name)
         mem = MemoryStore(db, HashEmbeddingProvider(dim=256), s)
         o = Orchestrator(db, mem, EmotionEngine(), _BadLLM(), s)
