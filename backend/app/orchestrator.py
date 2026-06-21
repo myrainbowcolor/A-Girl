@@ -33,6 +33,7 @@ from .reply_guard import (
     reply_similarity,
     scene_fallback_reply,
     user_is_closed,
+    reply_is_generic_mock,
 )
 from .user_insight import analyze_user, meta_to_insight_dict
 from .voice import TTSProvider, style_from_emotion
@@ -148,8 +149,6 @@ class Orchestrator:
             fallback = self._scene_engine().generate(system_prompt, history)
             if not is_generic_scene_reply(fallback):
                 return fallback
-            from .reply_guard import scene_fallback_reply
-
             fb = scene_fallback_reply(user_text, prior_reply=prior)
             if fb:
                 return fb

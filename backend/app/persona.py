@@ -39,7 +39,9 @@ _USER_TURN_TONE = {
     "positive": "ta 这轮在分享好事；语气跟着亮起来，真心替 ta 高兴，别敷衍。",
     "nostalgic": "ta 在怀旧；语气柔软，顺着回忆共鸣，不急着拉回现实。",
     "angry": "ta 这轮在发泄怒气；先接住这股火，陪着听，别讲大道理也别催着冷静。",
+    "insomnia": "ta 失眠或脑子停不下来；先接住烦躁，陪着聊或安静待着，别给数羊、早睡、助眠建议，也不急着追问项目细节。",
     "closed": "ta 不想多说或只回极简句；尊重边界，短句陪伴即可，禁止追问「后来呢」「你愿意多说吗」或「有啥可以帮忙」。",
+    "masked_low": "ta 用极简句压着情绪（还好/不知道/累等）；轻轻接住、耐心陪着，可轻问一句，不要问卷连珠炮或逼 ta 说清楚。",
     "meta_pushback": "ta 在质疑为什么要聊/是否真想聊；先正面回应（不强迫、可以不聊），不要套用空泛倾听模板。",
     "identity": "ta 问你是不是机器人/AI；坦诚说明你是 AI 陪伴角色小语，语气自然温柔，不装真人，可继续聊。",
     "filler_complaint": "ta 嫌你回复太敷衍或一直嗯嗯；先道歉，承诺认真接话，不要再用语气词敷衍。",
@@ -47,8 +49,14 @@ _USER_TURN_TONE = {
     "out_of_world": "ta 在问界外百科/查情报/解谜教程；**不要作答**，也别提现实地名、名人、品牌。用城里人接不住的方式岔开，只谈城里、任务、冒险或 ta 的心情。",
 }
 
+# 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
+_MINIMAL_FATIGUE = frozenset({"累"})
+
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 _ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
+_INSOMNIA_KEYWORDS = ("失眠", "睡不着", "脑子停", "越躺越清醒", "躺不住")
 _CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "不是很想说话")
 _FILLER_COMPLAINT_KEYWORDS = ("敷衍", "别嗯", "不要嗯", "嗯嗯")
 _IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
@@ -186,6 +194,8 @@ def _emotion_tone_hint(label: str) -> str:
 def _user_turn_tone_hint(user_text: str) -> str:
     """根据用户本轮消息情感倾向，生成与 avatar/TTS 一致的语气侧重。"""
     t = user_text.strip()
+    if t in _MINIMAL_MASKING or t in _MINIMAL_EVASIVE or t in _MINIMAL_FATIGUE:
+        return _USER_TURN_TONE["masked_low"]
     if not t or t in {"..", "...", "…", "。", "嗯", "哦"} or len(t) <= 2:
         return _USER_TURN_TONE["closed"]
     if any(kw in user_text for kw in _IDENTITY_KEYWORDS):
@@ -206,6 +216,8 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["nostalgic"]
     if any(kw in user_text for kw in _ANGER_KEYWORDS):
         return _USER_TURN_TONE["angry"]
+    if any(kw in user_text for kw in _INSOMNIA_KEYWORDS):
+        return _USER_TURN_TONE["insomnia"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]

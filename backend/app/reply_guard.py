@@ -10,6 +10,10 @@ _CLOSED_MARKERS = (
 )
 _MINIMAL_UTTERANCES = {"..", "...", "…", "。", "嗯", "哦", "额", "好", "行"}
 _GREETING_SHORT = {"你好", "嗨", "哈喽", "在吗", "早上好", "晚上好", "午安"}
+# 整句极简 masking/回避口语：需轻柔共情，非封闭边界（与 emotion.analyzer 对齐）
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
+_MINIMAL_FATIGUE = frozenset({"累"})
 _PUSHY_REPLY_MARKERS = (
     "愿意多说", "你愿意多", "后来呢", "然后呢", "接着说", "有啥事", "可以帮忙", "多跟我说",
     "发生什么了", "想聊什么", "聊点什么", "聊点啥", "聊啥", "我们就聊", "有什么想聊",
@@ -60,11 +64,13 @@ _APOLOGY_REPLIES = (
 
 def user_is_closed(user_text: str) -> bool:
     t = user_text.strip()
+    if t in _MINIMAL_MASKING or t in _MINIMAL_EVASIVE or t in _MINIMAL_FATIGUE:
+        return False
     if not t:
         return True
     if t in _GREETING_SHORT or re.fullmatch(r"(?i)hi|hello", t):
         return False
-    if t in _MINIMAL_UTTERANCES:
+    if t in _MINIMAL_UTTERANCES or len(t) <= 2:
         return True
     if t in {"随便", "算了"}:
         return True
@@ -150,7 +156,6 @@ def reply_similarity(a: str, b: str) -> float:
 def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") -> bool:
     """LLM 输出明显不可用，应回退到场景引擎（mock 的场景逻辑）。"""
     from .out_of_world_guard import (
-        compose_out_of_world_reply,
         reply_is_stiff_deflection,
         reply_looks_factual_encyclopedia,
         reply_uses_real_world_cognition,
@@ -188,7 +193,6 @@ def user_wants_wrap_up(user_text: str) -> bool:
     return t in ("后来呢", "然后呢", "接着呢", "还有呢") or any(
         w in t for w in ("没啥了", "就这些", "没别的", "没有了", "不说了")
     )
-
 
 def _pick_variant(options: tuple[str, ...], seed: str) -> str:
     idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
@@ -252,7 +256,6 @@ def polish_reply(
     reply = guard_closed_user_reply(user_text, reply)
 
     from .out_of_world_guard import (
-        compose_out_of_world_reply,
         reply_is_stiff_deflection,
         reply_looks_factual_encyclopedia,
         reply_uses_real_world_cognition,
