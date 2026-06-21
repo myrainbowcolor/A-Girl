@@ -54,8 +54,53 @@ _FACTUAL_REPLY_MARKERS = (
 )
 
 _STIFF_DEFLECTION_MARKERS = (
-    "现实里", "现实问题", "百科资料", "查资料", "不是我的活儿",
+    "现实里", "现实问题", "现实社会", "百科资料", "查资料", "不是我的活儿",
     "游戏里的陪伴", "答不上来", "不太擅长这类", "联网查",
+)
+
+# NPC 回复中不应出现的现实社会实体/知识载体（情感倾诉语境如「工作」「老板」不在此列）
+_REAL_WORLD_ENTITY_MARKERS = (
+    "法国", "巴黎", "伦敦", "柏林", "纽约", "东京", "首尔", "莫斯科",
+    "北京", "上海", "广州", "深圳", "香港", "台湾",
+    "美国", "英国", "德国", "日本", "韩国", "俄罗斯", "意大利", "西班牙",
+    "澳大利亚", "加拿大", "印度", "巴西", "埃及", "非洲", "欧洲", "亚洲",
+    "比特币", "以太坊", "美元", "欧元", "英镑", "日元", "人民币",
+    "百度", "谷歌", "微博", "抖音", "支付宝", "ChatGPT", "OpenAI",
+    "Python", "Java", "JavaScript", "TypeScript", "SQL", "C++",
+    "爱因斯坦", "牛顿", "秦始皇", "拿破仑", "孔子",
+    "联合国", "NASA", "维基百科", "白宫", "华尔街",
+)
+
+_REAL_WORLD_KNOWLEDGE_PHRASES = (
+    "首都是", "位于欧洲", "位于亚洲", "位于北美", "人口约", "人口为",
+    "成立于", "发明于", "历史上的", "据史料记载", "天气预报", "摄氏度",
+    "联网", "搜资料", "查资料", "百科", "维基", "交作业", "写作业",
+    "窗外", "国外", "海外", "国籍",
+)
+
+_IN_WORLD_DEFLECT_GENERAL = (
+    "唔，这个我在城里的旧志里也没翻到～你怎么忽然想起问这个？",
+    "诶，把我问懵了。是路上听谁提起，还是在任务里碰到的？",
+    "嗯……我脑子里的地图没有这一页。你是对哪一段在意？",
+    "哈哈，这个把我难住了。你想聊的是传闻，还是别的什么？",
+)
+
+_IN_WORLD_DEFLECT_REMOTE = (
+    "这种远方的消息我这边感应不到～你是急着用吗？",
+    "唔，我帮不上这种忙。是为了哪件事在找线索？",
+    "城里信使也未必赶得上这种情报～你是在找什么吗？",
+)
+
+_IN_WORLD_DEFLECT_PUZZLE = (
+    "这种难题我一向绕远路～是公会里的谜题卡住了，还是心里有点烦？",
+    "哈哈，解谜这种事你比我灵光。是卡在哪一步了？",
+    "唔，我脑子转不过这个弯。是任务里的机关，还是别的什么在耗你？",
+)
+
+_IN_WORLD_DEFLECT_SKY = (
+    "我这边只能瞧见城里的灯影和风向～你那儿现在是晴是雨？",
+    "唔，云层厚不厚我感觉得到，细节说不清～你要出城吗？",
+    "城里的钟塔说今天风不大～你那会儿要不要带件薄外套？",
 )
 
 
@@ -66,61 +111,19 @@ def _pick(options: tuple[str, ...], seed: str) -> str:
     return options[idx]
 
 
-def _topic_hint(user_text: str) -> str:
-    """从用户句里摘一个可接话的名词片段，便于自然承接。"""
-    t = user_text.strip()
-    m = _ENCYCLOPEDIA_RE.search(t)
-    if m:
-        return m.group(1)
-    for pat in (
-        re.compile(r"([\u4e00-\u9fffA-Za-z·]{2,8})首都是"),
-        re.compile(r"帮我查(?:一下)?(.{2,10})"),
-        re.compile(r"(今天|明天|后天).{0,4}(天气|气温)"),
-    ):
-        hit = pat.search(t)
-        if hit:
-            return hit.group(1)
-    return ""
-
-
 def compose_out_of_world_reply(user_text: str, *, seed: str = "") -> str:
-    """界外提问的委婉岔开：不直说「不会/现实问题」，像陪伴者自然接不住。"""
+    """界外提问：只用游戏世界语汇委婉岔开，不复述现实名词、不展示现实知识。"""
     t = user_text.strip()
-    topic = _topic_hint(t)
     seed = seed or t
 
     if any(m in t for m in _LOOKUP_MARKERS):
-        pool = (
-            "我这边没法帮你查诶～你是急着要用吗？",
-            "搜这种事得靠你比我快啦。找得顺利吗，还是已经搜烦了？",
-            "嗯，我帮不上查资料这忙～你是为了什么事在找？",
-        )
+        pool = _IN_WORLD_DEFLECT_REMOTE
     elif any(m in t for m in _HOMEWORK_MARKERS) or _WRITING_TASK_RE.search(t) or _TECH_HELP_RE.search(t):
-        pool = (
-            "这类题我一碰就头大～你是为了交作业，还是工作里要用？",
-            "唔，这个真帮不上忙。学/写这些的时候，会不会觉得特别耗神？",
-            "哈哈这个把我难住了。你是卡在哪个环节了？",
-        )
-    elif ("天气" in t or "气温" in t or "多少度" in t or "下雨" in t):
-        pool = (
-            "我感受不到外面的温度～你那会儿冷吗，穿得够吗？",
-            "唔，我看不到窗外。你是打算出门，还是在纠结要不要带伞？",
-            "我这边没有天气预报～你那儿现在是晒还是阴？",
-        )
-    elif topic:
-        pool = (
-            f"{topic}啊……我细节记不清了，只记得个模糊印象。你怎么忽然想到问这个？",
-            f"诶，{topic}？这个得靠你比我懂～是好奇，还是哪儿卡住了？",
-            f"嗯……{topic}我脑子里只剩一团糊的。你是在哪儿看到的呀？",
-            f"哈哈，{topic}把我问住了。你想聊它的哪一块？",
-        )
+        pool = _IN_WORLD_DEFLECT_PUZZLE
+    elif "天气" in t or "气温" in t or "多少度" in t or "下雨" in t:
+        pool = _IN_WORLD_DEFLECT_SKY
     else:
-        pool = (
-            "诶，这个得靠你比我清楚～怎么突然想到问这个？",
-            "嗯……我脑子里关于这个只剩一团模糊了。你是好奇，还是哪儿卡住了？",
-            "哈哈这个把我问住了。你想聊它的哪一块？",
-            "唔，细节我说不好～你为啥忽然问起这个？",
-        )
+        pool = _IN_WORLD_DEFLECT_GENERAL
 
     return _pick(pool, seed)
 
@@ -128,6 +131,43 @@ def compose_out_of_world_reply(user_text: str, *, seed: str = "") -> str:
 def reply_is_stiff_deflection(reply: str) -> bool:
     """婉拒是否过于生硬、像在念规则。"""
     return any(m in reply for m in _STIFF_DEFLECTION_MARKERS)
+
+
+def reply_uses_real_world_cognition(reply: str, user_text: str = "") -> bool:
+    """回复是否携带现实社会的实体、常识或知识表述。"""
+    r = reply.strip()
+    if not r:
+        return False
+    if any(m in r for m in _REAL_WORLD_ENTITY_MARKERS):
+        return True
+    if any(m in r for m in _REAL_WORLD_KNOWLEDGE_PHRASES):
+        return True
+    if reply_looks_factual_encyclopedia(r):
+        return True
+    if user_text and reply_echoes_real_world_query(r, user_text):
+        return True
+    return False
+
+
+def reply_echoes_real_world_query(reply: str, user_text: str) -> bool:
+    """界外提问时，回复不应复述用户句中的现实专名。"""
+    if not user_asks_out_of_world(user_text):
+        return False
+    for term in _REAL_WORLD_ENTITY_MARKERS:
+        if term in user_text and term in reply:
+            return True
+    for m in _ENCYCLOPEDIA_RE.finditer(user_text):
+        subject = m.group(1)
+        if len(subject) >= 2 and subject in reply:
+            return True
+    for pat in (
+        re.compile(r"([\u4e00-\u9fffA-Za-z·]{2,10})首都是"),
+        re.compile(r"帮我查(?:一下)?([\u4e00-\u9fffA-Za-z·]{2,10})"),
+    ):
+        hit = pat.search(user_text)
+        if hit and hit.group(1) in reply:
+            return True
+    return False
 
 
 def _has_emotional_companion_context(text: str) -> bool:

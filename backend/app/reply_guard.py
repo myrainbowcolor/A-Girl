@@ -153,10 +153,15 @@ def needs_mock_fallback(reply: str, user_text: str, *, prior_reply: str = "") ->
         compose_out_of_world_reply,
         reply_is_stiff_deflection,
         reply_looks_factual_encyclopedia,
+        reply_uses_real_world_cognition,
         user_asks_out_of_world,
     )
 
-    if user_asks_out_of_world(user_text) or reply_looks_factual_encyclopedia(reply):
+    if (
+        user_asks_out_of_world(user_text)
+        or reply_looks_factual_encyclopedia(reply)
+        or reply_uses_real_world_cognition(reply, user_text)
+    ):
         return True
     if reply_is_stiff_deflection(reply):
         return True
@@ -250,12 +255,14 @@ def polish_reply(
         compose_out_of_world_reply,
         reply_is_stiff_deflection,
         reply_looks_factual_encyclopedia,
+        reply_uses_real_world_cognition,
         user_asks_out_of_world,
     )
 
     if (
         user_asks_out_of_world(user_text)
         or reply_looks_factual_encyclopedia(reply)
+        or reply_uses_real_world_cognition(reply, user_text)
         or reply_is_stiff_deflection(reply)
         or reply_is_bad_llm(reply)
         or reply_is_filler_heavy(reply)

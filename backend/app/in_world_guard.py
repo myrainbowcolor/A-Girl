@@ -4,7 +4,11 @@ from __future__ import annotations
 import re
 
 from .language import detect_user_language
-from .out_of_world_guard import reply_looks_factual_encyclopedia, user_asks_out_of_world
+from .out_of_world_guard import (
+    reply_looks_factual_encyclopedia,
+    reply_uses_real_world_cognition,
+    user_asks_out_of_world,
+)
 
 _OUT_OF_WORLD_MARKERS = (
     "How can I assist",
@@ -25,6 +29,8 @@ _ENGLISH_HEAVY_RE = re.compile(r"[A-Za-z]{4,}")
 def reply_in_world_ok(reply: str, user_text: str) -> bool:
     """回复是否留在游戏/陪伴语境内。"""
     if not reply or not reply.strip():
+        return False
+    if reply_uses_real_world_cognition(reply, user_text):
         return False
     if user_asks_out_of_world(user_text) and reply_looks_factual_encyclopedia(reply):
         return False

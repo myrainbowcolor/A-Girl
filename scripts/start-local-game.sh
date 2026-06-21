@@ -7,7 +7,7 @@ source "$ROOT/scripts/lib/resolve-local-gguf.sh"
 
 export AGIRL_DIALOGUE_STRATEGY=scene_first
 export AGIRL_DEPLOYMENT_MODE="${AGIRL_DEPLOYMENT_MODE:-embedded}"
-export AGIRL_GAME_WORLD_BRIEF="${AGIRL_GAME_WORLD_BRIEF:-你是游戏世界里的陪伴角色小语。只聊当前世界、冒险与玩家心情；不要提现实公司、公文写作、联网查资料。}"
+export AGIRL_GAME_WORLD_BRIEF="${AGIRL_GAME_WORLD_BRIEF:-你是游戏世界里的陪伴角色小语。只聊城里见闻、冒险任务与玩家心情；禁止在回复中出现现实地名、名人、品牌或任何现实社会常识。}"
 export AGIRL_LOCAL_LLM_TIER="${AGIRL_LOCAL_LLM_TIER:-7b}"
 
 pip install -q -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirements-llm.txt" huggingface-hub
