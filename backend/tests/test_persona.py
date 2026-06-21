@@ -148,8 +148,9 @@ def test_prompt_user_turn_fatigue_talk():
         user_text="今天过得好累，想靠着你说说",
     )
     assert "【本轮侧重】" in p
-    assert "累了但想跟你聊" in p or "邀请慢慢说" in p
-    assert "不想说也没关系" not in p.split("【本轮侧重】")[1].split("\n")[0]
+    hint = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "累了但想跟你聊" in hint
+    assert "邀请慢慢说" in hint
 
 
 def test_prompt_user_turn_sad_not_insomnia():

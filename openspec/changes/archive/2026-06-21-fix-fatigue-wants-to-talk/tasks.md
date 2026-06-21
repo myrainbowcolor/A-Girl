@@ -10,6 +10,6 @@
 
 ## 3. 验证
 
-- [ ] 3.1 `cd backend && python3 -m pytest --ignore=tests/test_dialogue_quality.py -q`
-- [ ] 3.2 `python3 scripts/run_dialogue_quality.py --strict` 与 `python3 -m pytest tests/test_dialogue_quality.py -q`
-- [ ] 3.3 `cd .. && npx openspec validate --specs`
+- [x] 3.1 `cd backend && python3 -m pytest --ignore=tests/test_dialogue_quality.py -q`
+- [x] 3.2 `python3 scripts/run_dialogue_quality.py --strict` 与 `python3 -m pytest tests/test_dialogue_quality.py -q`
+- [x] 3.3 `cd .. && npx openspec validate --specs`
