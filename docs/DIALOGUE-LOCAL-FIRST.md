@@ -108,16 +108,18 @@ bash scripts/start-local-game.sh
 |------|------|------|
 | Qwen2.5-0.5B Q4 | ~400MB | 不推荐（易嗯嗯/空套话） |
 | Qwen2.5-1.5B Q4 | ~1GB | 低配机器 |
-| **Qwen2.5-7B Q4** | **~4.7GB** | **纯本地推荐（start-local-game 默认）** |
-| Qwen2.5-3B Q4 | ~2GB | 低配 `AGIRL_LOCAL_LLM_TIER=3b` |
+| **Qwen2.5-7B Q4** | **~4.7GB** | **纯本地默认（start-local-game）** |
+| Qwen2.5-1.5B Q4 | ~1GB | 低配 `AGIRL_LOCAL_LLM_TIER=1.5b` |
+
+已弃用（启动时会自动清理缓存）：0.5B、3B
 
 均通过 `llama-cpp-python` + HuggingFace GGUF，与现有 `examples/llama_cpp_server.py` 兼容。
 
-**升级后清理旧模型**（如已弃用的 0.5B）：
+**升级后清理旧模型**（如已弃用的 0.5B / 3B）：
 
 ```bash
-bash scripts/clean-local-llm-models.sh              # 删 0.5B
-bash scripts/clean-local-llm-models.sh --unused-tiers   # 只保留当前档位（默认 3b）
+bash scripts/clean-local-llm-models.sh              # 删 0.5B、3B
+bash scripts/clean-local-llm-models.sh --unused-tiers   # 只保留当前档位（默认 7b）
 bash scripts/clean-local-llm-models.sh --dry-run        # 预览
 ```
 
@@ -134,7 +136,7 @@ bash scripts/clean-local-llm-models.sh --dry-run        # 预览
 
 - [ ] 场景库 YAML/JSON 热更新（策划可配）  
 - [ ] `compose` 接 `recent_messages` 做指代（「它」「怎么办」）  
-- [ ] 本地 3B + 仅 paraphrase 模式（scene 产出 draft → LLM 改写）  
+- [ ] 本地 7B + 仅 paraphrase 模式（scene 产出 draft → LLM 改写）  
 - [ ] 按 `dialogue_quality` 场景库持续回归  
 
 ## 9. 验收标准

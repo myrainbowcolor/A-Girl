@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # 默认启动 A-Girl + 本机 llama-cpp（无云 LLM）
-# 默认模型 Qwen2.5-3B；更小/更大：AGIRL_LOCAL_LLM_TIER=1.5b|3b|7b
+# 默认模型 Qwen2.5-7B；低配：AGIRL_LOCAL_LLM_TIER=1.5b
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=lib/resolve-local-gguf.sh
 source "$ROOT/scripts/lib/resolve-local-gguf.sh"
+
+export AGIRL_LOCAL_LLM_TIER="${AGIRL_LOCAL_LLM_TIER:-7b}"
 
 pip install -q -r "$ROOT/backend/requirements.txt" -r "$ROOT/backend/requirements-llm.txt" huggingface-hub
 
@@ -25,7 +27,7 @@ AGIRL_LLM_PROVIDER=openai_compatible
 AGIRL_LLM_BASE_URL=http://127.0.0.1:11435/v1
 AGIRL_LLM_API_KEY=local
 AGIRL_LLM_MODEL=${LLM_MODEL_NAME}
-AGIRL_LLM_TIMEOUT_SECONDS=180
+AGIRL_LLM_TIMEOUT_SECONDS=240
 AGIRL_DIALOGUE_STRATEGY=scene_first
 AGIRL_SCENE_FALLBACK=true
 AGIRL_SENTIMENT_MODE=lexicon

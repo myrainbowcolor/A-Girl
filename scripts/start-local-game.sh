@@ -61,4 +61,4 @@ sleep 3
 echo "=== 策略: scene_first | 模型: ${LLM_MODEL_NAME} ==="
 curl -s "http://127.0.0.1:8011/health"
 echo
-echo ">> http://127.0.0.1:8011/  |  低配可改: AGIRL_LOCAL_LLM_TIER=3b"
+echo ">> http://127.0.0.1:8011/  |  低配可改: AGIRL_LOCAL_LLM_TIER=1.5b"

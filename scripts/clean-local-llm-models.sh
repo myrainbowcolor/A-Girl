@@ -15,22 +15,22 @@ usage() {
   cat <<EOF
 用法: $(basename "$0") [选项]
 
-  默认：删除已弃用的 Qwen2.5-0.5B 缓存（升级 3B 后约释放 400MB+）
+  默认：删除已弃用档位（0.5B、3B 等）
 
 选项:
   --dry-run           只打印将删除的路径，不实际删除
-  --obsolete-only     仅删 0.5B（默认）
+  --obsolete-only     仅删已弃用 repo（默认）
   --unused-tiers      额外删除非当前 AGIRL_LOCAL_LLM_TIER 的 Qwen 档位
   --all-unused        同 --obsolete-only --unused-tiers
   -h, --help          显示帮助
 
 环境变量:
-  AGIRL_LOCAL_LLM_TIER   当前保留档位（默认 3b），配合 --unused-tiers
+  AGIRL_LOCAL_LLM_TIER   当前保留档位（默认 7b），配合 --unused-tiers
   LLAMA_GGUF_PATH        若指向某 GGUF，该文件所在 repo 不会被删
 
 示例:
   bash scripts/clean-local-llm-models.sh
-  AGIRL_LOCAL_LLM_TIER=3b bash scripts/clean-local-llm-models.sh --unused-tiers
+  AGIRL_LOCAL_LLM_TIER=7b bash scripts/clean-local-llm-models.sh --unused-tiers
 EOF
 }
 
@@ -49,12 +49,12 @@ done
 # 已弃用、不再出现在 resolve-local-gguf.sh 档位中的 repo
 _OBSOLETE_REPOS=(
   "models--Qwen--Qwen2.5-0.5B-Instruct-GGUF"
+  "models--Qwen--Qwen2.5-3B-Instruct-GGUF"
 )
 
 declare -A _TIER_REPO=(
   [1.5b]="models--Qwen--Qwen2.5-1.5B-Instruct-GGUF"
-  [3b]="models--Qwen--Qwen2.5-3B-Instruct-GGUF"
-  [7b]="models--Qwen--Qwen2.5-7B-Instruct-GGUF"
+  [7b]="models--bartowski--Qwen2.5-7B-Instruct-GGUF"
 )
 
 _protected_repo=""
@@ -71,11 +71,10 @@ PY
 )"
 fi
 
-_active_tier="${AGIRL_LOCAL_LLM_TIER:-3b}"
+_active_tier="${AGIRL_LOCAL_LLM_TIER:-7b}"
 case "$_active_tier" in
   1.5b|1.5B) _active_tier="1.5b" ;;
-  7b|7B) _active_tier="7b" ;;
-  *) _active_tier="3b" ;;
+  *) _active_tier="7b" ;;
 esac
 
 _to_remove=()
@@ -88,7 +87,7 @@ fi
 
 if [ "$REMOVE_UNUSED_TIERS" -eq 1 ]; then
   _keep="${_TIER_REPO[$_active_tier]}"
-  for tier in 1.5b 3b 7b; do
+  for tier in 1.5b 7b; do
     repo="${_TIER_REPO[$tier]}"
     if [ "$repo" != "$_keep" ]; then
       _to_remove+=("$repo")
@@ -96,7 +95,6 @@ if [ "$REMOVE_UNUSED_TIERS" -eq 1 ]; then
   done
 fi
 
-# 去重
 declare -A _seen=()
 _unique=()
 for repo in "${_to_remove[@]}"; do
