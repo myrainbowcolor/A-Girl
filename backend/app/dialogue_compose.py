@@ -7,6 +7,20 @@ import re
 from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_world
 from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
 
+_MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
+_COMMUTE_MARKERS = ("又要上班", "不想起床", "困死")
+_WORK_VENT_MARKERS = ("累", "烦", "加班", "好烦", "好晚", "十点", "九点", "心累", "烦死", "熬")
+
+
+def _is_morning_greeting(text: str) -> bool:
+    """早安/通勤寒暄（非工作压力倾诉）。"""
+    t = text.strip()
+    if any(v in t for v in _WORK_VENT_MARKERS):
+        return False
+    if any(m in t for m in _MORNING_GREETING_MARKERS):
+        return True
+    return any(m in t for m in _COMMUTE_MARKERS)
+
 
 def _pick(options: tuple[str, ...], seed: str) -> str:
     idx = int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % len(options)
@@ -193,8 +207,28 @@ def compose_contextual_reply(
             "最委屈的是哪一块，我可以认真听。"
         )
 
+    if _is_morning_greeting(text):
+        if any(w in text for w in ("困", "不想起床", "起不来", "困死")):
+            return _pick(
+                (
+                    "困成这样还要爬起来，辛苦啦。先缓两分钟再动身也行，今天有什么特别的事吗？",
+                    "嘿，困死了还得动身？先喝口水缓一缓～今天有啥特别安排吗？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "早呀～又要开工啦？今天想怎么撑过去？",
+                "早安呀～通勤路上顺利吗？",
+                "早！今天也要上班呀，先给自己鼓鼓劲～",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("工作上的事", "工作的事", "公司的事", "单位的事")) or (
-        any(w in text for w in ("工作", "上班", "公司", "老板")) and len(text) <= 12
+        any(w in text for w in ("工作", "上班", "公司", "老板"))
+        and len(text) <= 12
+        and not _is_morning_greeting(text)
     ):
         return _pick(
             (
