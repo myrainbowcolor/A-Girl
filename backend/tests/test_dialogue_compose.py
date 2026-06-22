@@ -79,3 +79,17 @@ def test_compose_open_avoids_recent():
 
 def test_in_world_accepts_chinese():
     assert reply_in_world_ok("嗨～我是小语。今天想聊点什么？", "hello")
+
+
+def test_compose_morning_commute_not_work_vent():
+    out = compose_contextual_reply("早呀，今天又要上班了", [])
+    assert out
+    assert "不公平" not in out
+    assert "忙不过来" not in out
+    assert any(w in out for w in ("早", "开工", "上班", "通勤", "鼓劲"))
+
+
+def test_compose_work_vent_still_routes():
+    out = compose_contextual_reply("上班好累", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "耗", "吐槽", "委屈", "工作"))
