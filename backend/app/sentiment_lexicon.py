@@ -30,8 +30,19 @@ POSITIVE_WORDS = (
     "offer", "dream", "录取", "通过", "中了",
 )
 
+LONGING_WORDS = (
+    "想你", "想念", "好久不见", "好久没聊", "有点想你", "好想你",
+)
+
+
+def is_longing_utterance(text: str) -> bool:
+    """依恋/想念口语，区别于纯开心报喜。"""
+    return contains_any(text, LONGING_WORDS)
+
 
 def is_positive_utterance(text: str) -> bool:
+    if is_longing_utterance(text):
+        return False
     if contains_any(text, ("不开心", "不高兴", "不喜欢", "不幸福")):
         return False
     return contains_any(text, POSITIVE_WORDS)

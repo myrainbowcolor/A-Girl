@@ -35,6 +35,13 @@ def test_analyze_lexicon_bored_is_neutral():
     assert r.label == "中性"
 
 
+def test_analyze_lexicon_longing_warm_not_cheer():
+    """想念句温和正向，区别于纯开心报喜。"""
+    r = analyze_lexicon("好久没聊了，有点想你")
+    assert 0.35 <= r.sentiment <= 0.45
+    assert "想念" in r.label
+
+
 def test_analyze_lexicon_minimal_short_replies():
     """整句极简口语应偏负向，驱动 avatar comfort；长句不误判。"""
     assert analyze_lexicon("还好").sentiment < -0.2

@@ -149,3 +149,18 @@ def test_prompt_user_turn_sad_not_insomnia():
     )
     assert "【本轮侧重】" in p
     assert "数羊" not in p and "助眠" not in p
+
+
+def test_prompt_user_turn_longing():
+    """想念句应使用依恋侧重，禁止开心报喜指引。"""
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(affinity=80.0),
+        [],
+        user_text="好久没聊了，有点想你",
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "想念" in block or "依恋" in block or "在乎" in block
+    assert "禁止" in block and "报喜" in block

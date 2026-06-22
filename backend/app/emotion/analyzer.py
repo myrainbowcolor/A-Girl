@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 
-from ..sentiment_lexicon import contains_keyword, is_positive_utterance
+from ..sentiment_lexicon import contains_keyword, is_longing_utterance, is_positive_utterance
 
 _POSITIVE = {
     "喜欢", "开心", "高兴", "爱", "谢谢", "感谢", "想你", "想念", "好棒", "厉害",
@@ -54,6 +54,9 @@ def analyze_lexicon(text: str) -> SentimentResult:
         return SentimentResult(-0.35, 0.0, "偏负向", "lexicon")
     if stripped in _MINIMAL_EVASIVE:
         return SentimentResult(-0.45, 0.0, "偏负向", "lexicon")
+
+    if is_longing_utterance(text):
+        return SentimentResult(0.38, 0.15, "想念", "lexicon")
 
     pos = sum(1 for w in _POSITIVE if contains_keyword(text, w))
     neg = sum(1 for w in _NEGATIVE if w in text)
