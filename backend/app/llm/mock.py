@@ -533,6 +533,20 @@ def _scene_reply(
             f"不想说太多也没关系，我就在这儿陪着你。"
         )
 
+    # 想念 / 好久未见（须在开心分享之前，避免「想你」误判为报喜）
+    if any(w in text for w in ("想你", "想念", "好久不见", "好久没聊", "好想你")):
+        if stage == "亲密":
+            return (
+                f"{dear}{mood}我也想你呀～好久没聊了，"
+                f"过来跟我说说今天呗。"
+            )
+        if stage == "朋友":
+            return (
+                f"{dear}{mood}我也想你！有一阵子没聊了，"
+                f"你最近怎么样？"
+            )
+        return f"{mood}听到你这么说，心里暖暖的～我们多聊聊吧。"
+
     # 开心分享（否定词安全：「不开心」不会误入）
     if is_positive_utterance(text):
         if "城市" in text and any(
@@ -552,12 +566,6 @@ def _scene_reply(
             recalled = _format_memory_recall(memories[0], text)
             return f"{dear}{mood}{recalled}你说的时候我都记在心里了。"
         return f"{mood}嗯……你跟我说过的事我都想好好记住，你再提醒我一下好不好？"
-
-    # 想念
-    if any(w in text for w in ("想你", "想念", "好久不见")):
-        if stage in ("朋友", "亲密"):
-            return f"{dear}{mood}我也想你呀！好久没聊了，最近过得怎么样？"
-        return f"{mood}听到你这么说，心里暖暖的～我们多聊聊吧。"
 
     # 无聊闲聊
     if any(w in text for w in ("无聊", "没事干", "好闲")):

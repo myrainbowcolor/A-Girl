@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
 from .emotion.analyzer import analyze_lexicon
-from .sentiment_lexicon import user_complains_bot_reply
+from .sentiment_lexicon import is_longing_utterance, user_complains_bot_reply
 from .language import detect_user_language, language_instruction
 
 _STAGE_GUIDE = {
@@ -47,6 +47,7 @@ _USER_TURN_TONE = {
     "filler_complaint": "ta 嫌你回复太敷衍或一直嗯嗯；先道歉，承诺认真接话，不要再用语气词敷衍。",
     "bot_reply_complaint": "ta 在纠正你接话方式（应先安慰、别跑题回忆）；先道歉，优先接住情绪，不要继续回忆/报喜/追问。",
     "out_of_world": "ta 在问界外百科/查情报/解谜教程；**不要作答**，也别提现实地名、名人、品牌。用城里人接不住的方式岔开，只谈城里、任务、冒险或 ta 的心情。",
+    "longing": "ta 在表达想念或好久未见；语气柔软黏一点，表达也在乎对方，禁止「开心起来了」「报喜」式语气。",
 }
 
 # 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
@@ -218,6 +219,8 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["angry"]
     if any(kw in user_text for kw in _INSOMNIA_KEYWORDS):
         return _USER_TURN_TONE["insomnia"]
+    if is_longing_utterance(user_text):
+        return _USER_TURN_TONE["longing"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]

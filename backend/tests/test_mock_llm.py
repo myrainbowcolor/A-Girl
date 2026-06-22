@@ -77,3 +77,14 @@ def test_mock_breakup_crying_empathy():
     )
     assert any(w in reply for w in ("哭", "陪", "分手"))
     assert "不太好受" not in reply
+
+
+def test_mock_longing_miss_you_not_cheer():
+    """亲密想念应柔软回应，不走开心报喜分支。"""
+    reply = MockLLMProvider().generate(
+        _system("亲密"),
+        [{"role": "user", "content": "好久没聊了，有点想你"}],
+    )
+    assert "想你" in reply or "好久" in reply
+    assert "跟着开心起来了" not in reply
+    assert "报喜" not in reply
