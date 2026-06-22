@@ -1,5 +1,6 @@
 from app.sentiment_lexicon import (
     contains_keyword,
+    is_longing_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -22,3 +23,9 @@ def test_bot_reply_complaint():
 def test_city_false_positive_on_recall_complaint():
     msg = "为什么话要去回忆这些事情"
     assert not is_positive_utterance(msg)
+
+
+def test_longing_not_positive_utterance():
+    assert is_longing_utterance("好久没聊了，有点想你")
+    assert not is_positive_utterance("好久没聊了，有点想你")
+    assert is_positive_utterance("今天好开心，考试过了！")
