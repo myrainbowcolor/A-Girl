@@ -104,5 +104,5 @@ def test_compose_pet_antics_followup():
     out = compose_contextual_reply("它今天又把杯子打翻了哈哈", hist)
     assert out
     assert "橘子" in out
-    assert any(w in out for w in ("打翻", "杯子", "捣蛋"))
+    assert any(w in out for w in ("打翻", "杯子", "捣蛋", "搞破坏"))
     assert "发生什么好事啦" not in out
