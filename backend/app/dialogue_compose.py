@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import re
 
+from .llm.mock import _pet_name_from_context
 from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_world
 from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
 
@@ -172,6 +173,30 @@ def compose_contextual_reply(
             (
                 "还行呀……是今天平平淡淡，还是其实有点什么事憋着？",
                 "嗯，听起来不糟也不特别开心？要是愿意，可以跟我多聊一句~",
+            ),
+            seed,
+        )
+
+    # 宠物捣蛋续聊（须在通用「哈哈」报喜之前，与 mock.py 场景分支对齐）
+    pet_name = _pet_name_from_context(prior_users + " " + text, "")
+    if (
+        pet_name is not None
+        and "它" in text
+        and any(w in text for w in ("打翻", "杯子", "搞破坏", "淘气", "拆家"))
+    ):
+        refer = pet_name if pet_name else "小家伙"
+        if "打翻" in text or "杯子" in text:
+            return _pick(
+                (
+                    f"哈哈，{refer}又把杯子打翻啦？这种捣蛋精真是又气又好笑～它现在躲起来了吗？",
+                    f"哈哈，{refer}搞破坏啦？易碎的东西可得收一收～它这会儿怂了没？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                f"哈哈，{refer}又淘气了～今天怎么这么有精神呀？",
+                f"捣蛋完有时会怂怂的哈哈，{refer}这会儿干嘛呢？",
             ),
             seed,
         )

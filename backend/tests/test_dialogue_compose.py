@@ -93,3 +93,16 @@ def test_compose_work_vent_still_routes():
     out = compose_contextual_reply("上班好累", [])
     assert out
     assert any(w in out for w in ("累", "辛苦", "耗", "吐槽", "委屈", "工作"))
+
+
+def test_compose_pet_antics_followup():
+    """宠物续聊应接住捣蛋细节，而非泛化「发生什么好事啦」报喜句。"""
+    hist = [
+        {"role": "user", "content": "我养了一只叫橘子的猫，超粘人"},
+        {"role": "assistant", "content": "养猫呀！粘人的小家伙最会撒娇了～"},
+    ]
+    out = compose_contextual_reply("它今天又把杯子打翻了哈哈", hist)
+    assert out
+    assert "橘子" in out
+    assert any(w in out for w in ("打翻", "杯子", "捣蛋"))
+    assert "发生什么好事啦" not in out
