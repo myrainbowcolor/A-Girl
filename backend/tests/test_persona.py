@@ -164,3 +164,42 @@ def test_prompt_user_turn_longing():
     block = p.split("【本轮侧重】")[1].split("\n")[0]
     assert "想念" in block or "依恋" in block or "在乎" in block
     assert "禁止" in block and "报喜" in block
+
+
+def test_prompt_user_turn_self_doubt():
+    """自我怀疑句应使用独立侧重，而非通用低落共情。"""
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(),
+        [],
+        user_text="是不是我太差劲了",
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "自我怀疑" in block or "跟别人比" in block
+    assert "别比了" in block or "灌鸡汤" in block
+
+
+def test_prompt_user_turn_comparison_self_doubt():
+    p = build_system_prompt(
+        Persona(),
+        EmotionState(),
+        Relationship(),
+        [],
+        user_text="同学都升职了，就我还原地踏步",
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "自我怀疑" in block or "跟别人比" in block
+
+
+def test_prompt_user_turn_sad_not_self_doubt():
+    """纯低落句不走自我怀疑侧重。"""
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="回家还要哄娃，心好累"
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "先接住感受" in block
+    assert "自我怀疑" not in block and "跟别人比" not in block

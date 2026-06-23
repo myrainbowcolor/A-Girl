@@ -48,6 +48,7 @@ _USER_TURN_TONE = {
     "bot_reply_complaint": "ta 在纠正你接话方式（应先安慰、别跑题回忆）；先道歉，优先接住情绪，不要继续回忆/报喜/追问。",
     "out_of_world": "ta 在问界外百科/查情报/解谜教程；**不要作答**，也别提现实地名、名人、品牌。用城里人接不住的方式岔开，只谈城里、任务、冒险或 ta 的心情。",
     "longing": "ta 在表达想念或好久未见；语气柔软黏一点，表达也在乎对方，禁止「开心起来了」「报喜」式语气。",
+    "self_doubt": "ta 在自我怀疑或跟别人比；先承认这种落差感真实，别急着反驳或灌鸡汤，可轻轻问具体卡点，禁止简单说「别比了」「你会好的」。",
 }
 
 # 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
@@ -58,6 +59,9 @@ _MINIMAL_FATIGUE = frozenset({"累"})
 _NOSTALGIC_KEYWORDS = ("怀念", "童年", "小时候", "以前", "当年", "老家")
 _ANGER_KEYWORDS = ("气死", "骂我", "生气", "愤怒", "火大", "太过分", "当众骂")
 _INSOMNIA_KEYWORDS = ("失眠", "睡不着", "脑子停", "越躺越清醒", "躺不住")
+_SELF_DOUBT_KEYWORDS = (
+    "差劲", "没用", "自卑", "原地踏步", "踏步", "管不住", "自我怀疑", "好没用", "太差",
+)
 _CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "不是很想说话")
 _FILLER_COMPLAINT_KEYWORDS = ("敷衍", "别嗯", "不要嗯", "嗯嗯")
 _IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
@@ -221,6 +225,8 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["insomnia"]
     if is_longing_utterance(user_text):
         return _USER_TURN_TONE["longing"]
+    if any(kw in user_text for kw in _SELF_DOUBT_KEYWORDS):
+        return _USER_TURN_TONE["self_doubt"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]
