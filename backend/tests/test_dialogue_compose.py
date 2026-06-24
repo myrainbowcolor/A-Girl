@@ -95,6 +95,21 @@ def test_compose_work_vent_still_routes():
     assert any(w in out for w in ("累", "辛苦", "耗", "吐槽", "委屈", "工作"))
 
 
+def test_compose_insomnia_rumination_followup():
+    """失眠反刍续聊应接住清醒/烦躁感，而非通用问卷式「突然还是一阵子」。"""
+    hist = [
+        {"role": "user", "content": "又失眠了，脑子停不下来"},
+        {"role": "assistant", "content": "失眠的时候脑子特别吵，我懂这种难受。"},
+        {"role": "user", "content": "一直在想项目会不会黄"},
+        {"role": "assistant", "content": "项目悬着的时候最折磨人，我理解你躺不住。"},
+    ]
+    out = compose_contextual_reply("越躺越清醒，好烦", hist)
+    assert out
+    assert any(w in out for w in ("清醒", "折磨", "失眠", "睡不着", "脑子"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
 def test_compose_pet_antics_followup():
     """宠物续聊应接住捣蛋细节，而非泛化「发生什么好事啦」报喜句。"""
     hist = [
