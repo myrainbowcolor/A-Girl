@@ -284,6 +284,18 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 孤独 + 失眠复合（须在通用失眠关键词之前，与 mock 场景分支对齐）
+    if any(w in text for w in ("孤独", "孤单", "寂寞")) and any(
+        w in text for w in ("失眠", "睡不着", "凌晨")
+    ):
+        return _pick(
+            (
+                "凌晨还睡不着，又有点孤独……我理解这种难熬。在呢，不用急着说，想开口了再说~",
+                "嗯，睡不着又孤单的时候特别难受。我陪着，不催你，慢慢说也行？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("失眠", "睡不着", "脑子停")):
         return _pick(
             (

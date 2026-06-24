@@ -110,6 +110,15 @@ def test_compose_insomnia_rumination_followup():
     assert "一阵子" not in out
 
 
+def test_compose_lonely_insomnia():
+    """孤独+失眠复合句应先接住孤独感，而非纯失眠反刍话术。"""
+    out = compose_contextual_reply("凌晨了还睡不着，有点孤独", [])
+    assert out
+    assert any(w in out for w in ("孤独", "孤单", "寂寞", "难熬"))
+    assert "脑子特别吵" not in out
+    assert "是什么事在转" not in out
+
+
 def test_compose_pet_antics_followup():
     """宠物续聊应接住捣蛋细节，而非泛化「发生什么好事啦」报喜句。"""
     hist = [
