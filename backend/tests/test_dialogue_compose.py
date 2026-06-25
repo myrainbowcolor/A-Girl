@@ -130,3 +130,11 @@ def test_compose_pet_antics_followup():
     assert "橘子" in out
     assert any(w in out for w in ("打翻", "杯子", "捣蛋", "搞破坏"))
     assert "发生什么好事啦" not in out
+
+
+def test_compose_minimal_fatigue():
+    """单字「累」应返回疲惫共情短句，而非泛化「不太好受」套话。"""
+    out = compose_contextual_reply("累", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
+    assert "不太好受" not in out

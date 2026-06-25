@@ -177,6 +177,15 @@ def compose_contextual_reply(
             seed,
         )
 
+    if text == "累":
+        return _pick(
+            (
+                "累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",
+                "听着就心疼，累的时候能说出来已经很好了。先歇一会儿，我陪着~",
+            ),
+            seed,
+        )
+
     # 宠物捣蛋续聊（须在通用「哈哈」报喜之前，与 mock.py 场景分支对齐）
     pet_name = _pet_name_from_context(prior_users + " " + text, "")
     if (
