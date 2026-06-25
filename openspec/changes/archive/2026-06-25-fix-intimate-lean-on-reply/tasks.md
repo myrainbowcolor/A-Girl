@@ -14,6 +14,6 @@
 
 ## 4. 验证
 
-- [ ] 4.1 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [ ] 4.2 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
-- [ ] 4.3 运行 `npx openspec validate --specs` 通过
+- [x] 4.1 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [x] 4.2 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
+- [x] 4.3 运行 `npx openspec validate --specs` 通过
