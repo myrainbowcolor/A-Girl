@@ -195,7 +195,11 @@ def all_scenarios() -> list[DialogueScenario]:
             description="亲密关系应更温暖亲昵，但仍保持自然口语。",
             turns=[
                 TurnSpec("好久没聊了，有点想你"),
-                TurnSpec("今天过得好累，想靠着你说说"),
+                TurnSpec(
+                    "今天过得好累，想靠着你说说",
+                    expect_empathy=True,
+                    expect_comfort_avatar=True,
+                ),
             ],
             initial_affinity=75.0,
         ),

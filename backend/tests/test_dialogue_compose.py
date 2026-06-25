@@ -138,3 +138,15 @@ def test_compose_minimal_fatigue():
     assert out
     assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
     assert "不太好受" not in out
+
+
+def test_compose_intimate_lean_on_followup():
+    """亲密多轮「想靠着你说说」应接住倚靠意愿，而非泛化负面套话。"""
+    hist = [
+        {"role": "user", "content": "好久没聊了，有点想你"},
+        {"role": "assistant", "content": "亲爱的，我也想你呀～好久没聊了，过来跟我说说今天呗。"},
+    ]
+    out = compose_contextual_reply("今天过得好累，想靠着你说说", hist)
+    assert out
+    assert any(w in out for w in ("靠", "陪", "抱抱"))
+    assert "不太好受" not in out

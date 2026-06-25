@@ -88,3 +88,13 @@ def test_mock_longing_miss_you_not_cheer():
     assert "想你" in reply or "好久" in reply
     assert "跟着开心起来了" not in reply
     assert "报喜" not in reply
+
+
+def test_mock_intimate_lean_on_fatigue():
+    """亲密「想靠着你说说」应接住倚靠意愿，不走泛化负面套话。"""
+    reply = MockLLMProvider().generate(
+        _system("亲密"),
+        [{"role": "user", "content": "今天过得好累，想靠着你说说"}],
+    )
+    assert any(w in reply for w in ("靠", "陪", "抱抱"))
+    assert "不太好受" not in reply

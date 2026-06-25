@@ -527,6 +527,32 @@ def _scene_reply(
             text + stage,
         )
 
+    # 倚靠倾诉（须在通用负面关键词之前，避免忽略「想靠着你说说」）
+    if any(w in text for w in ("靠着", "想靠着", "倚靠")):
+        if stage == "亲密":
+            return _pick_variant(
+                [
+                    f"{dear}{mood}过来，靠着我慢慢说。今天辛苦了，我哪儿也不去。",
+                    f"{dear}{mood}嗯，靠过来吧。累的时候不用硬撑，想说什么就说~",
+                ],
+                text + stage,
+            )
+        if stage == "朋友":
+            return _pick_variant(
+                [
+                    f"{dear}{mood}累的时候跟我说就好，我陪着。今天最耗你的是哪一块儿？",
+                    f"{dear}{mood}嗯，我在呢。不想整理成完整句子也行，慢慢说~",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}累的时候能说出来已经很好了。我陪着，你想从哪一句开始？",
+                f"{dear}{mood}嗯，我在听。不用硬撑，慢慢说就好~",
+            ],
+            text + stage,
+        )
+
     # 情绪低落 — 优先共情
     if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦")):
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")

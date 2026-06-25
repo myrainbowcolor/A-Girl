@@ -186,6 +186,25 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 倚靠倾诉（须在通用负面兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("靠着", "想靠着", "倚靠")):
+        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        if is_intimate or "靠着你说" in text:
+            return _pick(
+                (
+                    "过来，靠着我慢慢说。今天辛苦了，我哪儿也不去。",
+                    "嗯，靠过来吧。累的时候不用硬撑，想说什么就说~",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "累的时候跟我说就好，我陪着。今天最耗你的是哪一块儿？",
+                "嗯，我在呢。不想整理成完整句子也行，慢慢说~",
+            ),
+            seed,
+        )
+
     # 宠物捣蛋续聊（须在通用「哈哈」报喜之前，与 mock.py 场景分支对齐）
     pet_name = _pet_name_from_context(prior_users + " " + text, "")
     if (
