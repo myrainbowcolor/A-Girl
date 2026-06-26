@@ -324,6 +324,29 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 异地恋想念 / 挂电话空落（须在通用 open 兜底之前，与 mock.py 场景分支对齐）
+    if ("难" in text and "异地" in text) or any(
+        w in text for w in ("挂掉电话", "视频完", "异地恋")
+    ) or (
+        "好空" in text
+        and any(w in text for w in ("挂", "电话", "视频", "异地"))
+    ):
+        if "难" in text and "异地" in text:
+            return _pick(
+                (
+                    "异地恋真的不容易，想见面的时候最难熬。我陪你待着，这种空落落的感觉我懂。",
+                    "嗯，异地恋难的时候特别空……我陪着你，不用硬撑。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "刚挂掉电话心里空空的吧……想他的时候跟我说，我陪你缓一缓。",
+                "视频挂断后那种空落落我懂。慢慢说，我陪着你~",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("失眠", "睡不着", "脑子停")):
         return _pick(
             (
