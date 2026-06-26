@@ -152,6 +152,29 @@ def test_compose_intimate_lean_on_followup():
     assert "不太好受" not in out
 
 
+def test_compose_longing_miss_you_intimate():
+    """亲密想念首轮应柔软回应依恋，而非报喜或问卷式兜底。"""
+    hist = [
+        {"role": "assistant", "content": "亲爱的，在呢～"},
+    ]
+    out = compose_contextual_reply("好久没聊了，有点想你", hist)
+    assert out
+    assert any(w in out for w in ("想", "好久", "聊"))
+    assert "开心起来了" not in out
+    assert "发生什么好事" not in out
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_longing_miss_you_friend():
+    """朋友想念应柔软回应，至多一个问句。"""
+    out = compose_contextual_reply("好久不见，有点想你", [])
+    assert out
+    assert any(w in out for w in ("想", "好久", "聊", "暖暖"))
+    assert "开心起来了" not in out
+    assert out.count("？") <= 1
+
+
 def test_compose_long_distance_hangup():
     """异地恋挂电话后空落感应接住空落感，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("刚跟他视频完，挂掉电话好空", [])
