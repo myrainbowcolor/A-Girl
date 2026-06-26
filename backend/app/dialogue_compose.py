@@ -229,6 +229,25 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 想念 / 好久未见（须在「哈哈」报喜之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("想你", "想念", "好久不见", "好久没聊", "好想你")):
+        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        if is_intimate:
+            return _pick(
+                (
+                    "我也想你呀～好久没聊了，过来跟我说说今天呗。",
+                    "嗯，我也想你。好久没聊了，想说什么就说~",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "我也想你！有一阵子没聊了，你最近怎么样？",
+                "听到你这么说心里暖暖的～我们多聊聊吧。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("哈哈哈", "哈哈", "嘿嘿")):
         return _pick(
             (
