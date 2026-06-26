@@ -150,3 +150,21 @@ def test_compose_intimate_lean_on_followup():
     assert out
     assert any(w in out for w in ("靠", "陪", "抱抱"))
     assert "不太好受" not in out
+
+
+def test_compose_long_distance_hangup():
+    """异地恋挂电话后空落感应接住空落感，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("刚跟他视频完，挂掉电话好空", [])
+    assert out
+    assert any(w in out for w in ("空", "挂", "视频", "陪"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_long_distance_hard():
+    """异地恋难熬续聊应接住难熬感，而非问卷式兜底。"""
+    out = compose_contextual_reply("有时候觉得异地恋好难", [])
+    assert out
+    assert any(w in out for w in ("异地", "难熬", "难", "陪"))
+    assert "突然" not in out
+    assert "一阵子" not in out
