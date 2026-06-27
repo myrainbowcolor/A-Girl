@@ -40,7 +40,7 @@ def test_prompt_user_turn_positive():
 
 def test_prompt_user_turn_neutral_omits_block():
     p = build_system_prompt(
-        Persona(), EmotionState(), Relationship(), [], user_text="今天天气不错"
+        Persona(), EmotionState(), Relationship(), [], user_text="今天要开会"
     )
     assert "【本轮侧重】" not in p
 
