@@ -95,6 +95,18 @@ def test_analyze_lexicon_morning_greeting_warm():
     assert analyze_lexicon("今天要开会").sentiment == 0.0
 
 
+def test_analyze_lexicon_casual_positive_smalltalk():
+    """轻松正向闲聊应温和正向，驱动微笑 avatar。"""
+    r = analyze_lexicon("今天天气不错")
+    assert 0.35 <= r.sentiment <= 0.45
+    assert "闲聊" in r.label
+    r2 = analyze_lexicon("刚看完一部挺好的电影")
+    assert 0.35 <= r2.sentiment <= 0.45
+    assert "闲聊" in r2.label
+    assert analyze_lexicon("天气不错但心情还是很差").sentiment < 0.35
+    assert analyze_lexicon("今天要开会").sentiment == 0.0
+
+
 def test_analyze_lexicon_nostalgic_and_pet_warm():
     """怀旧感怀、分享粘人宠物应触发柔和正向，驱动微笑表情。"""
     assert analyze_lexicon("突然想到小时候外婆做的汤圆，好怀念").sentiment > 0

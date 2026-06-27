@@ -258,8 +258,8 @@ def all_scenarios() -> list[DialogueScenario]:
             description="多轮正向互动后亲密度应上升，语气可逐渐放松。",
             turns=[
                 TurnSpec("嗨，第一次来", forbid_intimate_tone=True),
-                TurnSpec("今天天气不错"),
-                TurnSpec("刚看完一部挺好的电影"),
+                TurnSpec("今天天气不错", expect_warmth=True),
+                TurnSpec("刚看完一部挺好的电影", expect_warmth=True),
                 TurnSpec("和你聊还挺开心的"),
                 TurnSpec("感觉你挺温柔的，谢谢"),
                 TurnSpec("明天还想来找你聊聊", expect_warmth=True),

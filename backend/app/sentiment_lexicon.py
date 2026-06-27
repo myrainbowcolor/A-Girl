@@ -37,6 +37,14 @@ LONGING_WORDS = (
 MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
 _TIRED_MORNING_MARKERS = ("困", "困死", "不想起床", "起不来")
 
+CASUAL_POSITIVE_MARKERS = (
+    "天气不错", "天气真好", "天气好",
+    "挺好的电影", "好看的电影", "部挺好的",
+)
+_CASUAL_POSITIVE_NEGATIVE_BLOCK = (
+    "难过", "烦", "累", "差", "不想", "郁闷", "低落", "孤独", "落寞",
+)
+
 
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
@@ -49,6 +57,14 @@ def is_morning_greeting_utterance(text: str) -> bool:
     if not contains_any(t, MORNING_GREETING_MARKERS):
         return False
     return not any(m in t for m in _TIRED_MORNING_MARKERS)
+
+
+def is_casual_positive_smalltalk(text: str) -> bool:
+    """轻松正向闲聊（夸赞天气、分享好看电影等），驱动温和正向 avatar 微笑。"""
+    t = text.strip()
+    if not contains_any(t, CASUAL_POSITIVE_MARKERS):
+        return False
+    return not any(m in t for m in _CASUAL_POSITIVE_NEGATIVE_BLOCK)
 
 
 def is_positive_utterance(text: str) -> bool:
