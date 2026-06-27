@@ -34,10 +34,21 @@ LONGING_WORDS = (
     "想你", "想念", "好久不见", "好久没聊", "有点想你", "好想你",
 )
 
+MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
+_TIRED_MORNING_MARKERS = ("困", "困死", "不想起床", "起不来")
+
 
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
     return contains_any(text, LONGING_WORDS)
+
+
+def is_morning_greeting_utterance(text: str) -> bool:
+    """早安寒暄（无困倦标记），驱动温和正向 avatar 微笑。"""
+    t = text.strip()
+    if not contains_any(t, MORNING_GREETING_MARKERS):
+        return False
+    return not any(m in t for m in _TIRED_MORNING_MARKERS)
 
 
 def is_positive_utterance(text: str) -> bool:

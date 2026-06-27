@@ -87,6 +87,14 @@ def test_analyze_lexicon_positive_offer():
     assert analyze_lexicon("我拿到 dream offer 了！！").sentiment > 0
 
 
+def test_analyze_lexicon_morning_greeting_warm():
+    r = analyze_lexicon("早呀，今天又要上班了")
+    assert 0.35 <= r.sentiment <= 0.45
+    assert "寒暄" in r.label
+    assert analyze_lexicon("困死了，不想起床").sentiment < -0.2
+    assert analyze_lexicon("今天要开会").sentiment == 0.0
+
+
 def test_analyze_lexicon_nostalgic_and_pet_warm():
     """怀旧感怀、分享粘人宠物应触发柔和正向，驱动微笑表情。"""
     assert analyze_lexicon("突然想到小时候外婆做的汤圆，好怀念").sentiment > 0

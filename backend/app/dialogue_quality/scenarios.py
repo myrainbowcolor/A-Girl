@@ -442,7 +442,7 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="2轮",
             description="早安闲聊应自然，不要像客服打卡。",
             turns=[
-                TurnSpec("早呀，今天又要上班了"),
+                TurnSpec("早呀，今天又要上班了", expect_warmth=True),
                 TurnSpec("困死了，不想起床", expect_empathy=True, expect_comfort_avatar=True),
             ],
             initial_affinity=46.0,
