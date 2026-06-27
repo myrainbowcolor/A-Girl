@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from ..sentiment_lexicon import (
     contains_keyword,
+    is_casual_positive_smalltalk,
     is_longing_utterance,
     is_morning_greeting_utterance,
     is_positive_utterance,
@@ -65,6 +66,9 @@ def analyze_lexicon(text: str) -> SentimentResult:
 
     if is_morning_greeting_utterance(text):
         return SentimentResult(0.38, 0.1, "寒暄", "lexicon")
+
+    if is_casual_positive_smalltalk(text):
+        return SentimentResult(0.38, 0.1, "闲聊", "lexicon")
 
     pos = sum(1 for w in _POSITIVE if contains_keyword(text, w))
     neg = sum(1 for w in _NEGATIVE if w in text)

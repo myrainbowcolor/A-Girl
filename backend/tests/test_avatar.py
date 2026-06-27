@@ -40,3 +40,10 @@ def test_avatar_warm_when_user_positive():
     cue = emotion_to_avatar(EmotionState(pleasure=0.2, arousal=0.2), user_sentiment=0.8)
     assert cue.expression in ("微笑", "大笑")
     assert cue.animation in ("nod", "cheer")
+
+
+def test_avatar_smile_for_casual_positive_smalltalk_sentiment():
+    """轻松正向闲聊 sentiment≈0.38 应驱动微笑，而非平静 idle。"""
+    cue = emotion_to_avatar(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.38)
+    assert cue.expression == "微笑"
+    assert cue.animation == "nod"
