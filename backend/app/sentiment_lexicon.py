@@ -45,6 +45,14 @@ _CASUAL_POSITIVE_NEGATIVE_BLOCK = (
     "难过", "烦", "累", "差", "不想", "郁闷", "低落", "孤独", "落寞",
 )
 
+CASUAL_SOCIAL_MARKERS = (
+    "好无聊", "无聊啊",
+    "你在干嘛", "在干嘛", "干什么",
+)
+_CASUAL_SOCIAL_NEGATIVE_BLOCK = _CASUAL_POSITIVE_NEGATIVE_BLOCK + (
+    "不想活", "没意思", "没劲",
+)
+
 
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
@@ -65,6 +73,14 @@ def is_casual_positive_smalltalk(text: str) -> bool:
     if not contains_any(t, CASUAL_POSITIVE_MARKERS):
         return False
     return not any(m in t for m in _CASUAL_POSITIVE_NEGATIVE_BLOCK)
+
+
+def is_casual_social_smalltalk(text: str) -> bool:
+    """无聊摸鱼、社交探问（你在干嘛），驱动温和正向 avatar 微笑；勿将「无聊」入负面词典。"""
+    t = text.strip()
+    if not contains_any(t, CASUAL_SOCIAL_MARKERS):
+        return False
+    return not any(m in t for m in _CASUAL_SOCIAL_NEGATIVE_BLOCK)
 
 
 def is_positive_utterance(text: str) -> bool:
