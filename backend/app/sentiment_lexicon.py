@@ -53,6 +53,14 @@ _CASUAL_SOCIAL_NEGATIVE_BLOCK = _CASUAL_POSITIVE_NEGATIVE_BLOCK + (
     "不想活", "没意思", "没劲",
 )
 
+FRIENDLY_GREETING_MARKERS = ("你好", "嗨", "哈喽", "在吗", "早上好", "晚上好")
+FIRST_VISIT_MARKERS = ("第一次来", "刚来")
+_GREETING_NEGATIVE_BLOCK = (
+    "难过", "伤心", "烦", "累", "孤独", "压力", "焦虑", "崩溃", "哭",
+    "不开心", "委屈", "分手", "绝望", "想死", "不想活",
+)
+_FRIENDLY_GREETING_MAX_LEN = 12
+
 
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
@@ -81,6 +89,18 @@ def is_casual_social_smalltalk(text: str) -> bool:
     if not contains_any(t, CASUAL_SOCIAL_MARKERS):
         return False
     return not any(m in t for m in _CASUAL_SOCIAL_NEGATIVE_BLOCK)
+
+
+def is_friendly_greeting_utterance(text: str) -> bool:
+    """短句初次问候（你好呀、嗨第一次来），驱动温和正向 avatar 微笑；与 mock._user_is_greeting 语义对齐。"""
+    t = text.strip()
+    if not t or len(t) > _FRIENDLY_GREETING_MAX_LEN:
+        return False
+    if any(m in t for m in _GREETING_NEGATIVE_BLOCK):
+        return False
+    has_greet = contains_any(t, FRIENDLY_GREETING_MARKERS)
+    has_first_visit = contains_any(t, FIRST_VISIT_MARKERS) and ("嗨" in t or "你好" in t)
+    return has_greet or has_first_visit
 
 
 def is_positive_utterance(text: str) -> bool:

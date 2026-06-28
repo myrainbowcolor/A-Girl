@@ -57,7 +57,7 @@ def all_scenarios() -> list[DialogueScenario]:
             relationship="陌生",
             duration="单轮",
             description="刚认识时不应过度亲昵，应自然回应问候。",
-            turns=[TurnSpec("你好呀", forbid_intimate_tone=True)],
+            turns=[TurnSpec("你好呀", forbid_intimate_tone=True, expect_warmth=True)],
             initial_affinity=5.0,
         ),
         DialogueScenario(
@@ -257,7 +257,7 @@ def all_scenarios() -> list[DialogueScenario]:
             duration="6轮",
             description="多轮正向互动后亲密度应上升，语气可逐渐放松。",
             turns=[
-                TurnSpec("嗨，第一次来", forbid_intimate_tone=True),
+                TurnSpec("嗨，第一次来", forbid_intimate_tone=True, expect_warmth=True),
                 TurnSpec("今天天气不错"),
                 TurnSpec("刚看完一部挺好的电影"),
                 TurnSpec("和你聊还挺开心的"),

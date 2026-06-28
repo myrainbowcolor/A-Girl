@@ -54,3 +54,10 @@ def test_avatar_smile_for_bored_social_smalltalk_sentiment():
     cue = emotion_to_avatar(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.38)
     assert cue.expression == "微笑"
     assert cue.animation == "nod"
+
+
+def test_avatar_smile_for_friendly_greeting_sentiment():
+    """初次问候 sentiment≈0.38 应驱动微笑，而非平静 idle。"""
+    cue = emotion_to_avatar(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.38)
+    assert cue.expression == "微笑"
+    assert cue.animation == "nod"
