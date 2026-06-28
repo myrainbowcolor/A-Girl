@@ -28,11 +28,16 @@ def test_analyze_lexicon_sick_and_lonely():
     assert analyze_lexicon("过年一个人，有点落寞").sentiment < 0
 
 
-def test_analyze_lexicon_bored_is_neutral():
-    """无聊闲聊不应触发负面情绪，避免数字人误显示担心脸。"""
+def test_analyze_lexicon_bored_social_smalltalk_warm():
+    """无聊摸鱼/社交探问应温和正向，驱动微笑 avatar；勿入负面词典。"""
     r = analyze_lexicon("好无聊啊")
-    assert r.sentiment == 0.0
-    assert r.label == "中性"
+    assert 0.35 <= r.sentiment <= 0.45
+    assert "闲聊" in r.label
+    r2 = analyze_lexicon("你在干嘛")
+    assert 0.35 <= r2.sentiment <= 0.45
+    assert "闲聊" in r2.label
+    assert analyze_lexicon("好无聊，心情还是很差").sentiment < 0.35
+    assert analyze_lexicon("嗯").sentiment == 0.0
 
 
 def test_analyze_lexicon_longing_warm_not_cheer():
