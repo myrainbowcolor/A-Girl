@@ -100,6 +100,18 @@ def test_analyze_lexicon_morning_greeting_warm():
     assert analyze_lexicon("今天要开会").sentiment == 0.0
 
 
+def test_analyze_lexicon_friendly_greeting_warm():
+    """初识友好问候应温和正向，驱动微笑 avatar；勿将「嗯」误判。"""
+    r = analyze_lexicon("你好呀")
+    assert 0.35 <= r.sentiment <= 0.45
+    assert "寒暄" in r.label
+    r2 = analyze_lexicon("嗨，第一次来")
+    assert 0.35 <= r2.sentiment <= 0.45
+    assert "寒暄" in r2.label
+    assert analyze_lexicon("你好，我今天很难过").sentiment < 0.35
+    assert analyze_lexicon("嗯").sentiment == 0.0
+
+
 def test_analyze_lexicon_casual_positive_smalltalk():
     """轻松正向闲聊应温和正向，驱动微笑 avatar。"""
     r = analyze_lexicon("今天天气不错")

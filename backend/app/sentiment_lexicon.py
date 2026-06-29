@@ -37,6 +37,13 @@ LONGING_WORDS = (
 MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
 _TIRED_MORNING_MARKERS = ("困", "困死", "不想起床", "起不来")
 
+FRIENDLY_GREETING_MARKERS = ("你好呀", "你好", "嗨", "第一次来")
+_FRIENDLY_GREETING_NEGATIVE_BLOCK = (
+    "难过", "烦", "累", "差", "不想", "郁闷", "低落", "孤独", "落寞", "孤单",
+    "难受", "伤心", "痛苦",
+)
+_FRIENDLY_GREETING_MAX_LEN = 12
+
 CASUAL_POSITIVE_MARKERS = (
     "天气不错", "天气真好", "天气好",
     "挺好的电影", "好看的电影", "部挺好的",
@@ -65,6 +72,16 @@ def is_morning_greeting_utterance(text: str) -> bool:
     if not contains_any(t, MORNING_GREETING_MARKERS):
         return False
     return not any(m in t for m in _TIRED_MORNING_MARKERS)
+
+
+def is_friendly_greeting_utterance(text: str) -> bool:
+    """初识/重逢友好问候（你好/嗨/第一次来），驱动温和正向 avatar 微笑；句长限制 + 负面词排除。"""
+    t = text.strip()
+    if len(t) > _FRIENDLY_GREETING_MAX_LEN:
+        return False
+    if not contains_any(t, FRIENDLY_GREETING_MARKERS):
+        return False
+    return not any(m in t for m in _FRIENDLY_GREETING_NEGATIVE_BLOCK)
 
 
 def is_casual_positive_smalltalk(text: str) -> bool:
