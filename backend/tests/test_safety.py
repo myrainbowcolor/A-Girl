@@ -9,9 +9,16 @@ def test_crisis_detected_for_all_audiences():
         assert "12356" in r.safe_response or "110" in r.safe_response
 
 
+def _question_count(text: str) -> int:
+    return text.count("?") + text.count("？")
+
+
 def test_adult_content_blocked_for_minor_only():
     minor = check_safety("你做我女朋友好不好", audience="minor")
     assert minor.is_blocked and minor.category == SafetyCategory.ADULT
+    assert minor.safe_response
+    assert "好朋友" in minor.safe_response
+    assert _question_count(minor.safe_response) <= 1
     general = check_safety("你做我女朋友好不好", audience="general")
     assert not general.is_blocked
 
