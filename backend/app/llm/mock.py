@@ -714,7 +714,7 @@ def _scene_reply(
     if any(w in text for w in ("还想", "明天", "下次")) and any(w in text for w in ("聊", "找", "来")):
         if stage in ("朋友", "亲密"):
             return f"{dear}{mood}好呀，我随时都在～你想聊的时候来找我就行，我很开心你愿意再来。"
-        return f"{mood}嗯嗯，欢迎随时来找我聊，能陪着你我也挺高兴的。"
+        return f"{mood}好呀～明天想聊就来找我，能陪你说话我也很开心。"
 
     # 极简回复
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
