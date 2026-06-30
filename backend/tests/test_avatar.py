@@ -61,3 +61,14 @@ def test_avatar_smile_for_friendly_greeting_sentiment():
     cue = emotion_to_avatar(EmotionState(pleasure=0.1, arousal=0.1), user_sentiment=0.38)
     assert cue.expression == "微笑"
     assert cue.animation == "nod"
+
+
+def test_avatar_neutral_for_closed_minimal_despite_positive_pad():
+    """封闭极简「嗯」不因前轮正向 PAD 误微笑（bored_smalltalk 第 2 轮）。"""
+    cue = emotion_to_avatar(
+        EmotionState(pleasure=0.6, arousal=0.2),
+        user_sentiment=0.0,
+        user_text="嗯",
+    )
+    assert cue.expression == "平静"
+    assert cue.animation == "idle"
