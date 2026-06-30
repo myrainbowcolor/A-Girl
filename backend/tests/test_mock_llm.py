@@ -90,6 +90,17 @@ def test_mock_longing_miss_you_not_cheer():
     assert "报喜" not in reply
 
 
+def test_mock_stranger_continue_chat_natural():
+    """陌生关系续聊应口语化，禁止嗯嗯开头与欢迎随时客服腔。"""
+    reply = MockLLMProvider().generate(
+        _system("陌生"),
+        [{"role": "user", "content": "明天还想来找你聊聊"}],
+    )
+    assert not reply.lstrip().startswith("嗯")
+    assert "欢迎随时" not in reply
+    assert any(w in reply for w in ("开心", "高兴", "真好", "棒"))
+
+
 def test_mock_intimate_lean_on_fatigue():
     """亲密「想靠着你说说」应接住倚靠意愿，不走泛化负面套话。"""
     reply = MockLLMProvider().generate(
