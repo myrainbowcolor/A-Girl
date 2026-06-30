@@ -1,9 +1,7 @@
 ## Purpose
 
 提供 TTS/STT 语音能力与 PAD 驱动的数字人 Avatar 表现，含颜文字过滤朗读与语音模式下的音画同步。
-
 ## Requirements
-
 ### Requirement: TTS 按需合成
 
 系统 SHALL 提供 `/api/tts`，将文本合成为音频；朗读前 MUST 过滤 emoji/颜文字（strip_for_tts）。
@@ -91,7 +89,12 @@
 #### Scenario: 封闭极简句仍平静或 comfort
 
 - **WHEN** 用户说「嗯」
-- **THEN** avatar 不因本需求误判为微笑
+- **THEN** avatar 不因本需求误判为微笑；即使 NPC 内在 PAD 偏正向（如前轮闲聊抬高 pleasure），expression MUST 为「平静」，animation 为 idle
+
+#### Scenario: 封闭极简句不受前轮正向 PAD 影响
+
+- **WHEN** 用户在前轮发送「好无聊啊」后仅回复「嗯」
+- **THEN** avatar expression 为「平静」，animation 为 idle（非微笑 nod）
 
 ### Requirement: 友好问候时温暖表情
 
@@ -120,3 +123,4 @@
 
 - **WHEN** 用户开启语音播放
 - **THEN** 气泡文本与 TTS 同步呈现
+

@@ -8,6 +8,17 @@ from dataclasses import dataclass
 
 from .domain import EmotionState
 
+# 整句中性封闭极简口语：陪伴脸应平静，不因前轮正向 PAD 误微笑（不含「不想说」类情绪封闭句）
+_NEUTRAL_MINIMAL_AVATAR = frozenset({
+    "..", "...", "…", "。", "嗯", "嗯嗯", "哦", "噢", "额", "好", "行", "算了", "随便",
+})
+
+
+def is_neutral_minimal_avatar_utterance(text: str) -> bool:
+    """整句仅为中性极简口语（嗯/哦等），非 masking/回避/情绪封闭倾诉。"""
+    t = text.strip()
+    return t in _NEUTRAL_MINIMAL_AVATAR
+
 
 @dataclass
 class AvatarCue:
@@ -57,14 +68,21 @@ def emotion_to_avatar(
     emotion: EmotionState,
     is_crisis: bool = False,
     user_sentiment: float | None = None,
+    user_text: str | None = None,
 ) -> AvatarCue:
     """由 PAD 推导表情与动作。
 
     危机场景优先表现为"担心 + 安抚"，避免不合时宜的笑脸。
     user_sentiment：用户本轮情感倾向；负向时 NPC 优先展示倾听/安抚姿态。
+    user_text：封闭极简句（嗯/哦等）优先平静陪伴脸，不因前轮正向 PAD 误微笑。
     """
     if is_crisis:
         return AvatarCue(expression="担心", intensity=0.9, animation="comfort")
+
+    if user_text is not None and is_neutral_minimal_avatar_utterance(user_text):
+        p, a = emotion.pleasure, emotion.arousal
+        raw = min(1.0, max(0.2, (abs(p) + abs(a)) / 1.6 + 0.1))
+        return AvatarCue(expression="平静", intensity=_intensity_curve(raw), animation="idle")
 
     if user_sentiment is not None and user_sentiment < -0.2:
         p, a = emotion.pleasure, emotion.arousal

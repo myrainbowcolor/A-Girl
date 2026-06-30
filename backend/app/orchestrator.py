@@ -437,7 +437,10 @@ class Orchestrator:
 
         # [7] 数字人表情 + 可选 TTS
         avatar = emotion_to_avatar(
-            emotion, is_crisis=False, user_sentiment=sentiment_for_log
+            emotion,
+            is_crisis=False,
+            user_sentiment=sentiment_for_log,
+            user_text=user_text,
         )
 
         return ChatResult(
@@ -513,7 +516,10 @@ class Orchestrator:
         ]
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
         avatar = emotion_to_avatar(
-            emotion, is_crisis=False, user_sentiment=sentiment_for_log
+            emotion,
+            is_crisis=False,
+            user_sentiment=sentiment_for_log,
+            user_text=user_text,
         )
 
         yield self._stream_meta(
