@@ -100,6 +100,16 @@ def is_casual_social_smalltalk(text: str) -> bool:
     return not any(m in t for m in _CASUAL_SOCIAL_NEGATIVE_BLOCK)
 
 
+def has_casual_social_context(prior_text: str) -> bool:
+    """近期用户话是否处于无聊/社交闲聊语境（用于极简附和续聊，非单句判定）。"""
+    t = prior_text.strip()
+    if not t:
+        return False
+    if not contains_any(t, CASUAL_SOCIAL_MARKERS):
+        return False
+    return not any(m in t for m in _CASUAL_SOCIAL_NEGATIVE_BLOCK)
+
+
 def is_positive_utterance(text: str) -> bool:
     if is_longing_utterance(text):
         return False

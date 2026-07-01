@@ -12,6 +12,7 @@ from .base import LLMProvider
 from ..sentiment_lexicon import (
     contains_keyword,
     contains_any,
+    has_casual_social_context,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -717,6 +718,17 @@ def _scene_reply(
         return f"{mood}好呀～明天想聊就来找我，能陪你说话我也很开心。"
 
     # 极简回复
+    prior_users = " ".join(m["content"] for m in (messages or []) if m["role"] == "user")
+    if text in ("嗯", "嗯嗯", "好", "哦", "噢") and has_casual_social_context(prior_users):
+        return _pick_variant(
+            [
+                f"{dear}{mood}摸鱼状态我懂～随便唠唠也行，你最近有追什么吗？",
+                f"{mood}哈哈没事，正好陪我打发时间～你想聊点啥？",
+                f"{dear}{mood}那咱就随便唠～你今天碰到什么有意思的事没？",
+            ],
+            text + prior_users,
+        )
+
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
         return _pick_variant(
             [

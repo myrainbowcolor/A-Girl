@@ -6,7 +6,7 @@ import re
 
 from .llm.mock import _pet_name_from_context
 from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_world
-from .sentiment_lexicon import contains_keyword, user_complains_bot_reply
+from .sentiment_lexicon import contains_keyword, has_casual_social_context, user_complains_bot_reply
 
 _MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
 _COMMUTE_MARKERS = ("又要上班", "不想起床", "困死")
@@ -392,6 +392,16 @@ def compose_contextual_reply(
             (
                 "嗯，听起来心里挺堵的。是突然这样的，还是已经有一阵子了？",
                 "烦的时候先别逼自己消化。愿意的话，跟我说是哪件事最缠人？",
+            ),
+            seed,
+        )
+
+    if text in ("嗯", "嗯嗯", "哦", "噢", "好", "行") and has_casual_social_context(prior_users):
+        return _pick(
+            (
+                "摸鱼状态我懂～随便唠唠也行，你最近有追什么吗？",
+                "哈哈没事，正好陪我打发时间～你想聊点啥？",
+                "那咱就随便唠～你今天碰到什么有意思的事没？",
             ),
             seed,
         )

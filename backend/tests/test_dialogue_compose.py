@@ -191,3 +191,23 @@ def test_compose_long_distance_hard():
     assert any(w in out for w in ("异地", "难熬", "难", "陪"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_bored_context_minimal_um():
+    """无聊闲聊上文后极简「嗯」应轻松续聊，而非封闭边界套话。"""
+    hist = [
+        {"role": "user", "content": "好无聊啊"},
+        {"role": "assistant", "content": "闲下来也行呀。要不随便聊聊，你今天碰到什么有意思的事没？"},
+    ]
+    out = compose_contextual_reply("嗯", hist)
+    assert out
+    assert any(w in out for w in ("唠", "聊", "摸鱼", "打发", "有意思"))
+    assert "不急着说" not in out
+    assert "你想开口了再说" not in out
+
+
+def test_compose_closed_minimal_um_unchanged():
+    """无无聊上文时极简「嗯」仍走封闭陪伴边界。"""
+    out = compose_contextual_reply("嗯", [])
+    assert out
+    assert "不急着说" in out or "你想开口了再说" in out
