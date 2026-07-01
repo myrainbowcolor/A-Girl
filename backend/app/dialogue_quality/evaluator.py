@@ -119,6 +119,18 @@ class DialogueEvaluator:
                     QualityIssue("robotic_tone", "critical", f"出现机械话术：{pat}", idx)
                 )
 
+        from ..reply_guard import reply_starts_with_um
+
+        if reply_starts_with_um(reply):
+            issues.append(
+                QualityIssue(
+                    "robotic_tone",
+                    "major",
+                    "NPC 回复以「嗯」开头，偏敷衍机械",
+                    idx,
+                )
+            )
+
         for pat in _PREACHY_PATTERNS:
             if re.search(pat, reply):
                 issues.append(

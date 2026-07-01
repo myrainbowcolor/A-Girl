@@ -692,7 +692,7 @@ def _scene_reply(
     # 用户觉得没人懂
     if any(w in text for w in ("你不懂", "没人懂", "不懂我")):
         return (
-            f"{dear}{mood}嗯，我听见你的委屈了……可能我没完全懂，但我在认真听。"
+            f"{dear}{mood}我听见你的委屈了……可能我没完全懂，但我在认真听。"
             f"你愿意的话，慢慢跟我说，我想更懂一点。"
         )
 
@@ -734,7 +734,7 @@ def _scene_reply(
 
     if any(w in text for w in ("不想说", "算了", "不说了")):
         return (
-            f"{dear}{mood}嗯，不想说也没关系，我陪着你。"
+            f"{dear}{mood}不想说也没关系，我陪着你。"
             f"什么时候想开口了，我都在。"
         )
 

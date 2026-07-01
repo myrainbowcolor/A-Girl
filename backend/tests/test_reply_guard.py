@@ -163,3 +163,56 @@ def test_no_repeat_across_vague_turns():
             assert "一直压着你" not in r or all(
                 "一直压着你" not in p for p in replies[:-1]
             )
+
+
+def test_reply_starts_with_um():
+    from app.reply_guard import reply_starts_with_um
+
+    assert reply_starts_with_um("嗯，我在听")
+    assert reply_starts_with_um("（安静了一会儿）嗯，睡不着又孤单")
+    assert not reply_starts_with_um("（安静了一会儿）睡不着又孤单")
+    assert not reply_starts_with_um("听着不糟也不特别开心？")
+
+
+def test_strip_npc_leading_um():
+    from app.reply_guard import strip_npc_leading_um
+
+    assert strip_npc_leading_um("嗯，睡不着又孤单的时候特别难受。").startswith("睡不着")
+    assert strip_npc_leading_um(
+        "（安静了一会儿）嗯，听起来心里挺堵的。"
+    ).startswith("（安静了一会儿）听起来")
+    assert strip_npc_leading_um(
+        "嘿，（轻轻叹了口气）嗯，我听见你的委屈了……"
+    ).startswith("嘿，（轻轻叹了口气）我听见")
+    assert strip_npc_leading_um("嗯") == "嗯"
+    apology = "对不起，我不该一直嗯嗯的。你想聊什么，我好好回应~"
+    assert strip_npc_leading_um(apology, user_text="能别嗯嗯的回答吗") == apology
+
+
+def test_polish_strips_um_leading():
+    out = polish_reply("凌晨了还睡不着，有点孤独", "嗯，睡不着又孤单的时候特别难受。")
+    assert not out.lstrip().startswith("嗯")
+
+
+def test_evaluator_flags_um_leading_reply():
+    from app.avatar import AvatarCue
+    from app.dialogue_quality.evaluator import DialogueEvaluator, TurnContext
+    from app.domain import EmotionState, Relationship
+    from app.orchestrator import ChatResult
+
+    ev = DialogueEvaluator()
+    ctx = TurnContext(
+        turn_index=0,
+        user_text="还好",
+        result=ChatResult(
+            reply="嗯，听起来不糟也不特别开心？",
+            emotion=EmotionState(),
+            relationship=Relationship(),
+            avatar=AvatarCue(expression="平静", intensity=0.5, animation="idle"),
+            retrieved_memories=[],
+            is_crisis=False,
+            llm="mock",
+        ),
+    )
+    issues = ev.evaluate_turn(ctx)
+    assert any(i.rule_id == "robotic_tone" and i.severity == "major" for i in issues)
