@@ -103,6 +103,41 @@ def reply_is_filler_heavy(reply: str) -> bool:
     return bool(re.search(r"(嗯+[…\.~]?){2,}", r))
 
 
+def reply_starts_with_um(reply: str) -> bool:
+    """去除动作括号与亲昵前缀后，是否以「嗯」类 filler 开头。"""
+    return bool(re.match(r"^嗯", _normalize_reply(reply)))
+
+
+def strip_npc_leading_um(reply: str, *, user_text: str = "") -> str:
+    """剥离 NPC 回复句首「嗯」「嗯嗯」「嗯…」，符合 persona 禁止规则。"""
+    if user_complains_filler(user_text) and any(w in reply for w in ("抱歉", "对不起")):
+        return reply
+    t = reply.strip()
+    if not t or not reply_starts_with_um(t):
+        return reply
+
+    prefix = ""
+    rest = t
+    for lead in ("亲爱的，", "嘿，"):
+        if rest.startswith(lead):
+            prefix += lead
+            rest = rest[len(lead) :]
+            break
+    while True:
+        m = re.match(r"^（[^）]*）", rest)
+        if not m:
+            break
+        prefix += m.group(0)
+        rest = rest[m.end() :].lstrip()
+
+    if not re.match(r"^嗯", rest):
+        return reply
+    body = re.sub(r"^(嗯+[…\.~]?|呃+)+[，,]?\s*", "", rest).strip()
+    if len(body) < 4:
+        return reply
+    return prefix + body
+
+
 def reply_is_generic_llm(reply: str) -> bool:
     r = _normalize_reply(reply)
     if any(m in r for m in _GENERIC_LLM_MARKERS) and len(r) <= 56:
@@ -288,9 +323,10 @@ def polish_reply(
         if alt and reply_similarity(alt, prior_reply) < 0.88:
             return alt
 
-    return ensure_reply_diversity(
+    reply = ensure_reply_diversity(
         reply, user_text, history or [], prior_reply=prior_reply
     )
+    return strip_npc_leading_um(reply, user_text=user_text)
 
 
 def prior_assistant_reply(history: list[dict[str, str]]) -> str:
