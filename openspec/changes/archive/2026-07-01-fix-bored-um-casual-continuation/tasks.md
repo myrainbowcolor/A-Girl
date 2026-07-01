@@ -10,5 +10,5 @@
 ## 3. 测试与验证
 
 - [x] 3.1 `test_dialogue_compose.py` 增加无聊上文「嗯」与封闭场景「嗯」对照测试
-- [ ] 3.2 跑 `pytest`（忽略 dialogue_quality）+ `run_dialogue_quality.py --strict` + `test_dialogue_quality.py` 全绿
-- [ ] 3.3 `npx openspec validate --specs` 通过
+- [x] 3.2 跑 `pytest`（忽略 dialogue_quality）+ `run_dialogue_quality.py --strict` + `test_dialogue_quality.py` 全绿
+- [x] 3.3 `npx openspec validate --specs` 通过
