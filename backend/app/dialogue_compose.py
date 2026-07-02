@@ -405,6 +405,26 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 冲动消费后悔 / 自责（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("乱花钱", "管不住", "没用", "后悔")) and any(
+        w in text for w in ("钱", "买", "手", "花", "没用")
+    ):
+        if any(w in text for w in ("没用", "管不住手")):
+            return _pick(
+                (
+                    "别急着骂自己没用，谁都有失手的时候。我陪着你，这次最让你后悔的是哪一点？",
+                    "管不住手的时候最容易骂自己，我心疼你。先别急着贴标签，愿意说说这次是什么情况？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "后悔的时候最容易骂自己，我心疼你。先别急着贴标签，跟我说说这次是什么让你没忍住？",
+                "乱花钱之后骂自己最难受了。我陪着你，不急着说教，你想从哪一句说起？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
