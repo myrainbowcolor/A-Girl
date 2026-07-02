@@ -211,3 +211,27 @@ def test_compose_closed_minimal_um_unchanged():
     out = compose_contextual_reply("嗯", [])
     assert out
     assert "不急着说" in out or "你想开口了再说" in out
+
+
+def test_compose_self_doubt_comparison():
+    """比较心态应承认落差感，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("同学都升职了，就我还原地踏步", [])
+    assert out
+    assert any(w in out for w in ("比", "落差", "原地", "难受", "堵"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert "别比了" not in out
+
+
+def test_compose_self_doubt_label():
+    """自我怀疑应接住不急着贴标签，而非问卷式兜底。"""
+    hist = [
+        {"role": "user", "content": "同学都升职了，就我还原地踏步"},
+        {"role": "assistant", "content": "跟别人一比就否定自己，这种落差真的很难受。"},
+    ]
+    out = compose_contextual_reply("是不是我太差劲了", hist)
+    assert out
+    assert any(w in out for w in ("差劲", "自我怀疑", "标签", "否定"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert "别比了" not in out
