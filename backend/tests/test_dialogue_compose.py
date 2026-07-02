@@ -235,3 +235,25 @@ def test_compose_self_doubt_label():
     assert "突然" not in out
     assert "一阵子" not in out
     assert "别比了" not in out
+
+
+def test_compose_impulse_regret_spending():
+    """冲动消费后悔应理解后悔，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("我又乱花钱了，买了根本用不上的东西", [])
+    assert out
+    assert any(w in out for w in ("后悔", "心疼", "骂自己", "贴标签", "没忍住"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_impulse_regret_self_blame():
+    """冲动消费自责应接住不急着贴标签，而非问卷式兜底。"""
+    hist = [
+        {"role": "user", "content": "我又乱花钱了，买了根本用不上的东西"},
+        {"role": "assistant", "content": "后悔的时候最容易骂自己，我心疼你。"},
+    ]
+    out = compose_contextual_reply("觉得自己好没用，管不住手", hist)
+    assert out
+    assert any(w in out for w in ("没用", "管不住", "失手", "贴标签", "后悔"))
+    assert "突然" not in out
+    assert "一阵子" not in out
