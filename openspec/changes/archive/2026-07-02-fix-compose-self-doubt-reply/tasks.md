@@ -6,6 +6,6 @@
 ## 2. 测试与验证
 
 - [x] 2.1 在 `test_dialogue_compose.py` 增加 `jealous_comparison` 两轮单测（比较心态 + 自我怀疑）
-- [ ] 2.2 运行 `python3 -m pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [ ] 2.3 运行 `python3 scripts/run_dialogue_quality.py --strict` 与 `python3 -m pytest tests/test_dialogue_quality.py -q`
-- [ ] 2.4 运行 `npx openspec validate --specs`
+- [x] 2.2 运行 `python3 -m pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.3 运行 `python3 scripts/run_dialogue_quality.py --strict` 与 `python3 -m pytest tests/test_dialogue_quality.py -q`
+- [x] 2.4 运行 `npx openspec validate --specs`
