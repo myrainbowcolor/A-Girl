@@ -257,3 +257,40 @@ def test_compose_impulse_regret_self_blame():
     assert any(w in out for w in ("没用", "管不住", "失手", "贴标签", "后悔"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_reconcile_fight_cold_war():
+    """吵架冷战首轮应接住沉默别扭，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("跟对象吵架了，现在谁也不理谁", [])
+    assert out
+    assert any(w in out for w in ("吵架", "沉默", "气", "委屈", "冷战", "磨人"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_reconcile_fight_pride():
+    """拉不下脸别扭追问应理解想和好，而非问卷式兜底。"""
+    hist = [
+        {"role": "user", "content": "跟对象吵架了，现在谁也不理谁"},
+        {"role": "assistant", "content": "吵架后的沉默最磨人……现在心里是气多，还是委屈多？"},
+    ]
+    out = compose_contextual_reply("其实也有我的问题，但就是拉不下脸", hist)
+    assert out
+    assert any(w in out for w in ("拉不下脸", "和好", "别扭", "问题"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_reconcile_fight_first_message():
+    """求建议是否先发消息应给轻量台阶，而非问卷式兜底。"""
+    hist = [
+        {"role": "user", "content": "跟对象吵架了，现在谁也不理谁"},
+        {"role": "assistant", "content": "吵架后的沉默最磨人……现在心里是气多，还是委屈多？"},
+        {"role": "user", "content": "其实也有我的问题，但就是拉不下脸"},
+        {"role": "assistant", "content": "能想到自己也有问题，说明你其实想和好。"},
+    ]
+    out = compose_contextual_reply("你说我要不要先发消息", hist)
+    assert out
+    assert any(w in out for w in ("台阶", "开口", "聊聊", "别扭", "拉不下脸"))
+    assert "突然" not in out
+    assert "一阵子" not in out

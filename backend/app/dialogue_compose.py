@@ -425,6 +425,38 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 吵架 / 冷战 / 和好别扭（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    fight_context = any(
+        w in prior_users + text
+        for w in ("吵架", "冷战", "对象", "伴侣", "拉不下脸", "和好", "别扭")
+    )
+    if any(w in text for w in ("吵架", "冷战", "不理谁", "对象", "伴侣", "拉不下脸")) or (
+        any(w in text for w in ("先发", "要不要", "消息", "发消息")) and fight_context
+    ):
+        if any(w in text for w in ("先发", "要不要", "消息", "发消息")):
+            return _pick(
+                (
+                    "想台阶又拉不下脸，这种别扭我理解。不用完美措辞，一句「我们聊聊」有时就够了。你想怎么开口？",
+                    "别扭的时候最难开口……不用写小作文，简单一句也行。你想先发什么？",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("我的问题", "拉不下脸")):
+            return _pick(
+                (
+                    "能想到自己也有问题，说明你其实想和好。别扭的时候最难，我陪你理理现在最卡的是哪一点？",
+                    "愿意承认自己有部分原因，其实已经往前迈了一步。现在最拉不下脸的是哪一块？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "吵架后的沉默最磨人……现在心里是气多，还是委屈多？慢慢说，我听着呢。",
+                "冷战的时候最难熬，我懂。你现在更想先发泄，还是先理理委屈？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
