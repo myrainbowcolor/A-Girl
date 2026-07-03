@@ -294,3 +294,25 @@ def test_compose_reconcile_fight_first_message():
     assert any(w in out for w in ("台阶", "开口", "聊聊", "别扭", "拉不下脸"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_angry_at_boss_vent():
+    """当众被骂应接住火气委屈，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("老板今天当众骂我，气死了！", [])
+    assert out
+    assert any(w in out for w in ("骂", "气", "委屈", "过分"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_angry_at_boss_quit_impulse():
+    """冲动辞职念头应劝先冷静，而非问卷式兜底。"""
+    hist = [
+        {"role": "user", "content": "老板今天当众骂我，气死了！"},
+        {"role": "assistant", "content": "当众被骂真的太过分了，我能理解你现在又气又委屈。"},
+    ]
+    out = compose_contextual_reply("真想立刻辞职不干了", hist)
+    assert out
+    assert any(w in out for w in ("辞职", "决定", "气", "冷静", "想想"))
+    assert "突然" not in out
+    assert "一阵子" not in out
