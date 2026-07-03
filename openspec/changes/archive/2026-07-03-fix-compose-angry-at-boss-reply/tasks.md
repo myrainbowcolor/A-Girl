@@ -1,0 +1,11 @@
+## 1. 实现 compose 愤怒发泄分支
+
+- [x] 1.1 在 `dialogue_compose.py` 的 `compose_contextual_reply` 中，于通用负面 open 兜底之前插入被责骂/愤怒发泄分支，关键词与 `mock.py` 对齐
+- [x] 1.2 当众被骂首轮返回接住火气/委屈的共情句；冲动辞职续聊返回劝先冷静、不急着做决定；禁止「突然还是一阵子」与说教式劝冷静
+
+## 2. 测试与验证
+
+- [x] 2.1 在 `test_dialogue_compose.py` 增加 `angry_at_boss` 两轮单测
+- [x] 2.2 运行 `python3 -m pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.3 运行 `python3 scripts/run_dialogue_quality.py --strict` 与 `python3 -m pytest tests/test_dialogue_quality.py -q`
+- [x] 2.4 运行 `npx openspec validate --specs`
