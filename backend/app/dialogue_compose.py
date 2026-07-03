@@ -457,6 +457,28 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 被责骂 / 愤怒发泄（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("气死", "骂我", "骂", "老板")) or (
+        "辞职" in text
+        and ("想" in text or "要" in text or "立刻" in text)
+        and "信" not in text
+    ):
+        if "辞职" in text and ("想" in text or "立刻" in text) and "信" not in text:
+            return _pick(
+                (
+                    "冲动辞职的念头我理解，但先别急着做决定。今晚先把自己从气里捞出来，明天清醒了再想想？",
+                    "想立刻走的心情我理解，先别在气头上做决定。今晚缓一缓，我陪着你，明天清醒了再想想？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "当众被骂真的太过分了，我能理解你现在又气又委屈。先别急着做决定，我陪你把这股火慢慢说出来。",
+                "被骂的时候又气又委屈，我懂。先别急着做决定，我陪着你慢慢说~",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
