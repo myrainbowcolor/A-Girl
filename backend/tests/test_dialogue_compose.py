@@ -325,3 +325,22 @@ def test_compose_stranger_work_vent():
     assert any(w in out for w in ("加班", "辛苦", "累", "熬", "陪着"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_exam_anxiety_first_turn():
+    """考前紧张首轮应接住焦虑，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("下周就要高考了，我好紧张", [])
+    assert out
+    assert any(w in out for w in ("紧张", "高考", "考前", "绷"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_exam_anxiety_forget_followup():
+    """记不住续聊应接住焦虑，而非问卷式 open 兜底。"""
+    hist = [{"role": "user", "content": "下周就要高考了，我好紧张"}]
+    out = compose_contextual_reply("感觉什么都记不住", hist)
+    assert out
+    assert any(w in out for w in ("记不住", "焦虑", "慌", "科"))
+    assert "突然" not in out
+    assert "一阵子" not in out
