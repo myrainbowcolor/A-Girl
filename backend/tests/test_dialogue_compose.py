@@ -316,3 +316,12 @@ def test_compose_angry_at_boss_quit_impulse():
     assert any(w in out for w in ("辞职", "决定", "气", "冷静", "想想"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_stranger_work_vent():
+    """陌生人吐槽加班疲惫应接住劳累，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("今天又加班到十点，好累好烦", [])
+    assert out
+    assert any(w in out for w in ("加班", "辛苦", "累", "熬", "陪着"))
+    assert "突然" not in out
+    assert "一阵子" not in out

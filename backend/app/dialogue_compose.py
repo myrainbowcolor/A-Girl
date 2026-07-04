@@ -311,6 +311,30 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 加班 / 下班疲惫倾诉（须在「好烦」短句与通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("加班", "下班", "十点", "很晚", "熬夜", "996", "KPI", "开会到")) and any(
+        w in text for w in ("累", "烦", "辛苦", "熬", "撑", "心累", "好累", "好烦")
+    ) or (
+        "下班" in text
+        and any(w in text for w in ("累", "烦", "十点", "九点", "很晚", "好晚"))
+    ):
+        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        if is_intimate:
+            return _pick(
+                (
+                    "又加班到这么晚，真的辛苦你了……今天先别跟自己较劲，缓口气再说好不好？",
+                    "听着就心疼，又熬到这么晚……先歇会儿，我陪着你。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "加班熬到这么晚，真的辛苦你了……今天先别跟自己较劲，缓口气再说好不好？",
+                "又熬到这么晚呀，听着就累……不用急着讲细节，我在这儿陪着你。",
+            ),
+            seed,
+        )
+
     if text in ("就那样", "就那样吧", "不知道怎么说", "说不清", "说不上来"):
         return _pick(
             (
