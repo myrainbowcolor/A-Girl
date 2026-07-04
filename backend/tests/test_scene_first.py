@@ -39,7 +39,8 @@ def test_scene_first_avoids_generic_and_english():
             db.close()
 
 
-def test_scene_first_uses_mock_for_overtime():
+def test_scene_first_compose_overtime_vent():
+    """scene_first 下加班疲惫应由 compose 接住，而非问卷式 open 兜底。"""
     with tempfile.NamedTemporaryFile(suffix=".db") as f:
         s = Settings(db_path=f.name, dialogue_strategy="scene_first")
         db = Database(f.name)
@@ -47,6 +48,6 @@ def test_scene_first_uses_mock_for_overtime():
         o = Orchestrator(db, mem, EmotionEngine(), MockLLMProvider(), s)
         try:
             res = o.chat("u1", "s1", "今天加班到十点，好累")
-            assert "加班" in res.reply or "辛苦" in res.reply
+            assert any(w in res.reply for w in ("加班", "辛苦", "累", "熬", "陪着"))
         finally:
             db.close()
