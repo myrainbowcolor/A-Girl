@@ -344,3 +344,40 @@ def test_compose_exam_anxiety_forget_followup():
     assert any(w in out for w in ("记不住", "焦虑", "慌", "科"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_breakup_sad_first_turn():
+    """分手首轮应接住悲伤，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("我们分手了", [])
+    assert out
+    assert any(w in out for w in ("分手", "分开", "陪着", "硬撑"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_breakup_sad_cry_followup():
+    """分手语境忍不住哭应接住悲伤，而非问卷式 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "我们分手了"},
+        {"role": "assistant", "content": "分手真的很难扛，我陪你待着。"},
+    ]
+    out = compose_contextual_reply("我还是忍不住想哭", hist)
+    assert out
+    assert any(w in out for w in ("哭", "分手", "陪着", "忍着"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+
+
+def test_compose_breakup_sad_hope_followup():
+    """怀疑自己能否好起来应接住悲伤，而非问卷式 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "我们分手了"},
+        {"role": "assistant", "content": "分手真的很难扛，我陪你待着。"},
+        {"role": "user", "content": "我还是忍不住想哭"},
+        {"role": "assistant", "content": "想哭就哭出来吧，我陪着你。"},
+    ]
+    out = compose_contextual_reply("你觉得我还能好起来吗", hist)
+    assert out
+    assert any(w in out for w in ("好起来", "慢慢来", "陪着", "理解"))
+    assert "突然" not in out
+    assert "一阵子" not in out
