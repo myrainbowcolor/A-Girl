@@ -381,3 +381,12 @@ def test_compose_breakup_sad_hope_followup():
     assert any(w in out for w in ("好起来", "慢慢来", "陪着", "理解"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_sick_care():
+    """生病求关心应表达关心与陪伴，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("我感冒了，头好痛", [])
+    assert out
+    assert any(w in out for w in ("感冒", "头痛", "生病", "心疼", "辛苦", "休息", "陪"))
+    assert "突然" not in out
+    assert "一阵子" not in out

@@ -384,6 +384,25 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 生病 / 身体不适（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("感冒", "发烧", "生病", "头痛", "头疼", "不舒服")):
+        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        if is_intimate:
+            return _pick(
+                (
+                    "怎么又生病了……头还痛不痛？今天乖乖躺着，我陪着你，难受就跟我说。",
+                    "生病还难受着呀……今天就别硬撑了，我陪着你，哪里最不舒服？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "生病还头痛呀，听着就心疼……今天别硬撑，我陪着你，哪里最难受？",
+                "感冒还难受着呀，辛苦你了……今天先好好休息，我陪着你，现在最难受的是哪一块？",
+            ),
+            seed,
+        )
+
     if text in ("就那样", "就那样吧", "不知道怎么说", "说不清", "说不上来"):
         return _pick(
             (
