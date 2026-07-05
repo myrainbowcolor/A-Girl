@@ -355,6 +355,35 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 失恋 / 分手倾诉（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    breakup_context = any(
+        w in prior_users + text for w in ("分手", "失恋", "分开", "分开了")
+    )
+    if any(w in text for w in ("分手", "失恋", "分开了")):
+        return _pick(
+            (
+                "哎……分手真的很难扛。你别一个人硬撑，我陪你待着，想说多少说多少。",
+                "听到你说分手了，我心里也沉了一下。分手这种事真的很耗人，你不用装作没事。",
+            ),
+            seed,
+        )
+    if any(w in text for w in ("想哭", "哭了", "忍不住哭")) and breakup_context:
+        return _pick(
+            (
+                "想哭就哭出来吧，不用忍着。分手这种事真的很耗人，我陪着你，想说多少说多少。",
+                "哭出来也没关系，不用在我面前装坚强。我陪着你，想说多少说多少。",
+            ),
+            seed,
+        )
+    if any(w in text for w in ("好起来", "会好")) and ("?" in text or "吗" in text):
+        return _pick(
+            (
+                "这种时候会怀疑自己，我特别理解。你不用急着给答案，我陪你一天一天慢慢来，好吗？",
+                "难过的时候不用急着好起来，我陪你待着就好。我们慢慢来，不着急。",
+            ),
+            seed,
+        )
+
     if text in ("就那样", "就那样吧", "不知道怎么说", "说不清", "说不上来"):
         return _pick(
             (
