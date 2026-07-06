@@ -414,3 +414,28 @@ def test_compose_festival_lonely_reunion_followup():
     assert "突然" not in out
     assert "一阵子" not in out
     assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_parent_anxiety_first_turn():
+    """家长自责首轮应理解操心与自责，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("孩子这次考得不好，我是不是太严厉了", [])
+    assert out
+    assert any(w in out for w in ("严厉", "操心", "在乎", "心疼", "自责"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert "别担心" not in out
+    assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_parent_anxiety_fear_followup():
+    """怕耽误孩子续聊应理解焦虑，而非问卷式 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "孩子这次考得不好，我是不是太严厉了"},
+        {"role": "assistant", "content": "当家长这么操心，我真的心疼你……你已经很在乎 ta 了。"},
+    ]
+    out = compose_contextual_reply("我很怕耽误他", hist)
+    assert out
+    assert any(w in out for w in ("耽误", "担心", "在乎", "焦虑"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert not out.lstrip().startswith("嗯")
