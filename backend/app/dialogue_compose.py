@@ -355,6 +355,24 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 育儿焦虑（家长视角）（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("孩子", "儿子", "女儿", "太严厉", "耽误", "考不好")):
+        if any(w in text for w in ("耽误", "害怕", "怕")):
+            return _pick(
+                (
+                    "你怕耽误他，说明你是真的在乎，我理解这种担心。具体是哪一点让你最睡不着？",
+                    "怕耽误孩子的时候，这种焦虑压在心里最难受……你最担心的是哪一点？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "当家长这么操心，我真的心疼你……你已经很在乎 ta 了。跟我说说你最担心的是什么？",
+                "孩子考得不好就怪自己太严厉，我理解这种自责……你先别急着怪自己，最让你揪心的是哪一块？",
+            ),
+            seed,
+        )
+
     # 失恋 / 分手倾诉（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
     breakup_context = any(
         w in prior_users + text for w in ("分手", "失恋", "分开", "分开了")
