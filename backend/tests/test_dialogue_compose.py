@@ -390,3 +390,27 @@ def test_compose_sick_care():
     assert any(w in out for w in ("感冒", "头痛", "生病", "心疼", "辛苦", "休息", "陪"))
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_festival_lonely_first_turn():
+    """节日一人过节应看见孤独感，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("过年一个人，有点落寞", [])
+    assert out
+    assert any(w in out for w in ("落寞", "一个人", "过节", "想家", "空落", "陪"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_festival_lonely_reunion_followup():
+    """看到别人团圆更难受应接住对比下的扎心感。"""
+    hist = [
+        {"role": "user", "content": "过年一个人，有点落寞"},
+        {"role": "assistant", "content": "一个人过节确实会空落落的，我陪你待着。"},
+    ]
+    out = compose_contextual_reply("看到别人团圆就更难受", hist)
+    assert out
+    assert any(w in out for w in ("团圆", "难受", "扎心", "敏感", "陪"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert not out.lstrip().startswith("嗯")
