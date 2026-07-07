@@ -248,6 +248,30 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 还想继续聊（须在「哈哈」报喜之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("还想", "明天", "下次")) and any(
+        w in text for w in ("聊", "找", "来")
+    ):
+        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        is_warm_friend = any(
+            m in prior_assistant for m in ("开心", "温柔", "真好", "陪你", "随时", "好呀")
+        )
+        if is_intimate or is_warm_friend:
+            return _pick(
+                (
+                    "好呀，我随时都在～你想聊的时候来找我就行，我很开心你愿意再来。",
+                    "好呀～你想聊的时候来找我就行，能陪你说话我也很开心。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "好呀～明天想聊就来找我，能陪你说话我也很开心。",
+                "好呀，明天想来聊就来～能陪你说话我也挺开心的。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("哈哈哈", "哈哈", "嘿嘿")):
         return _pick(
             (
