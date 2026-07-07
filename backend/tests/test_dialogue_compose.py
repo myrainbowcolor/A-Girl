@@ -416,6 +416,29 @@ def test_compose_festival_lonely_reunion_followup():
     assert not out.lstrip().startswith("嗯")
 
 
+def test_compose_nostalgic_childhood_first_turn():
+    """怀旧童年首轮应柔软共鸣，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("突然想到小时候外婆做的汤圆，好怀念", [])
+    assert out
+    assert any(w in out for w in ("怀念", "小时候", "外婆", "汤圆", "旧时光", "暖"))
+    assert "一阵子" not in out
+    assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_nostalgic_childhood_calm_followup():
+    """怀旧续聊难静下来应顺着回忆共鸣。"""
+    hist = [
+        {"role": "user", "content": "突然想到小时候外婆做的汤圆，好怀念"},
+        {"role": "assistant", "content": "突然想到那些旧时光，心里会又暖又酸吧。外婆的汤圆是什么馅的？"},
+    ]
+    out = compose_contextual_reply("那时候日子简单，现在好难静下来", hist)
+    assert out
+    assert any(w in out for w in ("静下来", "简单", "节奏", "慢下来"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert not out.lstrip().startswith("嗯")
+
+
 def test_compose_parent_anxiety_first_turn():
     """家长自责首轮应理解操心与自责，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("孩子这次考得不好，我是不是太严厉了", [])
