@@ -462,3 +462,25 @@ def test_compose_parent_anxiety_fear_followup():
     assert "突然" not in out
     assert "一阵子" not in out
     assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_stranger_continue_chat():
+    """陌生关系续聊 compose 路径应口语化，禁止嗯开头与欢迎随时客服腔。"""
+    out = compose_contextual_reply("明天还想来找你聊聊", [])
+    assert out
+    assert not out.lstrip().startswith("嗯")
+    assert "欢迎随时" not in out
+    assert any(w in out for w in ("开心", "高兴", "真好", "陪"))
+    assert "哪一块" not in out
+
+
+def test_compose_friend_continue_chat():
+    """朋友续聊 compose 路径应亲昵口语化，至多一个问句。"""
+    hist = [
+        {"role": "user", "content": "和你聊还挺开心的"},
+        {"role": "assistant", "content": "和你聊我也很开心呀～"},
+    ]
+    out = compose_contextual_reply("明天还想来找你聊聊", hist)
+    assert out
+    assert any(w in out for w in ("随时", "开心", "陪"))
+    assert out.count("？") <= 1
