@@ -140,6 +140,16 @@ def test_compose_minimal_fatigue():
     assert "不太好受" not in out
 
 
+def test_compose_intimate_lean_on_by_stage():
+    """亲密「想靠着你说说」无历史时，relationship_stage 应驱动亲昵接话。"""
+    out = compose_contextual_reply(
+        "今天过得好累，想靠着你说说", [], relationship_stage="close"
+    )
+    assert out
+    assert any(w in out for w in ("靠", "陪", "抱抱"))
+    assert "不太好受" not in out
+
+
 def test_compose_intimate_lean_on_followup():
     """亲密多轮「想靠着你说说」应接住倚靠意愿，而非泛化负面套话。"""
     hist = [
@@ -164,6 +174,26 @@ def test_compose_longing_miss_you_intimate():
     assert "发生什么好事" not in out
     assert "突然" not in out
     assert "一阵子" not in out
+
+
+def test_compose_longing_miss_you_intimate_by_stage():
+    """亲密想念首轮无历史时，relationship_stage 应驱动亲昵接话。"""
+    out = compose_contextual_reply(
+        "好久没聊了，有点想你", [], relationship_stage="close"
+    )
+    assert out
+    assert "想你" in out or "好久" in out
+    assert "心里暖暖的" not in out or "我也想你" in out
+
+
+def test_compose_longing_miss_you_friend_by_stage():
+    """朋友想念应通过 relationship_stage 返回依恋接话。"""
+    out = compose_contextual_reply(
+        "好久不见，有点想你", [], relationship_stage="friend"
+    )
+    assert out
+    assert any(w in out for w in ("想", "好久", "聊", "暖暖"))
+    assert out.count("？") <= 1
 
 
 def test_compose_longing_miss_you_friend():

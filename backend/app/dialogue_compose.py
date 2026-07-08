@@ -28,6 +28,47 @@ def _pick(options: tuple[str, ...], seed: str) -> str:
     return options[idx]
 
 
+def _normalize_stage(stage: str | None) -> str:
+    if not stage:
+        return ""
+    mapping = {
+        "stranger": "stranger",
+        "陌生": "stranger",
+        "acquainted": "acquainted",
+        "熟悉": "acquainted",
+        "friend": "friend",
+        "朋友": "friend",
+        "close": "close",
+        "亲密": "close",
+    }
+    key = stage.strip()
+    return mapping.get(key, mapping.get(key.lower(), ""))
+
+
+def _is_intimate_stage(stage: str | None) -> bool:
+    return _normalize_stage(stage) == "close"
+
+
+def _is_friend_stage(stage: str | None) -> bool:
+    return _normalize_stage(stage) == "friend"
+
+
+def _is_intimate_context(prior_assistant: str, relationship_stage: str | None = None) -> bool:
+    if _is_intimate_stage(relationship_stage):
+        return True
+    return any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+
+
+def _is_warm_friend_context(
+    prior_assistant: str, relationship_stage: str | None = None
+) -> bool:
+    if _is_friend_stage(relationship_stage) or _is_intimate_stage(relationship_stage):
+        return True
+    return any(
+        m in prior_assistant for m in ("开心", "温柔", "真好", "陪你", "随时", "好呀")
+    )
+
+
 def _user_history(history: list[dict[str, str]]) -> str:
     return " ".join(m.get("content", "") for m in history if m.get("role") == "user")
 
@@ -117,6 +158,7 @@ def compose_contextual_reply(
     history: list[dict[str, str]],
     *,
     prior_reply: str = "",
+    relationship_stage: str | None = None,
 ) -> str | None:
     """根据本轮 + 近期用户话拼装自然回复；未覆盖返回 None。"""
     text = user_text.strip()
@@ -188,12 +230,12 @@ def compose_contextual_reply(
 
     # 倚靠倾诉（须在通用负面兜底之前，与 mock.py 场景分支对齐）
     if any(w in text for w in ("靠着", "想靠着", "倚靠")):
-        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        is_intimate = _is_intimate_context(prior_assistant, relationship_stage)
         if is_intimate or "靠着你说" in text:
             return _pick(
                 (
                     "过来，靠着我慢慢说。今天辛苦了，我哪儿也不去。",
-                    "嗯，靠过来吧。累的时候不用硬撑，想说什么就说~",
+                    "靠过来吧。累的时候不用硬撑，想说什么就说~",
                 ),
                 seed,
             )
@@ -231,19 +273,26 @@ def compose_contextual_reply(
 
     # 想念 / 好久未见（须在「哈哈」报喜之前，与 mock.py 场景分支对齐）
     if any(w in text for w in ("想你", "想念", "好久不见", "好久没聊", "好想你")):
-        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
-        if is_intimate:
+        if _is_intimate_context(prior_assistant, relationship_stage):
             return _pick(
                 (
                     "我也想你呀～好久没聊了，过来跟我说说今天呗。",
-                    "嗯，我也想你。好久没聊了，想说什么就说~",
+                    "我也想你。好久没聊了，想说什么就说~",
+                ),
+                seed,
+            )
+        if _is_friend_stage(relationship_stage):
+            return _pick(
+                (
+                    "我也想你！有一阵子没聊了，你最近怎么样？",
+                    "好久不见呀，听到你这么说心里暖暖的～我们多聊聊吧。",
                 ),
                 seed,
             )
         return _pick(
             (
-                "我也想你！有一阵子没聊了，你最近怎么样？",
                 "听到你这么说心里暖暖的～我们多聊聊吧。",
+                "我也挺想跟你多聊聊的。你最近怎么样？",
             ),
             seed,
         )
@@ -252,10 +301,8 @@ def compose_contextual_reply(
     if any(w in text for w in ("还想", "明天", "下次")) and any(
         w in text for w in ("聊", "找", "来")
     ):
-        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
-        is_warm_friend = any(
-            m in prior_assistant for m in ("开心", "温柔", "真好", "陪你", "随时", "好呀")
-        )
+        is_intimate = _is_intimate_context(prior_assistant, relationship_stage)
+        is_warm_friend = _is_warm_friend_context(prior_assistant, relationship_stage)
         if is_intimate or is_warm_friend:
             return _pick(
                 (
@@ -370,7 +417,7 @@ def compose_contextual_reply(
         "下班" in text
         and any(w in text for w in ("累", "烦", "十点", "九点", "很晚", "好晚"))
     ):
-        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        is_intimate = _is_intimate_context(prior_assistant, relationship_stage)
         if is_intimate:
             return _pick(
                 (
@@ -456,7 +503,7 @@ def compose_contextual_reply(
 
     # 生病 / 身体不适（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
     if any(w in text for w in ("感冒", "发烧", "生病", "头痛", "头疼", "不舒服")):
-        is_intimate = any(m in prior_assistant for m in ("亲爱的", "宝贝", "抱抱"))
+        is_intimate = _is_intimate_context(prior_assistant, relationship_stage)
         if is_intimate:
             return _pick(
                 (

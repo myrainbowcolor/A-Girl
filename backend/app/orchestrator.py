@@ -91,6 +91,8 @@ class Orchestrator:
         system_prompt: str,
         history: list[dict[str, str]],
         user_text: str,
+        *,
+        relationship_stage: str | None = None,
     ) -> str:
         """生成回复：scene_first 优先场景/拼装，本地 LLM 仅最后手段。"""
         prior = prior_assistant_reply(history)
@@ -98,12 +100,16 @@ class Orchestrator:
         scene_reply = self._scene_engine().generate(system_prompt, history)
 
         if strategy == "scene_first":
-            composed = compose_contextual_reply(user_text, history, prior_reply=prior)
+            composed = compose_contextual_reply(
+                user_text, history, prior_reply=prior, relationship_stage=relationship_stage
+            )
             if composed:
                 return composed
             if scene_reply.strip() and not is_generic_scene_reply(scene_reply):
                 if user_is_closed(user_text) and reply_is_pushy(scene_reply):
-                    composed = compose_contextual_reply(user_text, history)
+                    composed = compose_contextual_reply(
+                        user_text, history, relationship_stage=relationship_stage
+                    )
                     if composed:
                         return composed
                     fb = scene_fallback_reply(user_text, prior_reply=prior)
@@ -308,6 +314,8 @@ class Orchestrator:
         user_text: str,
         retrieved: list,
         user_texts: list[str],
+        *,
+        relationship_stage: str | None = None,
     ) -> str:
         """记忆诚实校正 + 场景补位 + 轻量兜底 + 语言不匹配时重试。"""
         prior = prior_assistant_reply(history)
@@ -319,7 +327,13 @@ class Orchestrator:
                 if not is_generic_scene_reply(scene):
                     reply = scene
         reply = enforce_memory_honesty(reply, retrieved, user_texts)
-        reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
+        reply = polish_reply(
+            user_text,
+            reply,
+            prior_reply=prior,
+            history=history,
+            relationship_stage=relationship_stage,
+        )
         lang = detect_user_language(user_text)
         if reply_language_mismatch(lang, reply) and self._llm.name != "mock":
             reinforced = (
@@ -329,7 +343,13 @@ class Orchestrator:
             retry = self._llm.generate(reinforced, history, temperature=0.65)
             if retry.strip():
                 reply = enforce_memory_honesty(retry.strip(), retrieved, user_texts)
-                reply = polish_reply(user_text, reply, prior_reply=prior, history=history)
+                reply = polish_reply(
+            user_text,
+            reply,
+            prior_reply=prior,
+            history=history,
+            relationship_stage=relationship_stage,
+        )
         return reply
 
     def _load_state(self, user_id: str) -> tuple[EmotionState, Relationship]:
@@ -407,9 +427,14 @@ class Orchestrator:
             {"role": m.role, "content": m.content}
             for m in self._db.recent_messages(session_id, self._s.recent_messages_window)
         ]
-        reply = self._generate_chat_reply(system_prompt, history, user_text)
+        reply = self._generate_chat_reply(
+            system_prompt, history, user_text, relationship_stage=relationship.stage.value
+        )
         user_texts = [m["content"] for m in history if m["role"] == "user"] + [user_text]
-        reply = self._finalize_reply(reply, system_prompt, history, user_text, retrieved, user_texts)
+        reply = self._finalize_reply(
+            reply, system_prompt, history, user_text, retrieved, user_texts,
+            relationship_stage=relationship.stage.value,
+        )
 
         # [6] 状态后处理：持久化情绪/关系、记录回复、沉淀记忆、触发反思
         self._db.save_emotion(user_id, emotion, time.time())
@@ -535,9 +560,17 @@ class Orchestrator:
 
         strategy = (self._s.dialogue_strategy or "scene_first").lower()
         if strategy == "scene_first":
-            reply = self._generate_chat_reply(system_prompt, history, user_text)
+            reply = self._generate_chat_reply(
+                system_prompt, history, user_text, relationship_stage=relationship.stage.value
+            )
             reply = self._finalize_reply(
-                reply, system_prompt, history, user_text, retrieved, user_texts
+                reply,
+                system_prompt,
+                history,
+                user_text,
+                retrieved,
+                user_texts,
+                relationship_stage=relationship.stage.value,
             )
             yield {"type": "token", "text": reply}
         else:
@@ -547,7 +580,13 @@ class Orchestrator:
                 yield {"type": "token", "text": piece}
 
             reply = self._finalize_reply(
-                "".join(parts), system_prompt, history, user_text, retrieved, user_texts
+                "".join(parts),
+                system_prompt,
+                history,
+                user_text,
+                retrieved,
+                user_texts,
+                relationship_stage=relationship.stage.value,
             )
 
         self._db.save_emotion(user_id, emotion, time.time())

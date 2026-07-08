@@ -269,11 +269,15 @@ def _compose_or_fallback(
     *,
     prior_reply: str = "",
     history: list[dict[str, str]] | None = None,
+    relationship_stage: str | None = None,
 ) -> str | None:
     from .dialogue_compose import compose_contextual_reply
 
     composed = compose_contextual_reply(
-        user_text, history or [], prior_reply=prior_reply
+        user_text,
+        history or [],
+        prior_reply=prior_reply,
+        relationship_stage=relationship_stage,
     )
     if composed:
         return composed
@@ -286,6 +290,7 @@ def polish_reply(
     *,
     prior_reply: str = "",
     history: list[dict[str, str]] | None = None,
+    relationship_stage: str | None = None,
 ) -> str:
     """轻量后处理：只修追问/复读/坏套话，保留 LLM 或场景引擎的自然回复。"""
     reply = guard_closed_user_reply(user_text, reply)
@@ -309,7 +314,12 @@ def polish_reply(
         or user_complains_filler(user_text)
         or (reply_is_pushy(reply) and user_wants_wrap_up(user_text))
     ):
-        alt = _compose_or_fallback(user_text, prior_reply=prior_reply, history=history)
+        alt = _compose_or_fallback(
+            user_text,
+            prior_reply=prior_reply,
+            history=history,
+            relationship_stage=relationship_stage,
+        )
         if alt:
             return alt
         cleaned = _FILLER_HEAD_RE.sub("", reply).strip()
@@ -318,7 +328,10 @@ def polish_reply(
 
     if prior_reply and reply_similarity(reply, prior_reply) >= 0.88:
         alt = _compose_or_fallback(
-            user_text, prior_reply=prior_reply + reply, history=history
+            user_text,
+            prior_reply=prior_reply + reply,
+            history=history,
+            relationship_stage=relationship_stage,
         )
         if alt and reply_similarity(alt, prior_reply) < 0.88:
             return alt
