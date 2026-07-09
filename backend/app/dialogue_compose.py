@@ -200,6 +200,25 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 社交探问 NPC 在做什么（须在 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("你在干嘛", "在干嘛", "干什么")):
+        bored_ctx = "无聊" in prior_users
+        if bored_ctx:
+            return _pick(
+                (
+                    "刚泡了杯热茶，窝在沙发里发呆呢～你呢，也在摸鱼吗？",
+                    "窝在沙发上发呆呢～你这会儿也在摸鱼吗？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "刚泡了杯热茶，窝在沙发里发呆呢～你呢，这会儿忙不忙？",
+                "窝在沙发上发呆呢～你这会儿在忙什么吗？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("空空的", "空落", "心里空", "没原因", "没啥具体", "也没啥")):
         return _pick(
             (
