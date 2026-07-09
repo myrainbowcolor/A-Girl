@@ -514,3 +514,28 @@ def test_compose_friend_continue_chat():
     assert out
     assert any(w in out for w in ("随时", "开心", "陪"))
     assert out.count("？") <= 1
+
+
+def test_compose_what_doing_after_bored_smalltalk():
+    """无聊闲聊后问「你在干嘛」应口语自述并续聊摸鱼，非 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "好无聊啊"},
+        {"role": "assistant", "content": "闲下来也行呀。要不随便聊聊？"},
+        {"role": "user", "content": "嗯"},
+        {"role": "assistant", "content": "那咱就随便唠～"},
+    ]
+    out = compose_contextual_reply("你在干嘛", hist)
+    assert out
+    assert not out.lstrip().startswith("嗯")
+    assert any(w in out for w in ("发呆", "茶", "沙发"))
+    assert "摸鱼" in out
+    assert "收到了" not in out
+
+
+def test_compose_what_doing_plain():
+    """普通探问 compose 应自述并轻问忙不忙。"""
+    out = compose_contextual_reply("你在干嘛", [])
+    assert out
+    assert any(w in out for w in ("发呆", "茶", "沙发"))
+    assert any(w in out for w in ("忙不忙", "忙什么"))
+    assert out.count("？") <= 1
