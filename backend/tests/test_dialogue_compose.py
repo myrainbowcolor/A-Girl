@@ -539,3 +539,27 @@ def test_compose_what_doing_plain():
     assert any(w in out for w in ("发呆", "茶", "沙发"))
     assert any(w in out for w in ("忙不忙", "忙什么"))
     assert out.count("？") <= 1
+
+
+def test_compose_childcare_fatigue_after_good_news():
+    """报喜后倾诉哄娃疲惫应接住育儿劳累，而非问卷式 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "今天项目过了，超开心！"},
+        {"role": "assistant", "content": "太棒了！替你开心～"},
+    ]
+    out = compose_contextual_reply(
+        "但回家还要哄娃，心好累", hist, relationship_stage="close"
+    )
+    assert out
+    assert not out.lstrip().startswith("嗯")
+    assert any(w in out for w in ("顾娃", "哄娃", "带娃"))
+    assert "突然这样的" not in out
+    assert out.count("？") <= 1
+
+
+def test_compose_childcare_fatigue_first_turn():
+    """首轮带娃疲惫倾诉应共情陪伴，不落入问卷式兜底。"""
+    out = compose_contextual_reply("一边上班一边带娃，心好累", [])
+    assert out
+    assert any(w in out for w in ("带娃", "顾娃", "辛苦", "耗"))
+    assert "哪一块你现在最想提" not in out
