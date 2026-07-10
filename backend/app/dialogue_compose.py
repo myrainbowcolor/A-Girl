@@ -415,6 +415,18 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 育儿 / 哄娃疲惫（须在加班疲惫与通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("哄娃", "带娃", "神兽", "孩子闹")) and any(
+        w in text for w in ("累", "辛苦", "撑", "心累", "好累")
+    ):
+        return _pick(
+            (
+                "一边上班一边顾娃，真的太耗你了……你先歇会儿，我陪着你。今天最累的是哪一会儿？",
+                "下班还要哄娃，真的太累了……你先缓口气，我陪着你。是哪一段最耗你？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("工作上的事", "工作的事", "公司的事", "单位的事")) or (
         any(w in text for w in ("工作", "上班", "公司", "老板"))
         and len(text) <= 12
