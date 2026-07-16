@@ -6,7 +6,12 @@ import re
 
 from .llm.mock import _pet_name_from_context
 from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_world
-from .sentiment_lexicon import contains_keyword, has_casual_social_context, user_complains_bot_reply
+from .sentiment_lexicon import (
+    contains_keyword,
+    has_casual_social_context,
+    is_positive_utterance,
+    user_complains_bot_reply,
+)
 
 _MORNING_GREETING_MARKERS = ("早呀", "早安", "早上好", "早啊")
 _COMMUTE_MARKERS = ("又要上班", "不想起床", "困死")
@@ -334,6 +339,34 @@ def compose_contextual_reply(
             (
                 "好呀～明天想聊就来找我，能陪你说话我也很开心。",
                 "好呀，明天想来聊就来～能陪你说话我也挺开心的。",
+            ),
+            seed,
+        )
+
+    # 开心分享（须在「哈哈」报喜之前，与 mock.py 场景分支对齐）
+    if is_positive_utterance(text):
+        if "城市" in text and any(w in text for w in ("去", "搬", "喜欢", "期待")):
+            return _pick(
+                (
+                    "要去喜欢的城市呀，光听着就替你开心！那边有什么你最期待的事？",
+                    "能去喜欢的城市真好～听着就替你高兴，那边你最期待啥？",
+                ),
+                seed,
+            )
+        is_intimate = _is_intimate_context(prior_assistant, relationship_stage)
+        is_warm_friend = _is_warm_friend_context(prior_assistant, relationship_stage)
+        if is_intimate or is_warm_friend:
+            return _pick(
+                (
+                    "哇，听你这么说我也跟着开心起来了！快多跟我说说～",
+                    "太棒了！替你开心～后来怎么样了？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "真好呀，看到你开心我也觉得暖暖的～",
+                "听着就替你高兴！愿意的话多跟我说说～",
             ),
             seed,
         )
