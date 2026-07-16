@@ -770,6 +770,16 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 防御心态 / 觉得没人懂（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("你不懂", "没人懂", "不懂我")):
+        return _pick(
+            (
+                "我听见你的委屈了……可能我没完全懂，但我在认真听。你愿意的话，慢慢跟我说，我想更懂一点。",
+                "你说没人懂的时候，我心里也揪了一下。我可能没全懂，但我在认真听，你想说多少都行。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
@@ -866,8 +876,14 @@ def compose_contextual_reply(
             seed,
         )
 
-    if any(w in text for w in ("不愿意", "不想聊", "别说了")):
-        return "好，不聊也行。我陪着，你想说的时候再说~"
+    if any(w in text for w in ("不愿意", "不想聊", "别说了", "不想说", "不说了", "算了")):
+        return _pick(
+            (
+                "不想说也没关系，我陪着你。什么时候想开口了，我都在。",
+                "好，不聊也行。我陪着，你想说的时候再说~",
+            ),
+            seed,
+        )
 
     # 承接上一轮：用户纠正「请教你/什么意思」
     if any(w in text for w in ("请教你", "什么意思", "你在说啥", "没听懂")):

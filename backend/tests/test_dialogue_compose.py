@@ -594,3 +594,24 @@ def test_compose_happy_share_close_mixed_day_first_turn():
     assert out
     assert any(w in out for w in ("开心", "替你", "棒", "高兴"))
     assert not out.lstrip().startswith("嗯")
+
+
+def test_compose_defensive_nobody_understands():
+    """friend_defensive 首轮防御心态 compose 路径应接住委屈。"""
+    out = compose_contextual_reply("你不懂的，没人懂", [], relationship_stage="friend")
+    assert out
+    assert any(w in out for w in ("懂", "委屈", "听"))
+    assert "突然" not in out
+    assert out.count("？") <= 1
+
+
+def test_compose_defensive_withdraw_follow_up():
+    """friend_defensive 续聊封闭撤回 compose 路径应尊重边界。"""
+    hist = [
+        {"role": "user", "content": "你不懂的，没人懂"},
+        {"role": "assistant", "content": "我听见你的委屈了，我在认真听。"},
+    ]
+    out = compose_contextual_reply("算了，不想说了", hist, relationship_stage="friend")
+    assert out
+    assert any(w in out for w in ("陪着", "不说", "没关系", "都在"))
+    assert out.count("？") <= 1
