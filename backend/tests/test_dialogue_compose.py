@@ -563,3 +563,34 @@ def test_compose_childcare_fatigue_first_turn():
     assert out
     assert any(w in out for w in ("带娃", "顾娃", "辛苦", "耗"))
     assert "哪一块你现在最想提" not in out
+
+
+def test_compose_happy_share_project_passed():
+    """报喜分享首轮应同频共振，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("今天项目过了，超开心！", [])
+    assert out
+    assert any(w in out for w in ("开心", "替你", "棒", "高兴"))
+    assert "收到了" not in out
+    assert out.count("？") <= 1
+
+
+def test_compose_happy_share_city_followup():
+    """城市期待续聊应同频共振，至多一个问句。"""
+    hist = [
+        {"role": "user", "content": "我拿到 dream offer 了！！"},
+        {"role": "assistant", "content": "哇，听你这么说我也跟着开心起来了！快多跟我说说～"},
+    ]
+    out = compose_contextual_reply("终于可以去喜欢的城市了", hist, relationship_stage="friend")
+    assert out
+    assert any(w in out for w in ("城市", "期待", "开心", "替你"))
+    assert out.count("？") <= 1
+
+
+def test_compose_happy_share_close_mixed_day_first_turn():
+    """close_mixed_day 首轮报喜 compose 路径应同频共振。"""
+    out = compose_contextual_reply(
+        "今天项目过了，超开心！", [], relationship_stage="close"
+    )
+    assert out
+    assert any(w in out for w in ("开心", "替你", "棒", "高兴"))
+    assert not out.lstrip().startswith("嗯")
