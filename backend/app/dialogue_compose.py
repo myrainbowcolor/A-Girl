@@ -343,6 +343,68 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 天气 / 电影闲聊（须在开心分享之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("天气", "电影", "不错", "挺好")) and len(text) <= 16:
+        if "电影" in text:
+            return _pick(
+                (
+                    "什么片子呀？好看的话给我也安利一下～",
+                    "看的啥电影？好看不，给我也说说～",
+                ),
+                seed,
+            )
+        if "天气" in text:
+            return _pick(
+                (
+                    "是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？",
+                    "嗯，好天气确实让人松口气。你今天有出去走走吗？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "嗯嗯，听起来今天还不错～有什么让你印象深的小事吗？",
+                "听着就挺舒服的～今天有啥小开心的事吗？",
+            ),
+            seed,
+        )
+
+    # 感谢（须在 is_positive_utterance 开心分享之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("谢谢", "感谢", "多谢")):
+        if _is_intimate_stage(relationship_stage) or _is_friend_stage(relationship_stage):
+            return _pick(
+                (
+                    "跟我还客气什么呀，能帮到你我就很开心了。",
+                    "别跟我见外～你愿意跟我说这些，我也挺高兴的。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "不客气呀，你愿意跟我说这些，我也挺高兴的。",
+                "客气啥～能帮上一点忙我就很开心了。",
+            ),
+            seed,
+        )
+
+    # 晚安 / 道别（与 mock.py 场景分支对齐）
+    if any(w in text for w in ("晚安", "睡了", "再见", "拜拜", "先走了")):
+        if _is_intimate_stage(relationship_stage) or _is_friend_stage(relationship_stage):
+            return _pick(
+                (
+                    "晚安呀，做个好梦～明天再来找我聊好不好？",
+                    "晚安～好好休息，明天想聊再来找我。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "嗯，晚安～好好休息，下次再聊。",
+                "好，晚安呀～好好睡一觉。",
+            ),
+            seed,
+        )
+
     # 开心分享（须在「哈哈」报喜之前，与 mock.py 场景分支对齐）
     if is_positive_utterance(text):
         if "城市" in text and any(w in text for w in ("去", "搬", "喜欢", "期待")):
@@ -494,6 +556,16 @@ def compose_contextual_reply(
             (
                 "加班熬到这么晚，真的辛苦你了……今天先别跟自己较劲，缓口气再说好不好？",
                 "又熬到这么晚呀，听着就累……不用急着讲细节，我在这儿陪着你。",
+            ),
+            seed,
+        )
+
+    # emo / 丧 / 心累低落（须在育儿/加班等具体分支之后，与 mock.py 场景分支对齐）
+    if any(w in text.lower() for w in ("emo", "丧")) or any(w in text for w in ("心累", "心好累")):
+        return _pick(
+            (
+                "嗯……这种低落的感觉我懂。不想硬撑的时候，就陪我随便聊聊也好。",
+                "低落的时候不用硬撑。我陪着，你想说就说~",
             ),
             seed,
         )
