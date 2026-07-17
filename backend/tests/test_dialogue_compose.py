@@ -615,3 +615,44 @@ def test_compose_defensive_withdraw_follow_up():
     assert out
     assert any(w in out for w in ("陪着", "不说", "没关系", "都在"))
     assert out.count("？") <= 1
+
+
+def test_compose_weather_smalltalk():
+    """天气闲聊 compose 路径应轻松接话，非 open 兜底。"""
+    out = compose_contextual_reply("今天天气不错", [])
+    assert out
+    assert any(w in out for w in ("天气", "晒", "走", "出门"))
+    assert out.count("？") <= 1
+
+
+def test_compose_movie_smalltalk():
+    """电影闲聊 compose 路径应轻松接话。"""
+    out = compose_contextual_reply("刚看完一部挺好的电影", [])
+    assert out
+    assert any(w in out for w in ("电影", "片子", "好看"))
+    assert out.count("？") <= 1
+
+
+def test_compose_thank_you_not_happy_share():
+    """感谢句 compose 路径应回应感谢，而非误判为报喜。"""
+    out = compose_contextual_reply("感觉你挺温柔的，谢谢", [], relationship_stage="friend")
+    assert out
+    assert any(w in out for w in ("客气", "高兴", "见外", "帮"))
+    assert "开心起来了" not in out
+
+
+def test_compose_goodnight_farewell():
+    """晚安道别 compose 路径应温暖道别。"""
+    out = compose_contextual_reply("晚安", [], relationship_stage="friend")
+    assert out
+    assert any(w in out for w in ("晚安", "好梦", "休息"))
+    assert out.count("？") <= 1
+
+
+def test_compose_emo_fatigue():
+    """心累低落 compose 路径应共情陪伴，非问卷兜底。"""
+    out = compose_contextual_reply("心好累", [])
+    assert out
+    assert any(w in out for w in ("低落", "陪", "懂", "硬撑"))
+    assert "突然" not in out
+
