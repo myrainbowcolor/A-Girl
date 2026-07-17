@@ -188,7 +188,7 @@ def compose_contextual_reply(
     if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
         return _pick(
             (
-                "嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                "不开心的感觉我收到了。我先陪着你，不急着讲道理。",
                 "听起来你现在心里挺沉的。我在呢，你想从哪一句开始说都行。",
                 "我听见你不开心了。先缓口气，我哪儿也不去。",
             ),
@@ -564,7 +564,7 @@ def compose_contextual_reply(
     if any(w in text.lower() for w in ("emo", "丧")) or any(w in text for w in ("心累", "心好累")):
         return _pick(
             (
-                "嗯……这种低落的感觉我懂。不想硬撑的时候，就陪我随便聊聊也好。",
+                "这种低落的感觉我懂。不想硬撑的时候，就陪我随便聊聊也好。",
                 "低落的时候不用硬撑。我陪着，你想说就说~",
             ),
             seed,

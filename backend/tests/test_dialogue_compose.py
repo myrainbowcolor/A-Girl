@@ -650,9 +650,21 @@ def test_compose_goodnight_farewell():
 
 
 def test_compose_emo_fatigue():
-    """心累低落 compose 路径应共情陪伴，非问卷兜底。"""
+    """心累低落 compose 路径应共情陪伴，非问卷兜底，且不以嗯开头。"""
+    from app.reply_guard import polish_reply
+
     out = compose_contextual_reply("心好累", [])
     assert out
     assert any(w in out for w in ("低落", "陪", "懂", "硬撑"))
     assert "突然" not in out
+    assert not out.startswith("嗯")
+    polished = polish_reply("心好累", out)
+    assert not polished.startswith("嗯")
+
+
+def test_compose_unhappy_no_um_prefix():
+    """不开心 compose 路径不以嗯开头。"""
+    out = compose_contextual_reply("我不开心了", [])
+    assert out
+    assert not out.startswith("嗯")
 
