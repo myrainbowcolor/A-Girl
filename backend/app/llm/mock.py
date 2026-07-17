@@ -227,7 +227,7 @@ def _scene_reply(
     if contains_keyword(text, "不开心") or text in ("我不开心", "我不高兴了"):
         return _pick_variant(
             [
-                f"{dear}{mood}嗯……不开心的感觉我收到了。我先陪着你，不急着讲道理。",
+                f"{dear}{mood}不开心的感觉我收到了。我先陪着你，不急着讲道理。",
                 f"{dear}{mood}听起来你现在心里挺沉的。对不起如果刚才没接对，我在呢。",
                 f"{dear}{mood}我听见你不开心了。先缓口气，我哪儿也不去。",
             ],
@@ -405,7 +405,7 @@ def _scene_reply(
     # emo / 丧 — 低落口语
     if any(w in text.lower() for w in ("emo", "丧")) or "心累" in text:
         return (
-            f"{dear}{mood}嗯……这种低落的感觉我懂。"
+            f"{dear}{mood}这种低落的感觉我懂。"
             f"不想硬撑的时候，就陪我随便聊聊也好。"
         )
 
