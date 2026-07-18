@@ -686,3 +686,16 @@ def test_compose_unhappy_no_um_prefix():
     assert out
     assert not out.startswith("嗯")
 
+
+def test_compose_short_annoyance_no_um_prefix():
+    """短句烦躁 compose 路径不以嗯开头。"""
+    from app.reply_guard import polish_reply
+
+    for text in ("好烦", "有点烦"):
+        out = compose_contextual_reply(text, [])
+        assert out
+        assert any(w in out for w in ("堵", "烦", "缠人", "消化"))
+        assert not out.startswith("嗯")
+        polished = polish_reply(text, out)
+        assert not polished.startswith("嗯")
+

@@ -865,7 +865,7 @@ def compose_contextual_reply(
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
-                "嗯，听起来心里挺堵的。是突然这样的，还是已经有一阵子了？",
+                "听起来心里挺堵的。是突然这样的，还是已经有一阵子了？",
                 "烦的时候先别逼自己消化。愿意的话，跟我说是哪件事最缠人？",
             ),
             seed,
