@@ -596,6 +596,24 @@ def test_compose_happy_share_close_mixed_day_first_turn():
     assert not out.lstrip().startswith("嗯")
 
 
+def test_compose_burnout_close_mixed_day_third_turn():
+    """close_mixed_day 第 3 轮倦怠极限 compose 路径应接住共情，非 open 兜底。"""
+    hist = [
+        {"role": "user", "content": "今天项目过了，超开心！"},
+        {"role": "assistant", "content": "替你开心！项目过了真棒～"},
+        {"role": "user", "content": "但回家还要哄娃，心好累"},
+        {"role": "assistant", "content": "下班还要哄娃，真的太累了……你先缓口气，我陪着你。"},
+    ]
+    out = compose_contextual_reply(
+        "有时候觉得自己快撑不住了", hist, relationship_stage="close"
+    )
+    assert out
+    assert any(w in out for w in ("极限", "陪", "累", "撑"))
+    assert "随便丢几个词" not in out
+    assert not out.lstrip().startswith("嗯")
+    assert out.count("？") <= 1
+
+
 def test_compose_defensive_nobody_understands():
     """friend_defensive 首轮防御心态 compose 路径应接住委屈。"""
     out = compose_contextual_reply("你不懂的，没人懂", [], relationship_stage="friend")
