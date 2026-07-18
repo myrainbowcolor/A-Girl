@@ -852,6 +852,16 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 快撑不住了 / 倦怠极限（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("撑不住", "扛不住", "受不了")):
+        return _pick(
+            (
+                "听起来你真的快到极限了……先别一个人硬撑，我陪着你。慢慢说，是什么让你这么累？",
+                "快到极限的时候别一个人扛……我陪着你，你想说多少都行。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
