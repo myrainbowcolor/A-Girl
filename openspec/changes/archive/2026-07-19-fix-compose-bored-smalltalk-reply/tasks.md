@@ -1,0 +1,11 @@
+## 1. 实现
+
+- [x] 1.1 在 `dialogue_compose.py` 增加无聊闲聊首轮分支（与 mock 对齐，区分朋友/亲密与陌生/熟悉）
+- [x] 1.2 在 `test_dialogue_compose.py` 增加 bored_smalltalk 第 1 轮 compose 单测（含朋友关系与句首非嗯断言）
+
+## 2. 验证
+
+- [x] 2.1 `cd backend && python3 -m pytest --ignore=tests/test_dialogue_quality.py -q`
+- [x] 2.2 `python3 scripts/run_dialogue_quality.py --strict`
+- [x] 2.3 `python3 -m pytest tests/test_dialogue_quality.py -q`
+- [x] 2.4 `cd .. && npx openspec validate --specs`

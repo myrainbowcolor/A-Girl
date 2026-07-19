@@ -223,6 +223,27 @@ def test_compose_long_distance_hard():
     assert "一阵子" not in out
 
 
+def test_compose_bored_smalltalk_first_turn():
+    """无聊闲聊首轮 compose 路径应轻松续聊，非 open 兜底。"""
+    out = compose_contextual_reply("好无聊啊", [])
+    assert out
+    assert any(w in out for w in ("无聊", "唠", "聊", "闲", "有意思"))
+    assert "突然" not in out
+    assert "一阵子" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_bored_smalltalk_friend_stage():
+    """朋友关系无聊首轮应亲昵轻松续聊。"""
+    out = compose_contextual_reply(
+        "好无聊啊", [], relationship_stage="friend"
+    )
+    assert out
+    assert any(w in out for w in ("唠", "聊", "无聊", "摸鱼", "剧"))
+    assert out.count("？") <= 1
+    assert not out.startswith("嗯")
+
+
 def test_compose_bored_context_minimal_um():
     """无聊闲聊上文后极简「嗯」应轻松续聊，而非封闭边界套话。"""
     hist = [
