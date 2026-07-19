@@ -289,6 +289,24 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 养宠物 / 分享毛孩子（须在捣蛋续聊之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("猫", "狗", "宠物")) and "记得" not in text:
+        if "猫" in text:
+            return _pick(
+                (
+                    "养猫呀！粘人的小家伙最会撒娇了～它平时最爱干嘛，是跟着你还是搞破坏？",
+                    "有猫陪着日子都软一点～粘人的那种最会缠人了，它平时爱干什么？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "有毛孩子陪着，日子都会软一点。它性格怎么样？",
+                "养宠物真好呀～它平时黏你还是酷酷的那种？",
+            ),
+            seed,
+        )
+
     # 宠物捣蛋续聊（须在通用「哈哈」报喜之前，与 mock.py 场景分支对齐）
     pet_name = _pet_name_from_context(prior_users + " " + text, "")
     if (
@@ -301,7 +319,7 @@ def compose_contextual_reply(
             return _pick(
                 (
                     f"哈哈，{refer}又把杯子打翻啦？这种捣蛋精真是又气又好笑～它现在躲起来了吗？",
-                    f"哈哈，{refer}搞破坏啦？易碎的东西可得收一收～它这会儿怂了没？",
+                    f"哈哈，{refer}搞破坏啦？又气又好笑，易碎的东西可得收一收～它这会儿怂了没？",
                 ),
                 seed,
             )
