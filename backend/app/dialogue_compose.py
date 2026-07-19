@@ -224,6 +224,24 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 无聊闲聊首轮（须在 open 兜底之前，与 mock.py 场景分支对齐）
+    if any(w in text for w in ("无聊", "没事干", "好闲")):
+        if _is_warm_friend_context(prior_assistant, relationship_stage):
+            return _pick(
+                (
+                    "无聊呀？那正好陪我唠会儿～你最近有在追什么剧或玩什么吗？",
+                    "摸鱼状态我懂～要不随便唠唠，你最近有追什么剧吗？",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "闲下来也行呀。要不随便聊聊，你今天碰到什么有意思的事没？",
+                "无聊的时候找我唠唠也行～你今天有什么小事想分享吗？",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("空空的", "空落", "心里空", "没原因", "没啥具体", "也没啥")):
         return _pick(
             (
