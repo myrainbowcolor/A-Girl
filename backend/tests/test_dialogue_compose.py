@@ -119,6 +119,23 @@ def test_compose_lonely_insomnia():
     assert "是什么事在转" not in out
 
 
+def test_compose_pet_share_first_turn():
+    """首轮养猫分享应返回亲昵接话，而非 open 兜底。"""
+    out = compose_contextual_reply(
+        "我养了一只叫橘子的猫，超粘人", [], relationship_stage="friend"
+    )
+    assert out
+    assert any(w in out for w in ("猫", "粘人", "撒娇", "毛孩子"))
+    assert "随便丢几个词" not in out
+    assert "突然" not in out
+
+
+def test_compose_pet_share_skips_memory_recall():
+    """记忆追问不应误入养宠分享分支。"""
+    out = compose_contextual_reply("你还记得我的猫叫什么吗", [])
+    assert out is None or "养猫呀" not in out
+
+
 def test_compose_pet_antics_followup():
     """宠物续聊应接住捣蛋细节，而非泛化「发生什么好事啦」报喜句。"""
     hist = [
