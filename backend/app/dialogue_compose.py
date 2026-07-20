@@ -9,6 +9,7 @@ from .out_of_world_guard import compose_out_of_world_reply, user_asks_out_of_wor
 from .sentiment_lexicon import (
     contains_keyword,
     has_casual_social_context,
+    is_friendly_greeting_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -393,14 +394,14 @@ def compose_contextual_reply(
             return _pick(
                 (
                     "是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？",
-                    "嗯，好天气确实让人松口气。你今天有出去走走吗？",
+                    "好天气确实让人松口气。你今天有出去走走吗？",
                 ),
                 seed,
             )
         return _pick(
             (
-                "嗯嗯，听起来今天还不错～有什么让你印象深的小事吗？",
                 "听着就挺舒服的～今天有啥小开心的事吗？",
+                "今天还不错～有什么让你印象深的小事吗？",
             ),
             seed,
         )
@@ -920,7 +921,7 @@ def compose_contextual_reply(
     if text in ("?", "？", "…", "..", "...") or text in ("嗯", "哦", "额", "好", "行"):
         return "我在这儿呢。不急着说，你想开口了再说~"
 
-    if text in ("你好", "嗨", "哈喽", "在吗") or (
+    if is_friendly_greeting_utterance(text) or text in ("你好", "嗨", "哈喽", "在吗") or (
         any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12
     ):
         if prior_assistant and ("小语" in prior_assistant or "你好" in prior_assistant):
