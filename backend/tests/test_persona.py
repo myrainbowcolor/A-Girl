@@ -203,3 +203,53 @@ def test_prompt_user_turn_sad_not_self_doubt():
     block = p.split("【本轮侧重】")[1].split("\n")[0]
     assert "先接住感受" in block
     assert "自我怀疑" not in block and "跟别人比" not in block
+
+
+def test_prompt_user_turn_morning_greeting_not_positive():
+    """早安寒暄不误走报喜侧重。"""
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="早呀，今天又要上班了"
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "早安" in block or "寒暄" in block or "打招呼" in block
+    assert "替 ta 高兴" not in block
+
+
+def test_prompt_user_turn_friendly_greeting_not_positive():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="你好呀"
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "问候" in block or "初识" in block
+    assert "替 ta 高兴" not in block
+
+
+def test_prompt_user_turn_bored_smalltalk_not_positive():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="好无聊啊"
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "闲聊" in block or "唠嗑" in block
+    assert "替 ta 高兴" not in block
+
+
+def test_prompt_user_turn_casual_weather_not_positive():
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="今天天气不错"
+    )
+    assert "【本轮侧重】" in p
+    block = p.split("【本轮侧重】")[1].split("\n")[0]
+    assert "闲聊" in block or "唠嗑" in block
+    assert "替 ta 高兴" not in block
+
+
+def test_prompt_user_turn_true_happy_still_positive():
+    """真开心分享仍走报喜侧重。"""
+    p = build_system_prompt(
+        Persona(), EmotionState(), Relationship(), [], user_text="今天特别开心哈哈"
+    )
+    assert "【本轮侧重】" in p
+    assert "替 ta 高兴" in p

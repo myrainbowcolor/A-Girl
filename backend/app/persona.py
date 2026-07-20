@@ -3,7 +3,14 @@ from __future__ import annotations
 
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
 from .emotion.analyzer import analyze_lexicon
-from .sentiment_lexicon import is_longing_utterance, user_complains_bot_reply
+from .sentiment_lexicon import (
+    is_casual_positive_smalltalk,
+    is_casual_social_smalltalk,
+    is_friendly_greeting_utterance,
+    is_longing_utterance,
+    is_morning_greeting_utterance,
+    user_complains_bot_reply,
+)
 from .language import detect_user_language, language_instruction
 
 _STAGE_GUIDE = {
@@ -49,6 +56,9 @@ _USER_TURN_TONE = {
     "out_of_world": "ta 在问界外百科/查情报/解谜教程；**不要作答**，也别提现实地名、名人、品牌。用城里人接不住的方式岔开，只谈城里、任务、冒险或 ta 的心情。",
     "longing": "ta 在表达想念或好久未见；语气柔软黏一点，表达也在乎对方，禁止「开心起来了」「报喜」式语气。",
     "self_doubt": "ta 在自我怀疑或跟别人比；先承认这种落差感真实，别急着反驳或灌鸡汤，可轻轻问具体卡点，禁止简单说「别比了」「你会好的」。",
+    "morning_greeting": "ta 在互道早安或通勤寒暄；语气自然温暖像朋友打招呼，别当成报喜或客服打卡。",
+    "friendly_greeting": "ta 在友好初识问候；语气礼貌温暖，陌生关系不过度亲昵，别当成报喜。",
+    "casual_chat": "ta 在轻松闲聊、无聊摸鱼或夸赞天气电影；语气轻松自然唠嗑，别当成分享好事或报喜。",
 }
 
 # 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
@@ -227,6 +237,12 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["longing"]
     if any(kw in user_text for kw in _SELF_DOUBT_KEYWORDS):
         return _USER_TURN_TONE["self_doubt"]
+    if is_morning_greeting_utterance(user_text):
+        return _USER_TURN_TONE["morning_greeting"]
+    if is_friendly_greeting_utterance(user_text):
+        return _USER_TURN_TONE["friendly_greeting"]
+    if is_casual_social_smalltalk(user_text) or is_casual_positive_smalltalk(user_text):
+        return _USER_TURN_TONE["casual_chat"]
     result = analyze_lexicon(user_text)
     if result.sentiment < -0.3:
         return _USER_TURN_TONE["negative"]
