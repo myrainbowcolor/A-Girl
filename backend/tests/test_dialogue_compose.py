@@ -737,3 +737,22 @@ def test_compose_short_annoyance_no_um_prefix():
         polished = polish_reply(text, out)
         assert not polished.startswith("嗯")
 
+
+def test_compose_friendly_greeting_nihao_ya():
+    """初识「你好呀」compose 路径应口语自我介绍，非 open 兜底。"""
+    out = compose_contextual_reply("你好呀", [], relationship_stage="stranger")
+    assert out
+    assert any(w in out for w in ("你好", "认识", "小语", "嗨"))
+    assert out.count("？") <= 1
+    assert not out.startswith("嗯")
+
+
+def test_compose_friendly_greeting_first_visit():
+    """初识「嗨，第一次来」compose 路径应自然接话，语气克制。"""
+    out = compose_contextual_reply("嗨，第一次来", [], relationship_stage="stranger")
+    assert out
+    assert any(w in out for w in ("嗨", "认识", "小语", "你好"))
+    assert "亲爱的" not in out
+    assert out.count("？") <= 1
+    assert not out.startswith("嗯")
+
