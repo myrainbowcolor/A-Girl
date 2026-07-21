@@ -10,7 +10,7 @@
 ## 3. 测试与验证
 
 - [x] 3.1 `test_dialogue_compose.py`：新增疲惫变体单测（累了、好累啊、今天好累）
-- [ ] 3.2 `cd backend && python -m pytest --ignore=tests/test_dialogue_quality.py -q`
-- [ ] 3.3 `cd backend && python scripts/run_dialogue_quality.py --strict`
-- [ ] 3.4 `cd backend && python -m pytest tests/test_dialogue_quality.py -q`
-- [ ] 3.5 `cd .. && npx openspec validate --specs`
+- [x] 3.2 `cd backend && python -m pytest --ignore=tests/test_dialogue_quality.py -q`
+- [x] 3.3 `cd backend && python scripts/run_dialogue_quality.py --strict`
+- [x] 3.4 `cd backend && python -m pytest tests/test_dialogue_quality.py -q`
+- [x] 3.5 `cd .. && npx openspec validate --specs`
