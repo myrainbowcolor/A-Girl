@@ -13,6 +13,7 @@ from ..sentiment_lexicon import (
     contains_keyword,
     contains_any,
     has_casual_social_context,
+    is_minimal_fatigue_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -519,7 +520,7 @@ def _scene_reply(
         )
 
     # 单字/极简疲惫（须在通用负面关键词分支之前，与 compose 对齐）
-    if text in ("累", "好累"):
+    if is_minimal_fatigue_utterance(text):
         return _pick_variant(
             [
                 f"{dear}{mood}累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",

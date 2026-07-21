@@ -1,3 +1,5 @@
+import pytest
+
 from app.dialogue_compose import compose_contextual_reply
 from app.in_world_guard import reply_in_world_ok
 
@@ -160,6 +162,20 @@ def test_compose_minimal_fatigue():
 def test_compose_minimal_fatigue_hao_lei():
     """极简「好累」应返回疲惫共情短句，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("好累", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
+    assert "不太好受" not in out
+    assert "突然" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["累了", "好累啊", "今天好累", "有点累", "累死了"],
+)
+def test_compose_minimal_fatigue_variants(utterance: str):
+    """常见疲惫口语变体应返回疲惫共情短句，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
     assert out
     assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
     assert "不太好受" not in out
