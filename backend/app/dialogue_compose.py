@@ -10,6 +10,7 @@ from .sentiment_lexicon import (
     contains_keyword,
     has_casual_social_context,
     is_friendly_greeting_utterance,
+    is_minimal_fatigue_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -264,7 +265,7 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text in ("累", "好累"):
+    if is_minimal_fatigue_utterance(text):
         return _pick(
             (
                 "累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",

@@ -60,6 +60,21 @@ _CASUAL_SOCIAL_NEGATIVE_BLOCK = _CASUAL_POSITIVE_NEGATIVE_BLOCK + (
     "不想活", "没意思", "没劲",
 )
 
+_MINIMAL_FATIGUE_UTTERANCES = frozenset({
+    "累",
+    "好累",
+    "累了",
+    "好累啊",
+    "今天好累",
+    "有点累",
+    "累死了",
+})
+
+
+def is_minimal_fatigue_utterance(text: str) -> bool:
+    """整句极简疲惫口语（单字累/好累及常见变体），区别于长句疲惫倾诉。"""
+    return text.strip() in _MINIMAL_FATIGUE_UTTERANCES
+
 
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
