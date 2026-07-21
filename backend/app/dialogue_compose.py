@@ -24,6 +24,8 @@ def _is_morning_greeting(text: str) -> bool:
     t = text.strip()
     if any(v in t for v in _WORK_VENT_MARKERS):
         return False
+    if t == "早":
+        return True
     if any(m in t for m in _MORNING_GREETING_MARKERS):
         return True
     return any(m in t for m in _COMMUTE_MARKERS)
@@ -262,7 +264,7 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text == "累":
+    if text in ("累", "好累"):
         return _pick(
             (
                 "累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",
@@ -512,7 +514,7 @@ def compose_contextual_reply(
             )
         return _pick(
             (
-                "早呀～又要开工啦？今天想怎么撑过去？",
+                "早呀～又要开工啦？",
                 "早安呀～通勤路上顺利吗？",
                 "早呀！今天也要上班，嘿嘿，先给自己鼓鼓劲～",
             ),
