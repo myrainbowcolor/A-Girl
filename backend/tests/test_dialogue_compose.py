@@ -157,6 +157,25 @@ def test_compose_minimal_fatigue():
     assert "不太好受" not in out
 
 
+def test_compose_minimal_fatigue_hao_lei():
+    """极简「好累」应返回疲惫共情短句，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply("好累", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
+    assert "不太好受" not in out
+    assert "突然" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_minimal_morning_zao():
+    """单字「早」应返回自然早安寒暄，而非 open 兜底。"""
+    out = compose_contextual_reply("早", [])
+    assert out
+    assert "早" in out
+    assert out.count("？") + out.count("?") <= 1
+    assert not out.startswith("嗯")
+
+
 def test_compose_intimate_lean_on_by_stage():
     """亲密「想靠着你说说」无历史时，relationship_stage 应驱动亲昵接话。"""
     out = compose_contextual_reply(

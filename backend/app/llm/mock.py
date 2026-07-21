@@ -422,13 +422,13 @@ def _scene_reply(
         )
 
     # 早安 / 通勤
-    if any(w in text for w in ("早呀", "早安", "早上好", "又要上班", "不想起床", "困死")):
+    if text == "早" or any(w in text for w in ("早呀", "早安", "早上好", "又要上班", "不想起床", "困死")):
         if any(w in text for w in ("困", "不想起床", "起不来")):
             return (
                 f"{dear}{mood}困成这样还要爬起来，辛苦啦。"
                 f"先缓两分钟再动身也行，今天有什么特别的事吗？"
             )
-        return f"{dear}{mood}早呀～又要开工啦？今天想怎么撑过去？"
+        return f"{dear}{mood}早呀～又要开工啦？"
 
     # 异地 / 想念
     if any(w in text for w in ("异地", "挂掉电话", "好空", "视频完")):
@@ -518,8 +518,8 @@ def _scene_reply(
             f"我陪着你，想说多少说多少。"
         )
 
-    # 单字疲惫（须在通用负面关键词分支之前，与 compose 对齐）
-    if text == "累":
+    # 单字/极简疲惫（须在通用负面关键词分支之前，与 compose 对齐）
+    if text in ("累", "好累"):
         return _pick_variant(
             [
                 f"{dear}{mood}累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",
