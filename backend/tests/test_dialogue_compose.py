@@ -791,3 +791,25 @@ def test_compose_friendly_greeting_first_visit():
     assert out.count("？") <= 1
     assert not out.startswith("嗯")
 
+
+def test_compose_masking_unknown_reply():
+    """整句「不知道」compose 路径应 masking 共情接话，非 open 兜底。"""
+    from app.reply_guard import polish_reply
+
+    out = compose_contextual_reply("不知道", [])
+    assert out
+    assert any(w in out for w in ("说不清", "不用逼", "陪着", "慢慢理", "待着", "听得懂", "故事"))
+    assert "一阵子" not in out
+    assert not out.startswith("嗯")
+    polished = polish_reply("不知道", out)
+    assert not polished.startswith("嗯")
+
+
+def test_compose_masking_shuobushang_reply():
+    """整句「说不上」compose 路径应 masking 共情接话，非 open 兜底。"""
+    out = compose_contextual_reply("说不上", [])
+    assert out
+    assert any(w in out for w in ("说不清", "不用逼", "陪着", "慢慢理", "待着", "听得懂", "故事"))
+    assert "一阵子" not in out
+    assert not out.startswith("嗯")
+
