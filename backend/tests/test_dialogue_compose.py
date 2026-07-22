@@ -768,6 +768,7 @@ def test_compose_short_annoyance_no_um_prefix():
         out = compose_contextual_reply(text, [])
         assert out
         assert any(w in out for w in ("堵", "烦", "缠人", "消化"))
+        assert "突然" not in out and "一阵子" not in out
         assert not out.startswith("嗯")
         polished = polish_reply(text, out)
         assert not polished.startswith("嗯")
