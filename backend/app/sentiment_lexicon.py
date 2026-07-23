@@ -157,6 +157,23 @@ def is_positive_utterance(text: str) -> bool:
     return contains_any(text, POSITIVE_WORDS)
 
 
+_MINIMAL_ACK_UTTERANCES = frozenset({"嗯", "嗯嗯", "嗯嗯嗯", "哦", "噢", "好", "行"})
+
+
+def user_complains_filler_reply(text: str) -> bool:
+    """用户吐槽 NPC 回复太敷衍或一直嗯嗯（整句极简附和不算）。"""
+    t = text.strip()
+    if t in _MINIMAL_ACK_UTTERANCES:
+        return False
+    if any(w in t for w in ("敷衍", "太敷衍")):
+        return True
+    if any(w in t for w in ("别嗯", "不要嗯", "别一直嗯", "不要一直嗯")):
+        return True
+    if "嗯嗯" in t and any(w in t for w in ("别", "不要", "一直", "总", "能不能", "能别")):
+        return True
+    return False
+
+
 def user_complains_bot_reply(text: str) -> bool:
     """用户在纠正 NPC 接话方式（应先安慰、别回忆/别跑题）。"""
     t = text.strip()

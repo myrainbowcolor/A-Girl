@@ -91,7 +91,9 @@ def user_is_identity(user_text: str) -> bool:
 
 
 def user_complains_filler(user_text: str) -> bool:
-    return any(w in user_text for w in ("别嗯", "不要嗯", "嗯嗯", "敷衍", "太敷衍"))
+    from .sentiment_lexicon import user_complains_filler_reply
+
+    return user_complains_filler_reply(user_text)
 
 
 def reply_is_filler_heavy(reply: str) -> bool:

@@ -316,6 +316,15 @@ def test_compose_closed_minimal_um_unchanged():
     assert "不急着说" in out or "你想开口了再说" in out
 
 
+def test_compose_closed_minimal_enen():
+    """无无聊上文时整句「嗯嗯」与「嗯」一致走封闭陪伴边界，非问卷兜底。"""
+    out = compose_contextual_reply("嗯嗯", [])
+    assert out
+    assert "不急着说" in out or "你想开口了再说" in out
+    assert not out.startswith("嗯")
+    assert "新鲜事" not in out
+
+
 def test_compose_self_doubt_comparison():
     """比较心态应承认落差感，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("同学都升职了，就我还原地踏步", [])

@@ -3,6 +3,7 @@ from app.sentiment_lexicon import (
     is_longing_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
+    user_complains_filler_reply,
 )
 
 
@@ -28,4 +29,11 @@ def test_city_false_positive_on_recall_complaint():
 def test_longing_not_positive_utterance():
     assert is_longing_utterance("好久没聊了，有点想你")
     assert not is_positive_utterance("好久没聊了，有点想你")
+
+
+def test_filler_complaint_not_minimal_ack():
+    assert not user_complains_filler_reply("嗯嗯")
+    assert not user_complains_filler_reply("嗯")
+    assert user_complains_filler_reply("能别嗯嗯的回答吗")
+    assert user_complains_filler_reply("太敷衍了")
     assert is_positive_utterance("今天好开心，考试过了！")

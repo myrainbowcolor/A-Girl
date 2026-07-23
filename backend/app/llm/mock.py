@@ -16,6 +16,7 @@ from ..sentiment_lexicon import (
     is_minimal_fatigue_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
+    user_complains_filler_reply,
 )
 
 # 用户情绪线索（与 emotion.engine 词典呼应，Mock 侧做共情话术）
@@ -490,7 +491,7 @@ def _scene_reply(
         )
 
     # 用户吐槽回复太敷衍 / 别嗯嗯
-    if any(w in text for w in ("敷衍", "别嗯", "不要嗯", "嗯嗯")):
+    if user_complains_filler_reply(text):
         return (
             f"{dear}{mood}抱歉刚才太敷衍了。我会好好接话，"
             f"你慢慢说，我认真听~"

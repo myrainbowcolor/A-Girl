@@ -10,6 +10,7 @@ from .sentiment_lexicon import (
     is_longing_utterance,
     is_morning_greeting_utterance,
     user_complains_bot_reply,
+    user_complains_filler_reply,
 )
 from .language import detect_user_language, language_instruction
 
@@ -73,7 +74,6 @@ _SELF_DOUBT_KEYWORDS = (
     "差劲", "没用", "自卑", "原地踏步", "踏步", "管不住", "自我怀疑", "好没用", "太差",
 )
 _CLOSED_KEYWORDS = ("不想说", "不想聊", "别问", "别烦", "没话说", "懒得说", "不说了", "不是很想说话")
-_FILLER_COMPLAINT_KEYWORDS = ("敷衍", "别嗯", "不要嗯", "嗯嗯")
 _IDENTITY_KEYWORDS = ("机器人", "人工智能", "AI", "ai", "是不是人", "真人吗")
 _META_PUSHBACK_KEYWORDS = ("为啥", "为什么", "何必", "一定要")
 
@@ -217,7 +217,7 @@ def _user_turn_tone_hint(user_text: str) -> str:
         return _USER_TURN_TONE["identity"]
     if any(kw in user_text for kw in _CLOSED_KEYWORDS):
         return _USER_TURN_TONE["closed"]
-    if any(kw in user_text for kw in _FILLER_COMPLAINT_KEYWORDS):
+    if user_complains_filler_reply(user_text):
         return _USER_TURN_TONE["filler_complaint"]
     if user_complains_bot_reply(user_text):
         return _USER_TURN_TONE["bot_reply_complaint"]

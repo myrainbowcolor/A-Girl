@@ -930,7 +930,7 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text in ("?", "？", "…", "..", "...") or text in ("嗯", "哦", "额", "好", "行"):
+    if text in ("?", "？", "…", "..", "...") or text in ("嗯", "嗯嗯", "哦", "额", "好", "行"):
         return "我在这儿呢。不急着说，你想开口了再说~"
 
     if is_friendly_greeting_utterance(text) or is_presence_ping_utterance(text) or text in (
