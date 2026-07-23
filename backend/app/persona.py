@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .domain import EmotionState, Memory, MemoryType, Persona, Relationship
+from .knowledge_scope import KNOWLEDGE_SCOPE_ID
 
 _STAGE_GUIDE = {
     "stranger": "你们刚认识，保持礼貌与好奇，不要过度亲昵；可以分享一点自己的小兴趣来拉近距离。",
@@ -46,10 +47,14 @@ def build_system_prompt(
     格式调整时需同步更新 mock.py 的解析逻辑。
     """
     # 反思类记忆易诱发概括性幻觉，对话生成时不注入
-    factual = [m for m in memories if m.type != MemoryType.REFLECTION]
+    user_mems = [
+        m for m in memories
+        if m.user_id != KNOWLEDGE_SCOPE_ID and m.type != MemoryType.REFLECTION
+    ]
+    knowledge_mems = [m for m in memories if m.user_id == KNOWLEDGE_SCOPE_ID]
 
-    if factual:
-        mem_block = "\n".join(f"- {m.content}" for m in factual)
+    if user_mems:
+        mem_block = "\n".join(f"- {m.content}" for m in user_mems)
         memory_rules = (
             "3. 仅可引用上方【关于 ta 的已知事实】中的原意，不可补充、推测或改写。\n"
             "4. 禁止说「你说过/我记得」若事实不在上述列表中。"
@@ -60,6 +65,21 @@ def build_system_prompt(
             "3. **禁止**使用「你说过」「我记得你」「你之前告诉过我」等表述。\n"
             "4. 不要假装你们有共同过往；像刚认识一样自然聊天，只回应 ta **本轮**说的话。"
         )
+
+    if knowledge_mems:
+        knowledge_block = "\n".join(
+            f"- {_knowledge_body(m.content)}" for m in knowledge_mems
+        )
+        knowledge_section = f"""
+【可参考知识（内化后用口语表达，勿照搬条文或说教）】
+{knowledge_block}
+"""
+        knowledge_rules = (
+            "12. 上方【可参考知识】仅供你组织回应思路；用陪伴口语表达，不要引用来源、不要讲教程体。\n"
+        )
+    else:
+        knowledge_section = ""
+        knowledge_rules = ""
 
     stage = relationship.stage.value
     stage_guide = _STAGE_GUIDE.get(stage, "")
@@ -93,7 +113,7 @@ def build_system_prompt(
 
 【关于 ta 的已知事实（仅可引用以下内容，不得超出）】
 {mem_block}
-
+{knowledge_section}
 【回复要求】
 1. 自然、口语化，像真人聊天，不要像客服或助手。用中文回复。
 2. 让你的当前情绪与关系阶段体现在语气里。
@@ -105,7 +125,7 @@ def build_system_prompt(
 9. 先接住 ta 说的具体细节（加班、考试、吵架对象等），再表达感受；避免空泛的「没事的」「会好的」。
 10. 同一对话里避免重复相同的安慰句式；每轮换一种说法，像真人一样有起伏。
 11. 动作描写（如「轻轻叹了口气」）偶尔用即可，不要每句都带，以免像在念剧本。
-"""
+{knowledge_rules}"""
 
 
 def _stage_cn(stage: str) -> str:
@@ -120,3 +140,9 @@ def _emotion_tone_hint(label: str) -> str:
         if key in label:
             return hint
     return _EMOTION_TONE["平和"]
+
+
+def _knowledge_body(content: str) -> str:
+    if content.startswith("[知识:") and "]\n" in content:
+        return content.split("]\n", 1)[1].strip()
+    return content.strip()

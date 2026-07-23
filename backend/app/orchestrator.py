@@ -219,7 +219,7 @@ class Orchestrator:
             )
 
         # [3] 记忆检索
-        retrieved = self._memory.retrieve(user_id, user_text)
+        retrieved = self._memory.retrieve_for_chat(user_id, user_text)
         meta_ctx = self._relationship_context(user_id)
 
         # [4] 情绪评估 + 关系演化（混合/LLM 情感 + 大五人格调制）
@@ -321,7 +321,7 @@ class Orchestrator:
             )
             return
 
-        retrieved = self._memory.retrieve(user_id, user_text)
+        retrieved = self._memory.retrieve_for_chat(user_id, user_text)
         meta_ctx = self._relationship_context(user_id)
         emotion, sentiment_for_log, sentiment_label, relationship = self._appraise_and_relate(
             emotion, relationship, user_text

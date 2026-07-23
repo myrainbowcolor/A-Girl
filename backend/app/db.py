@@ -175,6 +175,12 @@ class Database:
         )
         return cur.fetchone()["c"]
 
+    def delete_memories(self, user_id: str) -> int:
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM memories WHERE user_id=?", (user_id,))
+            self._conn.commit()
+            return cur.rowcount
+
     def touch_memory(self, memory_id: int, last_access: float) -> None:
         with self._lock:
             self._conn.execute(

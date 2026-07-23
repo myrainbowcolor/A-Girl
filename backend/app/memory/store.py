@@ -10,6 +10,7 @@ import time
 from ..config import Settings
 from ..db import Database
 from ..domain import Memory, MemoryType
+from ..knowledge_scope import KNOWLEDGE_SCOPE_ID
 from .embeddings import EmbeddingProvider, cosine_similarity
 
 # 时近性指数衰减半衰期（秒）：约 3 天
@@ -41,14 +42,13 @@ class MemoryStore:
         )
         return self._db.add_memory(mem)
 
-    def retrieve(self, user_id: str, query: str, top_k: int | None = None) -> list[Memory]:
-        top_k = top_k or self._s.memory_top_k
-        memories = self._db.all_memories(user_id)
+    def _score_memories(
+        self, memories: list[Memory], query: str, now: float | None = None
+    ) -> list[tuple[float, Memory]]:
         if not memories:
             return []
-
+        now = now or time.time()
         query_vec = self._embedder.embed(query)
-        now = time.time()
         scored: list[tuple[float, Memory]] = []
         for m in memories:
             relevance = cosine_similarity(query_vec, m.embedding)
@@ -60,8 +60,18 @@ class MemoryStore:
                 + self._s.memory_weight_importance * importance
             )
             scored.append((score, m))
-
         scored.sort(key=lambda x: x[0], reverse=True)
+        return scored
+
+    def retrieve(self, user_id: str, query: str, top_k: int | None = None) -> list[Memory]:
+        top_k = top_k or self._s.memory_top_k
+        memories = self._db.all_memories(user_id)
+        if not memories:
+            return []
+
+        now = time.time()
+        query_vec = self._embedder.embed(query)
+        scored = self._score_memories(memories, query, now)
         filtered: list[tuple[float, Memory]] = []
         for score, m in scored:
             relevance = cosine_similarity(query_vec, m.embedding)
@@ -73,6 +83,18 @@ class MemoryStore:
             if m.id is not None:
                 self._db.touch_memory(m.id, now)
         return top
+
+    def retrieve_for_chat(self, user_id: str, query: str) -> list[Memory]:
+        """对话检索：用户记忆 + 可选外部知识库。"""
+        user_k = max(1, self._s.memory_top_k - self._s.knowledge_top_k)
+        user_mems = self.retrieve(user_id, query, top_k=user_k)
+        if not self._s.knowledge_enabled:
+            return user_mems
+        know_k = self._s.knowledge_top_k
+        if know_k <= 0:
+            return user_mems
+        knowledge = self.retrieve(KNOWLEDGE_SCOPE_ID, query, top_k=know_k)
+        return user_mems + knowledge
 
     def count(self, user_id: str) -> int:
         return self._db.count_memories(user_id)

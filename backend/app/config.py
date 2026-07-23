@@ -90,6 +90,14 @@ class Settings(BaseSettings):
     proactive_insight_min_confidence: float = 0.55
     user_insight_use_llm: bool = True                  # 分析/主动话术是否调 LLM
 
+    # 外部知识库（如狗头军师 goutoujunshi）
+    knowledge_enabled: bool = True
+    knowledge_auto_ingest: bool = True
+    knowledge_reingest: bool = False
+    knowledge_repo_url: str = "https://github.com/powerycy/goutoujunshi.git"
+    knowledge_vendor_path: str = ""  # 默认 knowledge/vendor/goutoujunshi
+    knowledge_top_k: int = 2         # 每轮对话注入的知识片段数
+
 
 @lru_cache
 def get_settings() -> Settings:

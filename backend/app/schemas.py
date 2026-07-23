@@ -123,3 +123,12 @@ class MemoryOut(BaseModel):
     type: str
     content: str
     importance: float
+
+
+class KnowledgeIngestOut(BaseModel):
+    source: str
+    files: int
+    chunks: int
+    skipped: bool = False
+    message: str = ""
+    total_knowledge_memories: int = 0

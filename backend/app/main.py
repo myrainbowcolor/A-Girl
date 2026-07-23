@@ -24,6 +24,7 @@ from .schemas import (
     ConsentRequest,
     ConsentResponse,
     EmotionOut,
+    KnowledgeIngestOut,
     MemoryOut,
     PersonaOut,
     ProactiveResponse,
@@ -35,6 +36,8 @@ from .schemas import (
     TtsRequest,
     UserInsightOut,
 )
+from .knowledge_scope import KNOWLEDGE_SCOPE_ID
+from .knowledge.goutoujunshi import ingest_goutoujunshi
 from .scheduler import ProactiveScheduler
 from .voice import build_stt_provider, build_tts_provider
 
@@ -270,6 +273,12 @@ _scheduler = ProactiveScheduler(_db, _orchestrator, settings, push=_push)
 
 @app.on_event("startup")
 def _on_startup() -> None:
+    if settings.knowledge_auto_ingest:
+        try:
+            result = ingest_goutoujunshi(_memory, _db, settings)
+            print(f"[knowledge] {result.message}")
+        except Exception as exc:  # noqa: BLE001 — 启动不因知识库失败而中断
+            print(f"[knowledge] ingest skipped: {exc}")
     _scheduler.start()
 
 
@@ -321,6 +330,35 @@ def get_memory(user_id: str) -> list[MemoryOut]:
         MemoryOut(id=m.id, type=m.type.value, content=m.content, importance=m.importance)
         for m in mems
     ]
+
+
+@app.get("/api/knowledge/status", response_model=KnowledgeIngestOut)
+def knowledge_status() -> KnowledgeIngestOut:
+    total = _db.count_memories(KNOWLEDGE_SCOPE_ID)
+    return KnowledgeIngestOut(
+        source="goutoujunshi",
+        files=0,
+        chunks=total,
+        skipped=total > 0,
+        message=f"知识库共 {total} 条",
+        total_knowledge_memories=total,
+    )
+
+
+@app.post("/api/knowledge/ingest/goutoujunshi", response_model=KnowledgeIngestOut)
+def ingest_goutoujunshi_api(reingest: bool = False) -> KnowledgeIngestOut:
+    """拉取/更新狗头军师仓库并入库。"""
+    cfg = settings.model_copy(update={"knowledge_reingest": reingest})
+    result = ingest_goutoujunshi(_memory, _db, cfg)
+    total = _db.count_memories(KNOWLEDGE_SCOPE_ID)
+    return KnowledgeIngestOut(
+        source=result.source,
+        files=result.files,
+        chunks=result.chunks,
+        skipped=result.skipped,
+        message=result.message,
+        total_knowledge_memories=total,
+    )
 
 
 @app.get("/api/persona", response_model=PersonaOut)

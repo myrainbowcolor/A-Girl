@@ -6,4 +6,5 @@ __pycache__/
 venv/
 .pytest_cache/
 backend/reports/
+knowledge/vendor/
 .DS_Store
