@@ -814,3 +814,25 @@ def test_compose_masking_shuobushang_reply():
     assert "一阵子" not in out
     assert not out.startswith("嗯")
 
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["你在吗", "有人吗", "在不在", "还在吗"],
+)
+def test_compose_presence_ping_reply(utterance: str):
+    """在线探问变体 compose 路径应自然「在呢」接话，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("在", "听", "来啦"))
+    assert out.count("？") <= 1
+    assert "一阵子" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_presence_ping_zaima_unchanged():
+    """已有「在吗」行为不因探问扩展回退。"""
+    out = compose_contextual_reply("在吗", [])
+    assert out
+    assert any(w in out for w in ("在", "嗨", "小语", "你好"))
+    assert not out.startswith("嗯")
+

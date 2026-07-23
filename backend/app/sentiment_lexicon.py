@@ -125,6 +125,30 @@ def has_casual_social_context(prior_text: str) -> bool:
     return not any(m in t for m in _CASUAL_SOCIAL_NEGATIVE_BLOCK)
 
 
+_PRESENCE_PING_UTTERANCES = frozenset({
+    "在吗",
+    "你在吗",
+    "有人吗",
+    "在不在",
+    "还在吗",
+    "你在不在",
+    "还在不在",
+})
+_PRESENCE_PING_NEGATIVE_BLOCK = _FRIENDLY_GREETING_NEGATIVE_BLOCK
+
+
+def is_presence_ping_utterance(text: str) -> bool:
+    """短句在线探问（在吗/有人吗等），区别于长句倾诉。"""
+    t = text.strip()
+    if any(m in t for m in _PRESENCE_PING_NEGATIVE_BLOCK):
+        return False
+    if t in _PRESENCE_PING_UTTERANCES:
+        return True
+    if len(t) > 8:
+        return False
+    return "在吗" in t or "在不在" in t or t == "有人吗"
+
+
 def is_positive_utterance(text: str) -> bool:
     if is_longing_utterance(text):
         return False
