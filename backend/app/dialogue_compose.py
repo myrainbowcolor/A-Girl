@@ -11,6 +11,7 @@ from .sentiment_lexicon import (
     has_casual_social_context,
     is_friendly_greeting_utterance,
     is_minimal_fatigue_utterance,
+    is_presence_ping_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
 )
@@ -932,14 +933,24 @@ def compose_contextual_reply(
     if text in ("?", "？", "…", "..", "...") or text in ("嗯", "哦", "额", "好", "行"):
         return "我在这儿呢。不急着说，你想开口了再说~"
 
-    if is_friendly_greeting_utterance(text) or text in ("你好", "嗨", "哈喽", "在吗") or (
-        any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12
-    ):
+    if is_friendly_greeting_utterance(text) or is_presence_ping_utterance(text) or text in (
+        "你好",
+        "嗨",
+        "哈喽",
+    ) or (any(w in text for w in ("hello", "hi", "HI", "Hello")) and len(text) <= 12):
         if prior_assistant and ("小语" in prior_assistant or "你好" in prior_assistant):
             return _pick(
                 (
                     "又见面啦～今天怎么样？",
                     "嗨，在呢。想接着聊，还是换点别的？",
+                ),
+                seed,
+            )
+        if is_presence_ping_utterance(text) and not is_friendly_greeting_utterance(text):
+            return _pick(
+                (
+                    "在呢～我听着，今天想聊点什么？",
+                    "在呢，来啦～有什么想说的？",
                 ),
                 seed,
             )
