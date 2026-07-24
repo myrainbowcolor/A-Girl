@@ -920,6 +920,26 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句低落倾诉（须在封闭极简附和之前，与 mock.py 通用负面情绪对齐）
+    if len(text) <= 12 and any(
+        w in text for w in ("难过", "伤心", "委屈", "想哭", "心情不好", "不好受")
+    ):
+        if _is_intimate_context(prior_assistant, relationship_stage):
+            return _pick(
+                (
+                    "难过的时候别一个人扛着。我陪着你，想说就说~",
+                    "唔，看你难过我也心疼。不急着讲清楚，我在这儿呢~",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "能感觉到你现在不太好受。不想说太多也没关系，我就在这儿陪着你。",
+                "听起来心里挺沉的。不急着讲清楚，我听着呢~",
+            ),
+            seed,
+        )
+
     if text in ("嗯", "嗯嗯", "哦", "噢", "好", "行") and has_casual_social_context(prior_users):
         return _pick(
             (
