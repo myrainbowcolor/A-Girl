@@ -922,7 +922,19 @@ def compose_contextual_reply(
 
     # 短句低落倾诉（须在封闭极简附和之前，与 mock.py 通用负面情绪对齐）
     if len(text) <= 12 and any(
-        w in text for w in ("难过", "伤心", "委屈", "想哭", "心情不好", "不好受")
+        w in text
+        for w in (
+            "难过",
+            "伤心",
+            "委屈",
+            "想哭",
+            "心情不好",
+            "不好受",
+            "孤独",
+            "孤单",
+            "寂寞",
+            "压力",
+        )
     ):
         if _is_intimate_context(prior_assistant, relationship_stage):
             return _pick(
