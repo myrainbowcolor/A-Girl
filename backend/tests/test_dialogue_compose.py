@@ -352,6 +352,35 @@ def test_compose_sad_short_wronged():
     assert not out.startswith("嗯")
 
 
+def test_compose_sad_short_lonely():
+    """短句「好孤独」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("好孤独", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert "突然" not in out or "一阵子" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_pressure():
+    """短句「压力大」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("压力大", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert "突然" not in out or "一阵子" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_big_pressure():
+    """短句「压力好大」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("压力好大", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_self_doubt_comparison():
     """比较心态应承认落差感，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("同学都升职了，就我还原地踏步", [])
