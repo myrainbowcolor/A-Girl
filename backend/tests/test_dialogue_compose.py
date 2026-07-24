@@ -325,6 +325,33 @@ def test_compose_closed_minimal_enen():
     assert "新鲜事" not in out
 
 
+def test_compose_sad_short_a_bit_sad():
+    """短句「有点难过」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("有点难过", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_bad_mood():
+    """短句「心情不好」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("心情不好", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_wronged():
+    """短句「好委屈」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("好委屈", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着", "心疼"))
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_self_doubt_comparison():
     """比较心态应承认落差感，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("同学都升职了，就我还原地踏步", [])
