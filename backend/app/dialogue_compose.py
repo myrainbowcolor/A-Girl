@@ -934,6 +934,11 @@ def compose_contextual_reply(
             "孤单",
             "寂寞",
             "压力",
+            "崩溃",
+            "难受",
+            "郁闷",
+            "烦躁",
+            "痛苦",
         )
     ):
         if _is_intimate_context(prior_assistant, relationship_stage):
