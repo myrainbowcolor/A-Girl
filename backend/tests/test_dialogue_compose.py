@@ -381,6 +381,50 @@ def test_compose_sad_short_big_pressure():
     assert not out.startswith("嗯")
 
 
+def test_compose_sad_short_breakdown():
+    """短句「好崩溃」应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply("好崩溃", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_discomfort():
+    """短句「难受」应先接住情绪，非问卷式 open 兜底。"""
+    out = compose_contextual_reply("难受", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_sad_short_depressed():
+    """短句「好郁闷」应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply("好郁闷", [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_fatigue_variant_very_tired():
+    """疲惫变体「好累好累」应先接住疲惫，非 open 兜底。"""
+    out = compose_contextual_reply("好累好累", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
+    assert "好，我接住了" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_fatigue_variant_exhausted():
+    """疲惫变体「累坏了」应先接住疲惫，非 open 兜底。"""
+    out = compose_contextual_reply("累坏了", [])
+    assert out
+    assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
+    assert not out.startswith("嗯")
+
+
 def test_compose_self_doubt_comparison():
     """比较心态应承认落差感，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("同学都升职了，就我还原地踏步", [])
