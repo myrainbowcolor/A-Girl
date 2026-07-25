@@ -408,6 +408,29 @@ def test_compose_sad_short_depressed():
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["好绝望", "迷茫", "破防", "憋屈"],
+)
+def test_compose_sad_short_despair_slang(utterance: str):
+    """绝望/迷茫/破防/憋屈短句应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着"))
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_single_char_annoyed():
+    """单字「烦」应先接住烦躁，非 open 兜底。"""
+    out = compose_contextual_reply("烦", [])
+    assert out
+    assert any(w in out for w in ("烦", "堵", "缠", "陪着"))
+    assert "好，我收到了" not in out
+    assert out.count("？") <= 1
+    assert not out.startswith("嗯")
+
+
 def test_compose_fatigue_variant_very_tired():
     """疲惫变体「好累好累」应先接住疲惫，非 open 兜底。"""
     out = compose_contextual_reply("好累好累", [])

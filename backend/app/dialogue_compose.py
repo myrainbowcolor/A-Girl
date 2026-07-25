@@ -902,7 +902,7 @@ def compose_contextual_reply(
         )
 
     # 快撑不住了 / 倦怠极限（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
-    if any(w in text for w in ("撑不住", "扛不住", "受不了")):
+    if any(w in text for w in ("撑不住", "扛不住", "受不了", "绷不住")):
         return _pick(
             (
                 "听起来你真的快到极限了……先别一个人硬撑，我陪着你。慢慢说，是什么让你这么累？",
@@ -920,6 +920,15 @@ def compose_contextual_reply(
             seed,
         )
 
+    if text in ("烦", "烦啊") or (len(text) <= 4 and "烦" in text):
+        return _pick(
+            (
+                "听起来心里挺堵的。不想说原因也没关系，我在呢——愿意的话，是什么事最缠人？",
+                "烦的时候先别逼自己消化。我陪着你，愿意的话跟我说说是哪件事最缠人？",
+            ),
+            seed,
+        )
+
     # 短句低落倾诉（须在封闭极简附和之前，与 mock.py 通用负面情绪对齐）
     if len(text) <= 12 and any(
         w in text
@@ -928,6 +937,7 @@ def compose_contextual_reply(
             "伤心",
             "委屈",
             "想哭",
+            "要哭",
             "心情不好",
             "不好受",
             "孤独",
@@ -939,6 +949,15 @@ def compose_contextual_reply(
             "郁闷",
             "烦躁",
             "痛苦",
+            "绝望",
+            "无助",
+            "迷茫",
+            "空虚",
+            "破防",
+            "憋屈",
+            "心痛",
+            "心碎",
+            "泪目",
         )
     ):
         if _is_intimate_context(prior_assistant, relationship_stage):
