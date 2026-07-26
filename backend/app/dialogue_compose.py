@@ -601,8 +601,12 @@ def compose_contextual_reply(
             seed,
         )
 
-    # emo / 丧 / 心累低落（须在育儿/加班等具体分支之后，与 mock.py 场景分支对齐）
-    if any(w in text.lower() for w in ("emo", "丧")) or any(w in text for w in ("心累", "心好累")):
+    # emo / 丧 / 心累 / 没劲低落（须在育儿/加班等具体分支之后，与 mock.py 场景分支对齐）
+    if (
+        any(w in text.lower() for w in ("emo", "丧"))
+        or any(w in text for w in ("心累", "心好累"))
+        or (len(text) <= 12 and any(w in text for w in ("没劲", "没意思", "低落")))
+    ):
         return _pick(
             (
                 "这种低落的感觉我懂。不想硬撑的时候，就陪我随便聊聊也好。",
@@ -645,6 +649,20 @@ def compose_contextual_reply(
             (
                 "当家长这么操心，我真的心疼你……你已经很在乎 ta 了。跟我说说你最担心的是什么？",
                 "孩子考得不好就怪自己太严厉，我理解这种自责……你先别急着怪自己，最让你揪心的是哪一块？",
+            ),
+            seed,
+        )
+
+    # 短句慌张/担心（须在育儿焦虑之后、通用 open 兜底之前，与 mock.py _VENT 对齐）
+    if (
+        len(text) <= 10
+        and "堵" not in text
+        and any(w in text for w in ("慌", "害怕", "好怕", "担心", "好担心"))
+    ):
+        return _pick(
+            (
+                "听起来你心里绷着弦……先别一个人扛着，我陪着你。愿意的话，是什么事让你最放不下？",
+                "担心冒出来的时候真的难受。我在这儿，不急着想清楚，你想说多少都行。",
             ),
             seed,
         )
@@ -925,6 +943,16 @@ def compose_contextual_reply(
             (
                 "听起来心里挺堵的。不想说原因也没关系，我在呢——愿意的话，是什么事最缠人？",
                 "烦的时候先别逼自己消化。我陪着你，愿意的话跟我说说是哪件事最缠人？",
+            ),
+            seed,
+        )
+
+    # 心里堵/堵心短句（须在短句低落倾诉之前，与 mock.py 烦躁共情对齐）
+    if len(text) <= 10 and any(w in text for w in ("堵得慌", "心里堵", "堵心", "心堵", "好堵")):
+        return _pick(
+            (
+                "心里堵着的时候真的难受。不想说原因也没关系，我在呢——愿意的话，是什么事最缠人？",
+                "堵得慌的时候先别逼自己消化。我陪着你，愿意的话跟我说说是哪件事最缠人？",
             ),
             seed,
         )
