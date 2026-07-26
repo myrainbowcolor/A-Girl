@@ -67,6 +67,7 @@ _MINIMAL_FATIGUE_UTTERANCES = frozenset({
     "好累啊",
     "好累好累",
     "今天好累",
+    "今天好累啊",
     "有点累",
     "累死了",
     "累坏了",
