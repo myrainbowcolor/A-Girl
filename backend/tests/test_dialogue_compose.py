@@ -171,7 +171,7 @@ def test_compose_minimal_fatigue_hao_lei():
 
 @pytest.mark.parametrize(
     "utterance",
-    ["累了", "好累啊", "今天好累", "有点累", "累死了"],
+    ["累了", "好累啊", "今天好累", "今天好累啊", "有点累", "累死了"],
 )
 def test_compose_minimal_fatigue_variants(utterance: str):
     """常见疲惫口语变体应返回疲惫共情短句，而非问卷式 open 兜底。"""
@@ -180,6 +180,25 @@ def test_compose_minimal_fatigue_variants(utterance: str):
     assert any(w in out for w in ("累", "辛苦", "歇", "心疼"))
     assert "不太好受" not in out
     assert "突然" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize("utterance", ["一般般"])
+def test_compose_minimal_masking_yibanban(utterance: str):
+    """masking 变体「一般般」应轻轻接住，而非问卷式 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("平平", "陪着", "聊", "憋着", "愿意"))
+    assert "好，我收到了" not in out
+
+
+@pytest.mark.parametrize("utterance", ["困", "好困", "有点困"])
+def test_compose_short_sleepy_utterances(utterance: str):
+    """短句困倦口语应返回体贴接话，而非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("困", "歇", "陪", "辛苦", "缓"))
+    assert "好，我收到了" not in out
     assert not out.startswith("嗯")
 
 

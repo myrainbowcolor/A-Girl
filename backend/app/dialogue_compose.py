@@ -257,11 +257,22 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text in ("还行", "还行吧", "一般", "还好吧", "还好") or re.fullmatch(r"还?行吧?", text):
+    if text in ("还行", "还行吧", "一般", "一般般", "还好吧", "还好") or re.fullmatch(
+        r"还?行吧?", text
+    ):
         return _pick(
             (
                 "还行呀……是今天平平淡淡，还是其实有点什么事憋着？",
                 "听着不糟也不特别开心？要是愿意，可以跟我多聊一句~",
+            ),
+            seed,
+        )
+
+    if text in ("困", "好困", "有点困"):
+        return _pick(
+            (
+                "困成这样呀……先缓一缓，别硬撑。是昨晚没睡好还是今天特别耗神？",
+                "听着就犯困，辛苦啦。先歇一会儿，我陪着~",
             ),
             seed,
         )
