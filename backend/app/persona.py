@@ -63,7 +63,7 @@ _USER_TURN_TONE = {
 }
 
 # 整句极简 masking/回避口语（与 emotion.analyzer 对齐，驱动 prompt 共情侧重）
-_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般", "一般般"})
 _MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
 _MINIMAL_FATIGUE = frozenset({"累"})
 

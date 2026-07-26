@@ -43,7 +43,7 @@ _HIGH_AROUSAL = {
 }
 _INTENSITY = {"非常", "特别", "超级", "极其", "太", "好", "很", "超"}
 # 整句极简口语：情绪低落场景常见 masking/回避，驱动 avatar comfort（仅精确匹配整句）
-_MINIMAL_MASKING = frozenset({"还好", "还行", "一般"})
+_MINIMAL_MASKING = frozenset({"还好", "还行", "一般", "一般般"})
 _MINIMAL_EVASIVE = frozenset({"不知道", "说不清", "说不上"})
 
 
