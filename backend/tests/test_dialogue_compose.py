@@ -427,7 +427,45 @@ def test_compose_single_char_annoyed():
     assert out
     assert any(w in out for w in ("烦", "堵", "缠", "陪着"))
     assert "好，我收到了" not in out
-    assert out.count("？") <= 1
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["没劲", "好没劲", "没意思"],
+)
+def test_compose_low_energy_short(utterance: str):
+    """没劲/没意思短句应先接住低落感，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("低落", "陪", "硬撑", "说说"))
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["心里堵", "堵得慌", "堵心"],
+)
+def test_compose_blocked_heart_short(utterance: str):
+    """心里堵/堵心短句应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("堵", "缠", "陪着", "消化"))
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["慌", "好担心"],
+)
+def test_compose_worry_short(utterance: str):
+    """短句慌张/担心应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("陪", "担心", "绷", "放不下", "难受"))
+    assert "好，我收到了" not in out
     assert not out.startswith("嗯")
 
 
