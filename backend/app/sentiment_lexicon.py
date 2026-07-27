@@ -79,6 +79,24 @@ def is_minimal_fatigue_utterance(text: str) -> bool:
     return text.strip() in _MINIMAL_FATIGUE_UTTERANCES
 
 
+_MINIMAL_SLEEPY_UTTERANCES = frozenset({
+    "困",
+    "好困",
+    "有点困",
+    "困了",
+    "好困啊",
+})
+_SLEEPY_COMMUTE_BLOCK = ("困死", "不想起床", "起不来")
+
+
+def is_minimal_sleepy_utterance(text: str) -> bool:
+    """整句极简困倦口语（困/好困及常见变体），区别于通勤长句困倦倾诉。"""
+    t = text.strip()
+    if t not in _MINIMAL_SLEEPY_UTTERANCES:
+        return False
+    return not any(m in t for m in _SLEEPY_COMMUTE_BLOCK)
+
+
 def is_longing_utterance(text: str) -> bool:
     """依恋/想念口语，区别于纯开心报喜。"""
     return contains_any(text, LONGING_WORDS)
