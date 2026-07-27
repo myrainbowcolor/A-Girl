@@ -192,7 +192,7 @@ def test_compose_minimal_masking_yibanban(utterance: str):
     assert "好，我收到了" not in out
 
 
-@pytest.mark.parametrize("utterance", ["困", "好困", "有点困"])
+@pytest.mark.parametrize("utterance", ["困", "好困", "有点困", "困了", "好困啊"])
 def test_compose_short_sleepy_utterances(utterance: str):
     """短句困倦口语应返回体贴接话，而非 open 兜底。"""
     out = compose_contextual_reply(utterance, [])

@@ -14,6 +14,7 @@ from ..sentiment_lexicon import (
     contains_any,
     has_casual_social_context,
     is_minimal_fatigue_utterance,
+    is_minimal_sleepy_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
     user_complains_filler_reply,
@@ -526,6 +527,16 @@ def _scene_reply(
             [
                 f"{dear}{mood}累呀……先别硬撑，缓口气。是身子累还是心里也一起累了？",
                 f"{dear}{mood}听着就心疼，累的时候能说出来已经很好了。先歇一会儿，我陪着~",
+            ],
+            text + stage,
+        )
+
+    # 短句困倦口语（须在通用负面关键词分支之前，与 compose 对齐）
+    if is_minimal_sleepy_utterance(text):
+        return _pick_variant(
+            [
+                f"{dear}{mood}困成这样呀……先缓一缓，别硬撑。是昨晚没睡好还是今天特别耗神？",
+                f"{dear}{mood}听着就犯困，辛苦啦。先歇一会儿，我陪着~",
             ],
             text + stage,
         )

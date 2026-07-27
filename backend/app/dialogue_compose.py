@@ -11,6 +11,7 @@ from .sentiment_lexicon import (
     has_casual_social_context,
     is_friendly_greeting_utterance,
     is_minimal_fatigue_utterance,
+    is_minimal_sleepy_utterance,
     is_presence_ping_utterance,
     is_positive_utterance,
     user_complains_bot_reply,
@@ -268,7 +269,7 @@ def compose_contextual_reply(
             seed,
         )
 
-    if text in ("困", "好困", "有点困"):
+    if is_minimal_sleepy_utterance(text):
         return _pick(
             (
                 "困成这样呀……先缓一缓，别硬撑。是昨晚没睡好还是今天特别耗神？",
