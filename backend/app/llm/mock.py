@@ -707,6 +707,36 @@ def _scene_reply(
             f"先别急着怪自己，跟我说说你最担心的是什么？"
         )
 
+    # 短句考试失利（须在考前焦虑与育儿焦虑之后，与 compose 对齐）
+    if (
+        len(text) <= 12
+        and not any(w in text for w in ("孩子", "儿子", "女儿"))
+        and any(w in text for w in ("考砸", "没考好", "挂科"))
+    ):
+        if "挂科" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}挂科这种挫败感太闷了。先缓一缓，我在这儿听着，想说多少都行。",
+                    f"{dear}{mood}挂科了心里肯定堵……先别急着骂自己，我陪着你。",
+                ],
+                text + stage,
+            )
+        if "没考好" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}没考好真的难受……我陪着你，不急着复盘，想吐槽就吐槽。",
+                    f"{dear}{mood}成绩不如意的时候最容易自我否定，我懂。先陪你待着，愿意说再慢慢说。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}考砸的时候最容易骂自己，我懂这种失落。先别急着否定整个人，愿意的话跟我说说哪一门最扎心？",
+                f"{dear}{mood}考砸了心里肯定沉沉的。我陪着你，不急着找原因，想说就说。",
+            ],
+            text + stage,
+        )
+
     # 生病
     if any(w in text for w in ("感冒", "发烧", "生病", "头痛", "头疼", "不舒服")):
         if stage == "亲密":

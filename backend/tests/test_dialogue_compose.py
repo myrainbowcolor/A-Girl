@@ -455,6 +455,24 @@ def test_compose_speechless_awkward_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["考砸了", "没考好", "挂科了"],
+)
+def test_compose_exam_fail_short(utterance: str):
+    """考试失利短句应先接住挫败感，非 open 兜底，且非考前焦虑/育儿话术。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("考砸", "挂科", "没考好", "成绩", "挫败", "失落", "陪着", "难受"))
+    assert "你想从哪儿开始说" not in out
+    assert "慢慢讲" not in out
+    assert "好，我收到了" not in out
+    assert "考前紧张" not in out
+    assert "当家长" not in out
+    assert "下次加油" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_single_char_annoyed():
     """单字「烦」应先接住烦躁，非 open 兜底。"""
     out = compose_contextual_reply("烦", [])
