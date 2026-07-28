@@ -567,6 +567,32 @@ def _scene_reply(
             text + stage,
         )
 
+    # 短句无语/尴尬/社死（须在通用负面之前，与 compose 对齐）
+    if len(text) <= 12 and any(w in text for w in ("无语", "尴尬", "社死")):
+        if "社死" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}社死那种感觉太折磨人了……我陪着你，愿意说就说，不说也行。",
+                    f"{dear}{mood}那种恨不得找地缝的感觉我懂。先缓一缓，想吐槽的话我听着。",
+                ],
+                text + stage,
+            )
+        if "尴尬" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}尴尬的感觉我懂。先缓一缓，不用急着复盘——想吐槽的话我听着。",
+                    f"{dear}{mood}尴尬的时候最想找地缝……我在呢，愿意说就说，不说也行。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}无语的时候真的憋屈。不想解释也没关系，我在呢——愿意的话，是什么事最让你无语？",
+                f"{dear}{mood}无语到不想说话的时候，先不用硬撑着解释。我陪着你，想吐槽随时说。",
+            ],
+            text + stage,
+        )
+
     # 情绪低落 — 优先共情
     if any(w in text for w in ("难过", "伤心", "累", "孤独", "想哭", "崩溃", "压力", "烦")):
         sad_kw = ("难过", "累", "孤独", "压力", "烦", "哭", "焦虑", "崩溃")
