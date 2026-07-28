@@ -6,6 +6,6 @@
 ## 2. 测试与验证
 
 - [x] 2.1 `test_dialogue_compose.py` 补充「考砸了」「没考好」「挂科了」探针单测
-- [ ] 2.2 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [ ] 2.3 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
-- [ ] 2.4 运行 `npx openspec validate --specs` 通过
+- [x] 2.2 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.3 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.4 运行 `npx openspec validate --specs` 通过
