@@ -440,6 +440,21 @@ def test_compose_sad_short_despair_slang(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["好无语", "无语", "好尴尬", "社死了", "有点无语"],
+)
+def test_compose_speechless_awkward_short(utterance: str):
+    """无语/尴尬/社死短句应先接住社交尴尬感，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("无语", "尴尬", "社死", "憋屈", "陪着", "听着"))
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_single_char_annoyed():
     """单字「烦」应先接住烦躁，非 open 兜底。"""
     out = compose_contextual_reply("烦", [])

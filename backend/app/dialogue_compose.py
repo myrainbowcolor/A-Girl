@@ -969,6 +969,17 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句无语/尴尬/社死（须在通用 open 兜底之前，与 mock.py 场景分支对齐）
+    if len(text) <= 12 and any(w in text for w in ("无语", "尴尬", "社死")):
+        return _pick(
+            (
+                "无语的时候真的憋屈。不想解释也没关系，我在呢——愿意的话，是什么事最让你无语？",
+                "尴尬的感觉我懂。先缓一缓，不用急着复盘——想吐槽的话我听着。",
+                "社死那种感觉太折磨人了……我陪着你，愿意说就说，不说也行。",
+            ),
+            seed,
+        )
+
     # 短句低落倾诉（须在封闭极简附和之前，与 mock.py 通用负面情绪对齐）
     if len(text) <= 12 and any(
         w in text
