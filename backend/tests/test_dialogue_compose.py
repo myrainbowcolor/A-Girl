@@ -473,6 +473,26 @@ def test_compose_exam_fail_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["面试砸了", "面试挂了", "没通过", "落选了", "搞砸了"],
+)
+def test_compose_interview_fail_short(utterance: str):
+    """选拔/面试失利短句应先接住挫败感，禁止报喜或 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("面试", "没通过", "落选", "搞砸", "挫败", "失落", "陪着", "难受", "沉沉")
+    )
+    assert "太棒了" not in out
+    assert "替你开心" not in out
+    assert "慢慢讲" not in out
+    assert "好，我收到了" not in out
+    assert "考前紧张" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_single_char_annoyed():
     """单字「烦」应先接住烦躁，非 open 兜底。"""
     out = compose_contextual_reply("烦", [])

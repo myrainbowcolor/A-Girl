@@ -37,3 +37,17 @@ def test_filler_complaint_not_minimal_ack():
     assert user_complains_filler_reply("能别嗯嗯的回答吗")
     assert user_complains_filler_reply("太敷衍了")
     assert is_positive_utterance("今天好开心，考试过了！")
+
+
+def test_not_positive_when_not_passed():
+    """「没通过/未通过」不得因关键词「通过」误判为正向。"""
+    assert not is_positive_utterance("没通过")
+    assert not is_positive_utterance("面试未通过")
+    assert not contains_keyword("没通过", "通过")
+    assert is_positive_utterance("面试通过了")
+
+
+def test_not_positive_when_not_admitted():
+    """「没录取」不得因关键词「录取」误判为正向。"""
+    assert not is_positive_utterance("没录取")
+    assert is_positive_utterance("录取了")
