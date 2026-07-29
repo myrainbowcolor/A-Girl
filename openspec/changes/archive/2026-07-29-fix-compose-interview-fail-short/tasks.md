@@ -8,6 +8,6 @@
 
 - [x] 2.1 `test_sentiment_lexicon.py` 补充「没通过」「面试通过了」等探针
 - [x] 2.2 `test_dialogue_compose.py` 补充「面试砸了」「没通过」「落选了」「搞砸了」探针单测
-- [ ] 2.3 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [ ] 2.4 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
-- [ ] 2.5 运行 `npx openspec validate --specs` 通过
+- [x] 2.3 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.4 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
+- [x] 2.5 运行 `npx openspec validate --specs` 通过
