@@ -737,6 +737,42 @@ def _scene_reply(
             text + stage,
         )
 
+    # 短句选拔/面试失利（须在考试失利之后，与 compose 对齐）
+    if len(text) <= 12 and any(
+        w in text for w in ("面试砸", "面试挂", "没通过", "落选", "搞砸")
+    ):
+        if "面试" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}面试不顺心里肯定沉沉的。先别急着否定自己，我陪着你，想吐槽就吐槽。",
+                    f"{dear}{mood}面试砸了这种挫败感太闷了……先缓一缓，我在这儿听着。",
+                ],
+                text + stage,
+            )
+        if "没通过" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}没通过的失落我懂。先别一个人硬撑，我陪着你，愿意说再慢慢说。",
+                    f"{dear}{mood}没通过心里肯定堵……先别急着否定自己，我陪着你。",
+                ],
+                text + stage,
+            )
+        if "落选" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}落选这种事最容易自我否定……我陪着你，不急着复盘。",
+                    f"{dear}{mood}落选了心里肯定沉沉的。先缓一缓，我在这儿听着。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}搞砸了心里肯定堵……先别急着骂自己，我陪着你。",
+                f"{dear}{mood}这种搞砸的挫败感太难受了。我在这儿，想说多少都行。",
+            ],
+            text + stage,
+        )
+
     # 生病
     if any(w in text for w in ("感冒", "发烧", "生病", "头痛", "头疼", "不舒服")):
         if stage == "亲密":
