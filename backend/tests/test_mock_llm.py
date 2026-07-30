@@ -121,3 +121,15 @@ def test_mock_homesickness_short():
     assert "慢慢讲" not in reply
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_disappointment_short():
+    """短句「好失望」应接住失落感，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "好失望"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("不太好受", "陪", "听", "难受", "心疼"))
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
