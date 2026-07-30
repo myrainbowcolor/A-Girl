@@ -493,6 +493,22 @@ def test_compose_interview_fail_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["想家了", "想家", "好想家", "想爸妈", "想回家"],
+)
+def test_compose_homesickness_short(utterance: str):
+    """想家/思乡短句应先接住思念与空落感，非问卷式 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("想家", "家", "爸妈", "空", "陪", "难受", "思念"))
+    assert "你想从哪儿开始说" not in out
+    assert "慢慢讲" not in out
+    assert "好，我收到了" not in out
+    assert "过节" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_single_char_annoyed():
     """单字「烦」应先接住烦躁，非 open 兜底。"""
     out = compose_contextual_reply("烦", [])

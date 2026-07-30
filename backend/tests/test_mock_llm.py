@@ -109,3 +109,15 @@ def test_mock_intimate_lean_on_fatigue():
     )
     assert any(w in reply for w in ("靠", "陪", "抱抱"))
     assert "不太好受" not in reply
+
+
+def test_mock_homesickness_short():
+    """短句「想家了」应接住思念空落，非问卷式兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("朋友"),
+        [{"role": "user", "content": "想家了"}],
+    )
+    assert any(w in reply for w in ("想家", "家", "空", "陪", "难受", "思念"))
+    assert "慢慢讲" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
