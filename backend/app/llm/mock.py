@@ -661,6 +661,32 @@ def _scene_reply(
             f"这种时候难受很正常，我陪你待着，慢慢说。"
         )
 
+    # 短句想家/思乡（须在节日孤独之后，与 compose 对齐；不与「想你」分支抢占）
+    if len(text) <= 12 and any(w in text for w in ("想家", "想爸妈", "想回家", "想父母")):
+        if "想爸妈" in text or "想父母" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}想爸妈的时候心里会空空的……难受很正常，我陪着你，想说就说。",
+                    f"{dear}{mood}思念家人的感觉我懂。先不用硬撑，我在这儿陪着你。",
+                ],
+                text + stage,
+            )
+        if "想回家" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}想回家的感觉特别磨人……空落落的时候我陪着你，愿意说再慢慢说。",
+                    f"{dear}{mood}想回家却回不去的时候最难受。我在这儿，不急着转移话题。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}想家的时候心里会空落落的……难受很正常，我陪你待着，想说就说。",
+                f"{dear}{mood}想家了呀……这种思念不用憋着，我陪着你，愿意说再慢慢说。",
+            ],
+            text + stage,
+        )
+
     # 被责骂 / 愤怒发泄（排除「辞职信」等文书请求）
     if ("辞职信" in text or ("帮我写" in text and "信" in text)):
         return (
