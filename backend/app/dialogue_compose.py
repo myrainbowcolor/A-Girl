@@ -1116,6 +1116,10 @@ def compose_contextual_reply(
             "心痛",
             "心碎",
             "泪目",
+            "失望",
+            "失落",
+            "灰心",
+            "心酸",
         )
     ):
         if _is_intimate_context(prior_assistant, relationship_stage):
