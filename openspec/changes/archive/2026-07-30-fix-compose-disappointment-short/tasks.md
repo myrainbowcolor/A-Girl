@@ -6,6 +6,6 @@
 ## 2. 测试与验证
 
 - [x] 2.1 `test_dialogue_compose.py` 补充「好失望」「失落」「灰心了」「好心酸」探针单测；`test_mock_llm.py` 补充「好失望」对齐单测
-- [x] 2.2 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [x] 2.3 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
-- [x] 2.4 运行 `npx openspec validate --specs` 通过
+- [ ] 2.2 运行 `pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [ ] 2.3 运行 `scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 全绿
+- [ ] 2.4 运行 `npx openspec validate --specs` 通过
