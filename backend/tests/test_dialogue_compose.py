@@ -456,6 +456,20 @@ def test_compose_sad_short_disappointment(utterance: str):
 
 @pytest.mark.parametrize(
     "utterance",
+    ["内耗", "好内耗", "心态崩了", "心态炸了", "被掏空了"],
+)
+def test_compose_sad_short_rumination(utterance: str):
+    """内耗/心态崩/心态炸/被掏空短句应先接住情绪，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("不太好受", "陪着", "沉", "听着", "心疼"))
+    assert "好，我收到了" not in out
+    assert "哪一块你现在最想提" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["好无语", "无语", "好尴尬", "社死了", "有点无语"],
 )
 def test_compose_speechless_awkward_short(utterance: str):

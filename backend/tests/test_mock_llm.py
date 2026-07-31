@@ -133,3 +133,15 @@ def test_mock_disappointment_short():
     assert any(w in reply for w in ("不太好受", "陪", "听", "难受", "心疼"))
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_rumination_short():
+    """短句「内耗」应接住内耗感，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "内耗"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("不太好受", "陪", "听", "难受", "心疼"))
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
