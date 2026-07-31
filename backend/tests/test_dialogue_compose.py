@@ -485,6 +485,26 @@ def test_compose_speechless_awkward_short(utterance: str):
 
 @pytest.mark.parametrize(
     "utterance",
+    ["好丢脸", "丢脸", "好丢人", "好羞耻", "社恐了", "好社恐"],
+)
+def test_compose_shame_social_anxiety_short(utterance: str):
+    """丢脸/羞耻/社恐短句应先接住社交尴尬感，非 open 兜底，且按关键词分流。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("丢脸", "丢人", "羞耻", "社恐", "找地缝", "陪着", "听着", "社交")
+    )
+    if "社恐" in utterance:
+        assert "社死" not in out
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["考砸了", "没考好", "挂科了"],
 )
 def test_compose_exam_fail_short(utterance: str):
