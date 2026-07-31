@@ -1120,6 +1120,11 @@ def compose_contextual_reply(
             "失落",
             "灰心",
             "心酸",
+            "内耗",
+            "心态崩",
+            "心态炸",
+            "心态爆炸",
+            "被掏空",
         )
     ):
         if _is_intimate_context(prior_assistant, relationship_stage):
