@@ -29,6 +29,7 @@ _VENT = (
     "原地踏步", "踏步", "emo", "丧", "心累", "没用", "自卑", "迷茫", "憋着",
     "失望", "失落", "灰心", "心酸",
     "内耗", "心态崩", "心态炸", "心态爆炸", "被掏空",
+    "丢脸", "丢人", "羞耻", "社恐",
 )
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
 _POSITIVE = (
@@ -83,6 +84,7 @@ def _user_tone(text: str) -> str:
         "不开心", "委屈", "分手", "失恋", "原地踏步", "踏步", "自卑", "迷茫",
         "失望", "失落", "灰心", "心酸",
         "内耗", "心态崩", "心态炸", "心态爆炸", "被掏空",
+        "丢脸", "丢人", "羞耻", "社恐",
     )):
         return "negative"
     if is_positive_utterance(t):
@@ -571,13 +573,40 @@ def _scene_reply(
             text + stage,
         )
 
-    # 短句无语/尴尬/社死（须在通用负面之前，与 compose 对齐）
-    if len(text) <= 12 and any(w in text for w in ("无语", "尴尬", "社死")):
+    # 短句无语/尴尬/社死/丢脸/羞耻/社恐（须在通用负面之前，与 compose 对齐）
+    if len(text) <= 12 and any(
+        w in text for w in ("无语", "尴尬", "社死", "丢脸", "丢人", "羞耻", "社恐")
+    ):
+        # 社死须优先于社恐（子串重叠）
         if "社死" in text:
             return _pick_variant(
                 [
                     f"{dear}{mood}社死那种感觉太折磨人了……我陪着你，愿意说就说，不说也行。",
                     f"{dear}{mood}那种恨不得找地缝的感觉我懂。先缓一缓，想吐槽的话我听着。",
+                ],
+                text + stage,
+            )
+        if "社恐" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}社恐发作的时候社交压力真的很沉。不用硬撑着社交，我陪着你。",
+                    f"{dear}{mood}那种不想见人的紧绷感我懂。先缓一缓，想吐槽的话我听着。",
+                ],
+                text + stage,
+            )
+        if "羞耻" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}羞耻感涌上来的时候特别折磨人……我在呢，愿意说就说，不说也行。",
+                    f"{dear}{mood}那种恨不得躲开所有人的感觉我懂。先缓一缓，想吐槽我听着。",
+                ],
+                text + stage,
+            )
+        if any(w in text for w in ("丢脸", "丢人")):
+            return _pick_variant(
+                [
+                    f"{dear}{mood}丢脸的感觉真的难受。不用急着复盘，我陪着你——想吐槽随时说。",
+                    f"{dear}{mood}那种恨不得找地缝的丢人感我懂。先缓一缓，我在呢。",
                 ],
                 text + stage,
             )
