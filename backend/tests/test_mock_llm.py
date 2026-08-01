@@ -171,3 +171,18 @@ def test_mock_inferiority_short():
     assert "原地踏步" not in reply
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_useless_feeling_short():
+    """短句「好没用」应接住自我否定，勿套用冲动消费后悔话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "好没用"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("没用", "自我否定", "陪"))
+    assert "管不住手" not in reply
+    assert "后悔" not in reply
+    assert "乱花钱" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
