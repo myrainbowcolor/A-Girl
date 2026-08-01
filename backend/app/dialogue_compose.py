@@ -948,9 +948,21 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句自我否定「好没用」（无消费语境；须在冲动消费分支之前，勿套用管不住手/后悔话术）
+    _spend_markers = ("乱花钱", "钱", "买", "花", "管不住", "手")
+    if "没用" in text and len(text) <= 12 and not any(w in text for w in _spend_markers):
+        return _pick(
+            (
+                "别急着说自己没用……这种自我否定特别难受，我陪着你。",
+                "觉得自己没用的时候最堵。先别贴标签，我在呢。",
+            ),
+            seed,
+        )
+
     # 冲动消费后悔 / 自责（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
+    # 消费语境须含真实消费线索；「没用」单独不得命中本分支
     if any(w in text for w in ("乱花钱", "管不住", "没用", "后悔")) and any(
-        w in text for w in ("钱", "买", "手", "花", "没用")
+        w in text for w in ("钱", "买", "手", "花")
     ):
         if any(w in text for w in ("没用", "管不住手")):
             return _pick(

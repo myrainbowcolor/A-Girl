@@ -397,9 +397,9 @@ def _scene_reply(
             f"慢慢说，我听着呢。"
         )
 
-    # 冲动消费 / 自责
+    # 冲动消费 / 自责（消费语境须含真实消费线索；「没用」单独不得命中）
     if any(w in text for w in ("乱花钱", "管不住", "没用", "后悔")) and any(
-        w in text for w in ("钱", "买", "手", "花", "没用")
+        w in text for w in ("钱", "买", "手", "花")
     ):
         if any(w in text for w in ("没用", "管不住手")):
             return (
@@ -409,6 +409,13 @@ def _scene_reply(
         return (
             f"{dear}{mood}后悔的时候最容易骂自己，我心疼你。"
             f"先别急着贴标签，跟我说说这次是什么让你没忍住？"
+        )
+
+    # 短句自我否定「好没用」（无消费语境；勿套用管不住手/后悔话术）
+    _spend_markers = ("乱花钱", "钱", "买", "花", "管不住", "手")
+    if "没用" in text and len(text) <= 12 and not any(w in text for w in _spend_markers):
+        return (
+            f"{dear}{mood}别急着说自己没用……这种自我否定特别难受，我陪着你。"
         )
 
     # emo / 丧 — 低落口语

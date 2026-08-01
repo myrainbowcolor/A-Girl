@@ -663,6 +663,24 @@ def test_compose_inferiority_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["好没用", "没用", "我好没用"],
+)
+def test_compose_useless_feeling_short(utterance: str):
+    """无消费语境的「好没用」应接住自我否定，勿套用冲动消费后悔话术。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("没用", "自我否定", "贴标签", "陪着", "陪", "堵"))
+    assert "管不住手" not in out
+    assert "后悔" not in out
+    assert "乱花钱" not in out
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_impulse_regret_spending():
     """冲动消费后悔应理解后悔，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("我又乱花钱了，买了根本用不上的东西", [])
