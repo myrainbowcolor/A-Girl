@@ -157,3 +157,17 @@ def test_mock_shame_short():
     assert any(w in reply for w in ("丢脸", "丢人", "找地缝", "陪", "听"))
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_inferiority_short():
+    """短句「好自卑」应接住自卑感，非空串/问卷兜底，且非升职比较话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "好自卑"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("自卑", "不够好", "否定", "陪"))
+    assert "升职" not in reply
+    assert "原地踏步" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")

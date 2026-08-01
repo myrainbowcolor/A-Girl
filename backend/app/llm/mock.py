@@ -419,7 +419,13 @@ def _scene_reply(
         )
 
     # 比较 / 自我怀疑
-    if any(w in text for w in ("升职", "原地踏步", "差劲", "不如")):
+    if any(w in text for w in ("升职", "原地踏步", "差劲", "不如", "自卑")):
+        # 短句自卑：先接住「不够好」的感受，勿套用升职比较话术
+        if "自卑" in text and len(text) <= 12:
+            return (
+                f"{dear}{mood}自卑涌上来的时候特别难受……"
+                f"先别急着否定自己，我陪着你。"
+            )
         if any(w in text for w in ("差劲", "太差")):
             return (
                 f"{dear}{mood}别急着给自己贴「差劲」的标签，我理解这种自我怀疑。"

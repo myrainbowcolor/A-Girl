@@ -646,6 +646,23 @@ def test_compose_self_doubt_label():
     assert "别比了" not in out
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["好自卑", "自卑", "我好自卑", "好自卑啊"],
+)
+def test_compose_inferiority_short(utterance: str):
+    """自卑短句应先接住不够好的感受，非 open 兜底，且非升职比较话术。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("自卑", "不够好", "否定", "陪着", "陪"))
+    assert "升职" not in out
+    assert "原地踏步" not in out
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_impulse_regret_spending():
     """冲动消费后悔应理解后悔，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("我又乱花钱了，买了根本用不上的东西", [])
