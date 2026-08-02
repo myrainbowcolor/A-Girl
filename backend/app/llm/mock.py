@@ -870,6 +870,42 @@ def _scene_reply(
             text + stage,
         )
 
+    # 短句失业/裁员（须在通用兜底之前，与 compose 对齐；含「丢工作」勿套用工作压力话术）
+    if len(text) <= 12 and any(
+        w in text for w in ("被裁", "裁员", "被开除", "失业", "丢工作")
+    ):
+        if "丢工作" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}丢工作这种事太打击人了……先缓一缓，我陪着你。",
+                    f"{dear}{mood}丢了工作心里肯定沉沉的。别急着复盘，我在这儿听着。",
+                ],
+                text + stage,
+            )
+        if "被开除" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}被开除这种打击太重了……先缓一缓，我陪着你。",
+                    f"{dear}{mood}被开除了心里肯定堵……别一个人硬撑，我在这儿。",
+                ],
+                text + stage,
+            )
+        if "失业" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}失业了心里肯定空落落的。先别急着给自己压力，我陪着你。",
+                    f"{dear}{mood}失业这种不确定感太难受了……我在这儿，想说就说。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}被裁这种事砸过来真的太闷了……先缓一缓，我陪着你，想说多少都行。",
+                f"{dear}{mood}被裁了心里肯定沉沉的。先别急着想下一步，我在这儿听着。",
+            ],
+            text + stage,
+        )
+
     # 生病
     if any(w in text for w in ("感冒", "发烧", "生病", "头痛", "头疼", "不舒服")):
         if stage == "亲密":
