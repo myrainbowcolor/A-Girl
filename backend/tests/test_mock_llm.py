@@ -186,3 +186,24 @@ def test_mock_useless_feeling_short():
     assert "乱花钱" not in reply
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["被裁了", "裁员了", "被开除了", "失业了", "丢工作了"],
+)
+def test_mock_layoff_short(utterance: str):
+    """短句失业/裁员应接住失落，非空串/问卷兜底，且非工作压力话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in ("被裁", "裁", "开除", "失业", "丢工作", "丢了工作", "陪", "听")
+    )
+    assert "忙不过来" not in reply
+    assert "不公平" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
