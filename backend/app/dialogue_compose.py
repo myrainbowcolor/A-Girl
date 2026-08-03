@@ -1016,6 +1016,36 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句愧疚/内疚/摆烂/无消费后悔（须在冲动消费之后、通用 open 兜底之前；勿套用乱花钱话术）
+    _spend_markers_guilt = ("乱花钱", "钱", "买", "花", "管不住", "手")
+    if len(text) <= 12 and (
+        any(w in text for w in ("愧疚", "内疚", "摆烂"))
+        or ("后悔" in text and not any(w in text for w in _spend_markers_guilt))
+    ):
+        if "摆烂" in text:
+            return _pick(
+                (
+                    "想摆烂的时候往往是累到撑不住了。不用硬撑，我陪着你。",
+                    "摆烂一下也没关系，先喘口气。我在这儿，想吐槽随时说。",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("愧疚", "内疚")):
+            return _pick(
+                (
+                    "愧疚涌上来的时候特别折磨人……先别急着骂自己，我陪着你。",
+                    "内疚的时候最容易钻牛角尖。我在呢，愿意说就说，不说也行。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "后悔的滋味真的难受。先别急着复盘，我陪着你。",
+                "心里堵着后悔的时候，先缓一缓。想说说发生了什么也行。",
+            ),
+            seed,
+        )
+
     # 吵架 / 冷战 / 和好别扭（须在通用负面 open 兜底之前，与 mock.py 场景分支对齐）
     fight_context = any(
         w in prior_users + text

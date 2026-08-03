@@ -190,6 +190,50 @@ def test_mock_useless_feeling_short():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "好愧疚",
+        "愧疚",
+        "好内疚",
+        "内疚",
+        "摆烂了",
+        "想摆烂",
+        "好后悔",
+        "后悔了",
+    ],
+)
+def test_mock_guilt_slacking_short(utterance: str):
+    """短句愧疚/内疚/摆烂/无消费后悔应共情接住，非空串，且非冲动消费话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in ("愧疚", "内疚", "摆烂", "后悔", "陪", "缓", "骂自己", "硬撑")
+    )
+    assert "管不住手" not in reply
+    assert "乱花钱" not in reply
+    assert "没忍住" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_impulse_regret_still_hits_spending():
+    """含消费线索的后悔仍走冲动消费话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "好后悔买了"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("后悔", "心疼", "骂自己", "贴标签", "没忍住"))
+    assert "摆烂" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_mock_layoff_short(utterance: str):
