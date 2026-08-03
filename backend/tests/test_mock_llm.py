@@ -207,3 +207,24 @@ def test_mock_layoff_short(utterance: str):
     assert "不公平" not in reply
     assert "好，我收到了" not in reply
     assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    ["被鸽了", "放鸽子了", "放我鸽子", "又被鸽了", "他放我鸽子了", "爽约了"],
+)
+def test_mock_stood_up_short(utterance: str):
+    """短句被鸽/放鸽子应接住失落委屈，非空串/问卷兜底，且非失恋分手话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in ("被鸽", "放鸽子", "鸽子", "爽约", "陪", "听", "空", "委屈", "伤")
+    )
+    assert "分手" not in reply
+    assert "失恋" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
