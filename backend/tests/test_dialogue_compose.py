@@ -683,6 +683,51 @@ def test_compose_useless_feeling_short(utterance: str):
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "好愧疚",
+        "愧疚",
+        "我好愧疚",
+        "好内疚",
+        "内疚",
+        "有点内疚",
+        "摆烂了",
+        "摆烂",
+        "想摆烂",
+        "今天摆烂了",
+        "好后悔",
+        "后悔了",
+        "好后悔啊",
+    ],
+)
+def test_compose_guilt_slacking_short(utterance: str):
+    """无消费语境的愧疚/内疚/摆烂/后悔短句应共情接住，勿套用冲动消费话术。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("愧疚", "内疚", "摆烂", "后悔", "陪着", "陪", "缓", "骂自己", "硬撑")
+    )
+    assert "管不住手" not in out
+    assert "乱花钱" not in out
+    assert "没忍住" not in out
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_impulse_regret_still_hits_spending():
+    """含消费线索的后悔仍走冲动消费分支，不走无消费后悔/摆烂话术。"""
+    out = compose_contextual_reply("好后悔买了", [])
+    assert out
+    assert any(w in out for w in ("后悔", "心疼", "骂自己", "贴标签", "没忍住", "乱花钱"))
+    assert "摆烂" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):

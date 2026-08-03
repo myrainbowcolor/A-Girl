@@ -418,6 +418,26 @@ def _scene_reply(
             f"{dear}{mood}别急着说自己没用……这种自我否定特别难受，我陪着你。"
         )
 
+    # 短句愧疚/内疚/摆烂/无消费后悔（须在冲动消费之后；勿套用乱花钱话术）
+    if len(text) <= 12 and (
+        any(w in text for w in ("愧疚", "内疚", "摆烂"))
+        or ("后悔" in text and not any(w in text for w in _spend_markers))
+    ):
+        if "摆烂" in text:
+            return (
+                f"{dear}{mood}想摆烂的时候往往是累到撑不住了。"
+                f"不用硬撑，我陪着你。"
+            )
+        if any(w in text for w in ("愧疚", "内疚")):
+            return (
+                f"{dear}{mood}愧疚涌上来的时候特别折磨人……"
+                f"先别急着骂自己，我陪着你。"
+            )
+        return (
+            f"{dear}{mood}后悔的滋味真的难受。"
+            f"先别急着复盘，我陪着你。"
+        )
+
     # emo / 丧 — 低落口语
     if any(w in text.lower() for w in ("emo", "丧")) or "心累" in text:
         return (
