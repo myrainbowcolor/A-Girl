@@ -10,6 +10,6 @@
 
 ## 3. 验证
 
-- [x] 3.1 `cd backend && python -m pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
-- [x] 3.2 `python scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 通过
-- [x] 3.3 `npx openspec validate --specs` 通过
+- [ ] 3.1 `cd backend && python -m pytest --ignore=tests/test_dialogue_quality.py -q` 全绿
+- [ ] 3.2 `python scripts/run_dialogue_quality.py --strict` 与 `pytest tests/test_dialogue_quality.py -q` 通过
+- [ ] 3.3 `npx openspec validate --specs` 通过
