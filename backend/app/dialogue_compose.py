@@ -1171,6 +1171,34 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句被鸽/放鸽子/爽约（须在通用 open 兜底之前，与 mock.py 对齐；勿套用失恋分手话术）
+    if len(text) <= 12 and any(
+        w in text for w in ("被鸽", "放鸽子", "放我鸽子", "爽约")
+    ):
+        if "爽约" in text:
+            return _pick(
+                (
+                    "爽约这种事真的让人又空又委屈……先缓一缓，我陪着你。",
+                    "说好的却没来，心里肯定堵。别急着消化，我在这儿听着。",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("放鸽子", "放我鸽子")):
+            return _pick(
+                (
+                    "放鸽子这种事真的让人又空又委屈……先缓一缓，我陪着你。",
+                    "被放鸽子了心里肯定不舒服。别一个人硬撑，我在这儿。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "被鸽了真的挺伤人的……先缓一缓，我陪着你。",
+                "等来等去却没人来，那种空落落我懂。想吐槽的话我听着。",
+            ),
+            seed,
+        )
+
     # 短句低落倾诉（须在封闭极简附和之前，与 mock.py 通用负面情绪对齐）
     if len(text) <= 12 and any(
         w in text

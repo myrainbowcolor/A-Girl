@@ -702,6 +702,26 @@ def test_compose_layoff_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["被鸽了", "放鸽子了", "放我鸽子", "又被鸽了", "他放我鸽子了", "爽约了"],
+)
+def test_compose_stood_up_short(utterance: str):
+    """被鸽/放鸽子短句应先接住失落委屈，非 open 兜底，且非失恋分手话术。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("被鸽", "放鸽子", "鸽子", "爽约", "陪着", "陪", "听", "空", "委屈", "伤")
+    )
+    assert "分手" not in out
+    assert "失恋" not in out
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_impulse_regret_spending():
     """冲动消费后悔应理解后悔，而非问卷式 open 兜底。"""
     out = compose_contextual_reply("我又乱花钱了，买了根本用不上的东西", [])

@@ -639,6 +639,34 @@ def _scene_reply(
             text + stage,
         )
 
+    # 短句被鸽/放鸽子/爽约（须在通用兜底之前，与 compose 对齐；勿套用失恋分手话术）
+    if len(text) <= 12 and any(
+        w in text for w in ("被鸽", "放鸽子", "放我鸽子", "爽约")
+    ):
+        if "爽约" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}爽约这种事真的让人又空又委屈……先缓一缓，我陪着你。",
+                    f"{dear}{mood}说好的却没来，心里肯定堵。别急着消化，我在这儿听着。",
+                ],
+                text + stage,
+            )
+        if any(w in text for w in ("放鸽子", "放我鸽子")):
+            return _pick_variant(
+                [
+                    f"{dear}{mood}放鸽子这种事真的让人又空又委屈……先缓一缓，我陪着你。",
+                    f"{dear}{mood}被放鸽子了心里肯定不舒服。别一个人硬撑，我在这儿。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}被鸽了真的挺伤人的……先缓一缓，我陪着你。",
+                f"{dear}{mood}等来等去却没人来，那种空落落我懂。想吐槽的话我听着。",
+            ],
+            text + stage,
+        )
+
     # 情绪低落 — 优先共情
     if any(
         w in text
