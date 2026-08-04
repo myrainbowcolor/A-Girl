@@ -23,6 +23,16 @@ _POSITIVE = (
     "offer", "录取", "通过", "中了", "dream",
 )
 _GREET = ("你好", "嗨", "在吗", "哈喽", "早上好", "晚上好")
+_IDENTITY = ("机器人", "人机", "人工智能", "AI", "ai", "是不是人", "真人吗", "ChatGPT", "chatgpt")
+_PUSHY_MARKERS = ("后来呢", "你愿意多说", "发生什么了", "然后呢", "接着说")
+_COMPANION_ALTS = (
+    "嗯，我在呢。你先随便丢几个词给我也行~",
+    "好，我收到了。不用一次说完~",
+    "我听着。哪一块你现在最想提？",
+    "嗯，这事不急。你想从哪儿开始说？",
+    "好，我接住了。慢慢讲~",
+    "我在。你想到什么就说什么~",
+)
 
 
 def _extract(tag: str, text: str, default: str = "") -> str:
@@ -45,6 +55,54 @@ def _user_is_positive(text: str) -> bool:
 def _user_is_greeting(text: str) -> bool:
     t = text.strip()
     return len(t) <= 8 and any(w in t for w in _GREET)
+
+
+def _user_is_identity(text: str) -> bool:
+    t = text.strip()
+    return any(w in t for w in _IDENTITY)
+
+
+def _user_is_closed(text: str) -> bool:
+    t = text.strip()
+    if not t:
+        return True
+    if t in {"..", "...", "…", "。", "?", "？", "嗯", "哦", "额", "好", "行"}:
+        return True
+    if any(w in t for w in ("不想说", "不想聊", "别问", "懒得说", "不说了")):
+        return True
+    return False
+
+
+def _reply_too_similar(a: str, b: str) -> bool:
+    if not a or not b:
+        return False
+    if a.strip() == b.strip():
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    if len(shorter) >= 12 and shorter in longer:
+        return True
+    return False
+
+
+def _is_pushy(reply: str) -> bool:
+    return any(m in reply for m in _PUSHY_MARKERS)
+
+
+def _ensure_not_repetitive(reply: str, messages: list[dict], *, user_text: str = "") -> str:
+    prior = _prior_assistant(messages)
+    needs_alt = (prior and _reply_too_similar(reply, prior)) or (
+        _user_is_closed(user_text) and _is_pushy(reply)
+    )
+    if not needs_alt:
+        return reply
+    for i in range(len(_COMPANION_ALTS) * 2):
+        candidate = _pick_variant(_COMPANION_ALTS, user_text + prior + f"#{i}")
+        if _reply_too_similar(candidate, prior):
+            continue
+        if _user_is_closed(user_text) and _is_pushy(candidate):
+            continue
+        return candidate
+    return reply
 
 
 def _extract_memories(system_prompt: str) -> list[str]:
@@ -181,6 +239,30 @@ def _scene_reply(
             return f"{dear}{mood}嗨！又见面啦，最近忙不忙？"
         return f"{mood}你好呀，我是{name}，很高兴认识你～"
 
+    # 询问是否机器人 / AI / 人机
+    if _user_is_identity(text):
+        return _pick_variant(
+            [
+                f"嗯，我是 AI 陪伴角色{name}，不是真人～但我会认真听你说话。",
+                f"对，我是{name}，AI 陪伴角色。你不用把我当真人，当能说话的朋友就行~",
+                f"哈哈被你发现了～我是 AI 角色{name}，不过陪你聊天我是认真的。",
+            ],
+            text + stage,
+        )
+
+    # 封闭 / 极简 / 不知如何开口
+    if _user_is_closed(text) or any(
+        w in text for w in ("不知道怎么说", "不知怎么", "怎么开头", "怎么说开头", "没法说")
+    ):
+        return _pick_variant(
+            [
+                f"{dear}{mood}我在这儿呢。不急着说，你想开口了再说~",
+                f"{dear}{mood}说不清也没关系～丢几个词给我也行，我听得懂。",
+                f"{dear}{mood}不用逼自己想明白。我陪着，你想从哪一句开始都行~",
+            ],
+            text + prior,
+        )
+
     # 加班 / 下班疲惫
     if any(w in text for w in ("加班", "下班", "十点", "很晚", "熬夜")) and any(
         w in text for w in ("累", "烦", "辛苦", "熬", "撑")
@@ -240,7 +322,7 @@ def _scene_reply(
             return f"{dear}{mood}什么片子呀？好看的话给我也安利一下～"
         if "天气" in text:
             return f"{dear}{mood}是吧，这种天出门心情都会好一点。你今天有出去晒晒太阳吗？"
-        return f"{dear}{mood}嗯嗯，听起来今天还不错～后来呢，有什么让你印象深的事吗？"
+        return f"{dear}{mood}嗯嗯，听起来今天还不错～有什么小事想跟我分享吗？"
 
     # 加班 / 工作压力
     if any(w in text for w in ("加班", "996", "KPI", "开会到")) or (
@@ -515,7 +597,7 @@ def _scene_reply(
     if text in ("嗯", "嗯嗯", "好", "哦", "噢"):
         if stage in ("朋友", "亲密"):
             return f"{dear}{mood}嗯，我在呢。不急着说也行，想开口了随时跟我讲。"
-        return f"{mood}嗯，我听着呢。你愿意多说一点的时候，我都在。"
+        return f"{dear}{mood}嗯，我在这儿。不急着开口~"
 
     if text in ("还好", "还行", "一般"):
         return f"{dear}{mood}还好呀……是今天平平淡淡，还是其实有点什么事憋着？"
@@ -556,20 +638,18 @@ def _fallback_reply(
 
     templates = {
         "陌生": [
-            f"{mood}嗯，我在听呢——后来呢，发生什么了？",
-            f"{mood}嗯……你愿意多说一点吗？我听着。",
+            f"{mood}嗯，我在呢。你先随便丢几个词给我也行~",
+            f"{mood}好，我收到了。不用一次说完~",
         ],
         "熟悉": [
-            f"{dear}{mood}嗯嗯，我懂。然后呢？",
-            f"{dear}{mood}嗯，接着说，我听着呢。",
+            f"{dear}{mood}我听着。哪一块你现在最想提？",
+            f"{dear}{mood}嗯，这事不急。你想从哪儿开始说？",
         ],
         "朋友": [
-            f"{dear}{mood}嗯……我听着呢，慢慢说。"
+            f"{dear}{mood}嗯……我陪着呢，慢慢说。"
             if is_heavy
-            else f"{dear}{mood}嘿，后来怎么样了？",
-            f"{dear}{mood}我在呢，你继续说。"
-            if is_heavy
-            else f"{dear}{mood}嗯嗯，然后呢？",
+            else f"{dear}{mood}我在。你想到什么就说什么~",
+            f"{dear}{mood}好，我接住了。不用整理成完整句子~",
         ],
         "亲密": [
             f"{dear}{mood}嗯，我在听～你想让我怎么陪你？",
@@ -599,15 +679,17 @@ class MockLLMProvider(LLMProvider):
 
         scene = _scene_reply(user_last, emotion, stage, name, memories, messages=messages)
         if scene:
-            return scene
+            return _ensure_not_repetitive(scene, messages, user_text=user_last)
 
         if _user_is_venting(user_last):
-            return self._empathy_reply(user_last, stage, name)
-        if _user_is_positive(user_last):
-            return self._warm_reply(user_last, stage, name)
-        if _user_is_greeting(user_last):
-            return self._greet_reply(stage, name)
-        return _fallback_reply(user_last, emotion, stage, name, memories)
+            reply = self._empathy_reply(user_last, stage, name)
+        elif _user_is_positive(user_last):
+            reply = self._warm_reply(user_last, stage, name)
+        elif _user_is_greeting(user_last):
+            reply = self._greet_reply(stage, name)
+        else:
+            reply = _fallback_reply(user_last, emotion, stage, name, memories)
+        return _ensure_not_repetitive(reply, messages, user_text=user_last)
 
     @staticmethod
     def _empathy_reply(user_text: str, stage: str, name: str) -> str:

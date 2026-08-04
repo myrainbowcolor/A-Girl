@@ -20,6 +20,28 @@ def test_mock_empathy_for_sadness():
     assert "难过" in reply or "陪" in reply
 
 
-def test_mock_warm_for_positive():
-    reply = MockLLMProvider().generate(_system(), [{"role": "user", "content": "今天好开心"}])
-    assert "开心" in reply
+def test_mock_identity_reply():
+    reply = MockLLMProvider().generate(_system(), [{"role": "user", "content": "你是人机吗"}])
+    assert "AI" in reply or "小语" in reply
+    assert "后来呢" not in reply
+    assert "愿意多说" not in reply
+
+
+def test_mock_closed_not_pushy():
+    hist = [
+        {"role": "user", "content": "..."},
+        {"role": "assistant", "content": "嗯，我在呢。你先随便丢几个词给我也行~"},
+        {"role": "user", "content": "..."},
+    ]
+    reply = MockLLMProvider().generate(_system(), hist)
+    assert "后来呢" not in reply
+    assert "愿意多说" not in reply
+    assert reply != hist[1]["content"]
+
+
+def test_mock_dont_know_how_to_start():
+    reply = MockLLMProvider().generate(
+        _system(), [{"role": "user", "content": "不知道怎么说开头"}]
+    )
+    assert "后来呢" not in reply
+    assert any(w in reply for w in ("丢几个词", "不用", "陪着", "不急"))
