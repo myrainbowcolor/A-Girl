@@ -728,6 +728,49 @@ def test_compose_impulse_regret_still_hits_spending():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "心凉了",
+        "好心凉",
+        "心凉",
+        "寒心了",
+        "好寒心",
+        "寒心",
+        "受够了",
+        "我受够了",
+        "真的受够了",
+    ],
+)
+def test_compose_heart_cold_fed_up_short(utterance: str):
+    """心凉/寒心/受够了短句应共情接住，非 open 兜底，且非撑不住极限话术混用。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("心凉", "寒心", "凉", "寒", "受够了", "陪着", "陪", "缓", "硬扛", "吐槽")
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert not out.startswith("嗯")
+    if "受够了" in utterance:
+        assert "心凉" not in out and "寒心" not in out
+    if "心凉" in utterance:
+        assert "受够了" not in out
+
+
+def test_compose_burnout_limit_still_hits():
+    """既有「撑不住」仍走极限分支，不走心凉/寒心/受够了话术。"""
+    out = compose_contextual_reply("快撑不住了", [])
+    assert out
+    assert any(w in out for w in ("极限", "陪", "累", "撑"))
+    assert "心凉" not in out
+    assert "寒心" not in out
+    assert "受够了" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):

@@ -990,6 +990,32 @@ def _scene_reply(
             f"慢慢说，是什么让你这么累？"
         )
 
+    # 短句心凉/寒心/受够了（须在撑不住之后；勿与「受不了」混淆）
+    if len(text) <= 12 and any(w in text for w in ("心凉", "寒心", "受够了")):
+        if "受够了" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}受够了的时候真的很耗……先别一个人硬扛，我陪着你。",
+                    f"{dear}{mood}说「受够了」的时候往往已经憋很久了。我在这儿，想吐槽就吐槽。",
+                ],
+                text + stage,
+            )
+        if "寒心" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}寒心的感觉太扎人了……先缓一缓，我陪着你。",
+                    f"{dear}{mood}心里寒下来的时候特别空。别一个人扛着，我在呢。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}心凉的感觉真的难受……先缓一缓，我陪着你。",
+                f"{dear}{mood}心里凉下来的时候别一个人待着。我在这儿，愿意说就说。",
+            ],
+            text + stage,
+        )
+
     # 怀疑自己能否好起来
     if any(w in text for w in ("好起来", "会好")) and ("?" in text or "吗" in text):
         return (
