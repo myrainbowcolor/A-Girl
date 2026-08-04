@@ -276,6 +276,35 @@ def test_mock_burnout_limit_still_hits():
 
 @pytest.mark.parametrize(
     "utterance",
+    ["怕了", "我怕了", "好害怕", "害怕", "好怕"],
+)
+def test_mock_fear_short_no_parenting_misroute(utterance: str):
+    """无育儿语境的害怕短句不得套用家长话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(w in reply for w in ("陪", "担心", "绷", "放不下", "难受", "怕", "扛"))
+    assert "家长" not in reply
+    assert "孩子" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_parenting_fear_still_hits():
+    """既有育儿语境「害怕耽误」仍走家长共情。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "我害怕耽误孩子"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("家长", "孩子", "耽误", "在乎", "担心"))
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_mock_layoff_short(utterance: str):

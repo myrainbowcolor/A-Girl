@@ -605,6 +605,21 @@ def test_compose_worry_short(utterance: str):
     assert not out.startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    ["怕了", "我怕了"],
+)
+def test_compose_fear_short_paile(utterance: str):
+    """短句「怕了」应走慌张共情，非 open 兜底。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(w in out for w in ("陪", "担心", "绷", "放不下", "难受", "怕"))
+    assert "好，我收到了" not in out
+    assert "家长" not in out
+    assert "孩子" not in out
+    assert not out.startswith("嗯")
+
+
 def test_compose_fatigue_variant_very_tired():
     """疲惫变体「好累好累」应先接住疲惫，非 open 兜底。"""
     out = compose_contextual_reply("好累好累", [])

@@ -771,7 +771,7 @@ def compose_contextual_reply(
     if (
         len(text) <= 10
         and "堵" not in text
-        and any(w in text for w in ("慌", "害怕", "好怕", "担心", "好担心"))
+        and any(w in text for w in ("慌", "害怕", "好怕", "怕了", "担心", "好担心"))
     ):
         return _pick(
             (
