@@ -234,6 +234,48 @@ def test_mock_impulse_regret_still_hits_spending():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "心凉了",
+        "好心凉",
+        "寒心了",
+        "好寒心",
+        "受够了",
+        "我受够了",
+    ],
+)
+def test_mock_heart_cold_fed_up_short(utterance: str):
+    """短句心凉/寒心/受够了应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in ("心凉", "寒心", "凉", "寒", "受够了", "陪", "缓", "硬扛", "吐槽")
+    )
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+    if "受够了" in utterance:
+        assert "心凉" not in reply and "寒心" not in reply
+
+
+def test_mock_burnout_limit_still_hits():
+    """既有「撑不住」仍走极限话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "快撑不住了"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("极限", "陪", "累", "撑"))
+    assert "心凉" not in reply
+    assert "寒心" not in reply
+    assert "受够了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_mock_layoff_short(utterance: str):

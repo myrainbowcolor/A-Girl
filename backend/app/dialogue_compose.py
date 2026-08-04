@@ -1120,6 +1120,32 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句心凉/寒心/受够了（须在撑不住之后、通用 open 兜底之前；勿与「受不了」混淆）
+    if len(text) <= 12 and any(w in text for w in ("心凉", "寒心", "受够了")):
+        if "受够了" in text:
+            return _pick(
+                (
+                    "受够了的时候真的很耗……先别一个人硬扛，我陪着你。",
+                    "说「受够了」的时候往往已经憋很久了。我在这儿，想吐槽就吐槽。",
+                ),
+                seed,
+            )
+        if "寒心" in text:
+            return _pick(
+                (
+                    "寒心的感觉太扎人了……先缓一缓，我陪着你。",
+                    "心里寒下来的时候特别空。别一个人扛着，我在呢。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "心凉的感觉真的难受……先缓一缓，我陪着你。",
+                "心里凉下来的时候别一个人待着。我在这儿，愿意说就说。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
