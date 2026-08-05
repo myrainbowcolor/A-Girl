@@ -835,6 +835,77 @@ def test_compose_hui_xin_still_hits_short_sad():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "没救了",
+        "我没救了",
+        "好没救",
+        "凉透了",
+        "心都凉透了",
+        "彻底凉了",
+        "提不起劲",
+        "提不起劲来",
+        "提不起精神",
+    ],
+)
+def test_compose_hopeless_cool_through_low_energy_short(utterance: str):
+    """没救了/凉透了/提不起劲短句应共情接住，非 open 兜底，且按关键词分流。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in (
+            "没救",
+            "凉透",
+            "彻底凉",
+            "提不起劲",
+            "提不起精神",
+            "空",
+            "泄气",
+            "陪着",
+            "陪",
+            "缓",
+            "发沉",
+            "硬撑",
+        )
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert "热线" not in out
+    assert not out.startswith("嗯")
+    if "没救" in utterance:
+        assert "凉透" not in out and "提不起劲" not in out
+    if any(w in utterance for w in ("凉透", "彻底凉")):
+        assert "没救" not in out and "提不起劲" not in out
+    if any(w in utterance for w in ("提不起劲", "提不起精神")):
+        assert "没救" not in out and "凉透" not in out
+
+
+def test_compose_xin_liang_still_hits_heart_cold():
+    """既有「心凉了」仍走心凉分支，不走没救了/凉透了/提不起劲专用话术。"""
+    out = compose_contextual_reply("心凉了", [])
+    assert out
+    assert any(w in out for w in ("心凉", "凉", "陪", "缓"))
+    assert "没救" not in out
+    assert "彻底凉" not in out
+    assert "提不起劲" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_mei_jin_still_hits_short_sad():
+    """既有「没劲」仍走短句低落，不走没救了/凉透了专用话术。"""
+    out = compose_contextual_reply("没劲", [])
+    assert out
+    assert any(w in out for w in ("不好受", "心里", "陪", "听着", "沉", "没劲", "低落"))
+    assert "没救" not in out
+    assert "凉透" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):
