@@ -786,6 +786,55 @@ def test_compose_burnout_limit_still_hits():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "心灰了",
+        "好心灰",
+        "心灰",
+        "心死了",
+        "好心死",
+        "心死",
+        "麻了",
+        "我麻了",
+        "好麻了",
+        "麻木了",
+        "我心死了",
+    ],
+)
+def test_compose_heart_ash_numb_short(utterance: str):
+    """心灰/心死/麻了/麻木短句应共情接住，非 open 兜底，且非灰心通用低落混用。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in ("心灰", "心死", "麻", "麻木", "空", "泄气", "陪着", "陪", "缓", "硬撑", "掏空")
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert "热线" not in out
+    assert not out.startswith("嗯")
+    if "心死" in utterance:
+        assert "麻木" not in out and "泄气" not in out
+    if any(w in utterance for w in ("麻了", "麻木")):
+        assert "心死" not in out and "泄气" not in out
+    if "心灰" in utterance:
+        assert "心死" not in out and "麻木" not in out
+
+
+def test_compose_hui_xin_still_hits_short_sad():
+    """既有「灰心了」仍走短句低落，不走心灰/心死/麻了专用话术。"""
+    out = compose_contextual_reply("灰心了", [])
+    assert out
+    assert any(w in out for w in ("不好受", "心里", "陪", "听着", "沉"))
+    assert "心死" not in out
+    assert "麻木" not in out
+    assert "泄气" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):
