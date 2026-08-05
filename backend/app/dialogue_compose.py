@@ -1146,6 +1146,32 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句心灰/心死/麻了/麻木（须在心凉之后、短句低落之前；勿依赖「灰心」子串）
+    if len(text) <= 12 and any(w in text for w in ("心灰", "心死", "麻了", "麻木")):
+        if "心死" in text:
+            return _pick(
+                (
+                    "说心死的时候往往已经空得很……先别一个人扛着，我陪着你。",
+                    "心里像关掉开关一样空，我懂。缓一缓，想说就说，不说也行。",
+                ),
+                seed,
+            )
+        if any(w in text for w in ("麻了", "麻木")):
+            return _pick(
+                (
+                    "麻了的时候不是不在意，是感觉被掏空了……我陪着你。",
+                    "那种麻木空落的感觉真的难受。先别硬撑，我在这儿。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "心灰的时候整个人都会泄气……先缓一缓，我陪着你。",
+                "心里灰下来的感觉我懂。别一个人待着，我陪着你，愿意说就说。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (

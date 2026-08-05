@@ -31,6 +31,7 @@ _VENT = (
     "失望", "失落", "灰心", "心酸",
     "内耗", "心态崩", "心态炸", "心态爆炸", "被掏空",
     "丢脸", "丢人", "羞耻", "社恐",
+    "心灰", "心死", "麻了", "麻木",
 )
 _LOW = ("低落", "没劲", "丧", "emo", "心累")
 _POSITIVE = (
@@ -87,6 +88,7 @@ def _user_tone(text: str) -> str:
         "内耗", "心态崩", "心态炸", "心态爆炸", "被掏空",
         "丢脸", "丢人", "羞耻", "社恐",
         "害怕", "怕了", "好怕", "担心",
+        "心灰", "心死", "麻了", "麻木",
     )):
         return "negative"
     if is_positive_utterance(t):
@@ -1030,6 +1032,32 @@ def _scene_reply(
             [
                 f"{dear}{mood}心凉的感觉真的难受……先缓一缓，我陪着你。",
                 f"{dear}{mood}心里凉下来的时候别一个人待着。我在这儿，愿意说就说。",
+            ],
+            text + stage,
+        )
+
+    # 短句心灰/心死/麻了/麻木（须在心凉之后；勿依赖「灰心」子串）
+    if len(text) <= 12 and any(w in text for w in ("心灰", "心死", "麻了", "麻木")):
+        if "心死" in text:
+            return _pick_variant(
+                [
+                    f"{dear}{mood}说心死的时候往往已经空得很……先别一个人扛着，我陪着你。",
+                    f"{dear}{mood}心里像关掉开关一样空，我懂。缓一缓，想说就说，不说也行。",
+                ],
+                text + stage,
+            )
+        if any(w in text for w in ("麻了", "麻木")):
+            return _pick_variant(
+                [
+                    f"{dear}{mood}麻了的时候不是不在意，是感觉被掏空了……我陪着你。",
+                    f"{dear}{mood}那种麻木空落的感觉真的难受。先别硬撑，我在这儿。",
+                ],
+                text + stage,
+            )
+        return _pick_variant(
+            [
+                f"{dear}{mood}心灰的时候整个人都会泄气……先缓一缓，我陪着你。",
+                f"{dear}{mood}心里灰下来的感觉我懂。别一个人待着，我陪着你，愿意说就说。",
             ],
             text + stage,
         )

@@ -276,6 +276,55 @@ def test_mock_burnout_limit_still_hits():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "心灰了",
+        "好心灰",
+        "心死了",
+        "好心死",
+        "麻了",
+        "我麻了",
+        "麻木了",
+    ],
+)
+def test_mock_heart_ash_numb_short(utterance: str):
+    """短句心灰/心死/麻了/麻木应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in ("心灰", "心死", "麻", "麻木", "空", "泄气", "陪", "缓", "硬撑", "掏空")
+    )
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+    if "心死" in utterance:
+        assert "麻木" not in reply and "泄气" not in reply
+    if any(w in utterance for w in ("麻了", "麻木")):
+        assert "心死" not in reply and "泄气" not in reply
+    if "心灰" in utterance:
+        assert "心死" not in reply and "麻木" not in reply
+
+
+def test_mock_hui_xin_still_hits_short_sad():
+    """既有「灰心了」仍走短句低落共情。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "灰心了"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("不好受", "陪", "听着", "难受"))
+    assert "心死" not in reply
+    assert "麻木" not in reply
+    assert "泄气" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["怕了", "我怕了", "好害怕", "害怕", "好怕"],
 )
 def test_mock_fear_short_no_parenting_misroute(utterance: str):
