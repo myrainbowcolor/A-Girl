@@ -325,6 +325,68 @@ def test_mock_hui_xin_still_hits_short_sad():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "没救了",
+        "我没救了",
+        "凉透了",
+        "心都凉透了",
+        "彻底凉了",
+        "提不起劲",
+        "提不起劲来",
+        "提不起精神",
+    ],
+)
+def test_mock_hopeless_cool_through_low_energy_short(utterance: str):
+    """短句没救了/凉透了/提不起劲应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in (
+            "没救",
+            "凉透",
+            "彻底凉",
+            "提不起劲",
+            "提不起精神",
+            "空",
+            "泄气",
+            "陪",
+            "缓",
+            "发沉",
+            "硬撑",
+        )
+    )
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+    if "没救" in utterance:
+        assert "凉透" not in reply and "提不起劲" not in reply
+    if any(w in utterance for w in ("凉透", "彻底凉")):
+        assert "没救" not in reply and "提不起劲" not in reply
+    if any(w in utterance for w in ("提不起劲", "提不起精神")):
+        assert "没救" not in reply and "凉透" not in reply
+
+
+def test_mock_xin_liang_still_hits_heart_cold():
+    """既有「心凉了」仍走心凉共情。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "心凉了"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("心凉", "凉", "陪", "缓"))
+    assert "没救" not in reply
+    assert "彻底凉" not in reply
+    assert "提不起劲" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["怕了", "我怕了", "好害怕", "害怕", "好怕"],
 )
 def test_mock_fear_short_no_parenting_misroute(utterance: str):
