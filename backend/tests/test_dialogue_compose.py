@@ -991,6 +991,103 @@ def test_compose_mei_jiu_still_hits_hopeless():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "累透了",
+        "我累透了",
+        "好累透了",
+        "累趴了",
+        "不想动",
+        "不想动了",
+        "懒得动",
+        "我懒得动",
+        "懒得动了",
+        "没盼头",
+        "没啥盼头",
+        "无所谓了",
+        "我无所谓了",
+        "都无所谓了",
+    ],
+)
+def test_compose_exhausted_apathetic_short(utterance: str):
+    """累透了/不想动/懒得动/没盼头/无所谓了短句应共情接住，非 open 兜底，且按关键词分流。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in (
+            "累透",
+            "累趴",
+            "散架",
+            "歇",
+            "不想动",
+            "懒得动",
+            "待着",
+            "盼头",
+            "空",
+            "闷",
+            "无所谓",
+            "泄气",
+            "陪着",
+            "陪",
+            "缓",
+        )
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert "热线" not in out
+    assert not out.startswith("嗯")
+    if any(w in utterance for w in ("累透", "累趴")):
+        assert "不想动" not in out and "懒得动" not in out
+        assert "无所谓" not in out and "盼头" not in out
+        assert "心累" not in out
+    if any(w in utterance for w in ("不想动", "懒得动")):
+        assert "累透" not in out and "累趴" not in out
+        assert "无所谓" not in out and "盼头" not in out
+    if any(w in utterance for w in ("没盼头", "没啥盼头")):
+        assert "累透" not in out and "不想动" not in out
+        assert "无所谓" not in out
+    if "无所谓了" in utterance:
+        assert "累透" not in out and "不想动" not in out
+        assert "盼头" not in out
+
+
+def test_compose_xin_lei_tou_still_hits_xin_lei():
+    """既有「心累透了」仍走心累分支，不走累透了专用话术。"""
+    out = compose_contextual_reply("心累透了", [])
+    assert out
+    assert any(w in out for w in ("低落", "硬撑", "陪"))
+    assert "累透了的时候" not in out
+    assert "累趴了的感觉" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_hao_lei_a_still_hits_minimal_fatigue():
+    """既有「好累啊」仍走极简疲惫，不走累透/累趴专用话术。"""
+    out = compose_contextual_reply("好累啊", [])
+    assert out
+    assert any(w in out for w in ("累", "心疼", "歇", "陪"))
+    assert "累透了的时候" not in out
+    assert "累趴了的感觉" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_ti_bu_qi_jin_not_exhausted_apathetic():
+    """既有「提不起劲」仍走提不起劲分支，不走不想动/懒得动专用话术。"""
+    out = compose_contextual_reply("提不起劲", [])
+    assert out
+    assert any(w in out for w in ("提不起劲", "发沉", "陪", "硬撑", "精神"))
+    assert "不想动" not in out
+    assert "懒得动" not in out
+    assert "累透了的时候" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):
