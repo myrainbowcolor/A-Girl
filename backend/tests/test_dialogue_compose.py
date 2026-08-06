@@ -906,6 +906,91 @@ def test_compose_mei_jin_still_hits_short_sad():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "废了",
+        "我废了",
+        "好废",
+        "整个人废了",
+        "完了",
+        "我完了",
+        "完蛋了",
+        "提不起兴趣",
+        "提不起兴趣来",
+    ],
+)
+def test_compose_ruined_done_no_interest_short(utterance: str):
+    """废了/完了/提不起兴趣短句应共情接住，非 open 兜底，且按关键词分流。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in (
+            "废了",
+            "废",
+            "完蛋",
+            "完了",
+            "提不起兴趣",
+            "兴趣",
+            "空",
+            "泄气",
+            "陪着",
+            "陪",
+            "缓",
+            "发空",
+            "贬",
+        )
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert "热线" not in out
+    assert not out.startswith("嗯")
+    if any(w in utterance for w in ("废了", "好废")):
+        assert "完蛋" not in out and "提不起兴趣" not in out
+        assert "没救" not in out
+    if utterance in ("完了", "我完了") or "完蛋" in utterance:
+        assert "废了" not in out and "提不起兴趣" not in out
+        assert "没救" not in out
+    if "提不起兴趣" in utterance:
+        assert "废了" not in out and "完蛋" not in out
+        assert "提不起劲" not in out
+
+
+def test_compose_zuo_wan_le_not_ruined_done_branch():
+    """完成义「做完了」不得因「完了」子串误入完蛋感话术。"""
+    out = compose_contextual_reply("做完了", [])
+    if out:
+        assert "完蛋" not in out
+        assert "说完了的时候" not in out
+        assert "觉得完蛋了" not in out
+
+
+def test_compose_ti_bu_qi_jin_still_hits_low_energy():
+    """既有「提不起劲」仍走提不起劲分支，不走提不起兴趣专用话术。"""
+    out = compose_contextual_reply("提不起劲", [])
+    assert out
+    assert any(w in out for w in ("提不起劲", "发沉", "陪", "硬撑", "精神"))
+    assert "提不起兴趣" not in out
+    assert "废了" not in out
+    assert "完蛋" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_mei_jiu_still_hits_hopeless():
+    """既有「没救了」仍走没救分支，不走废了/完了专用话术。"""
+    out = compose_contextual_reply("没救了", [])
+    assert out
+    assert any(w in out for w in ("没救", "空", "陪", "泄气", "缓"))
+    assert "废了" not in out
+    assert "完蛋" not in out
+    assert "提不起兴趣" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):
