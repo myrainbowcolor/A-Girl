@@ -370,6 +370,85 @@ def test_mock_hopeless_cool_through_low_energy_short(utterance: str):
         assert "没救" not in reply and "凉透" not in reply
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "废了",
+        "我废了",
+        "好废",
+        "整个人废了",
+        "完了",
+        "我完了",
+        "完蛋了",
+        "提不起兴趣",
+        "提不起兴趣来",
+    ],
+)
+def test_mock_ruined_done_no_interest_short(utterance: str):
+    """短句废了/完了/提不起兴趣应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in (
+            "废了",
+            "废",
+            "完蛋",
+            "完了",
+            "提不起兴趣",
+            "兴趣",
+            "空",
+            "泄气",
+            "陪",
+            "缓",
+            "发空",
+            "贬",
+        )
+    )
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+    if any(w in utterance for w in ("废了", "好废")):
+        assert "完蛋" not in reply and "提不起兴趣" not in reply
+        assert "没救" not in reply
+    if utterance in ("完了", "我完了") or "完蛋" in utterance:
+        assert "废了" not in reply and "提不起兴趣" not in reply
+        assert "没救" not in reply
+    if "提不起兴趣" in utterance:
+        assert "废了" not in reply and "完蛋" not in reply
+        assert "提不起劲" not in reply
+
+
+def test_mock_zuo_wan_le_not_ruined_done_branch():
+    """完成义「做完了」不得因「完了」子串误入完蛋感话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "做完了"}],
+    )
+    if reply:
+        assert "完蛋" not in reply
+        assert "说完了的时候" not in reply
+        assert "觉得完蛋了" not in reply
+
+
+def test_mock_ti_bu_qi_jin_still_hits_low_energy():
+    """既有「提不起劲」仍走提不起劲共情。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "提不起劲"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("提不起劲", "发沉", "陪", "硬撑", "精神"))
+    assert "提不起兴趣" not in reply
+    assert "废了" not in reply
+    assert "完蛋" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
 def test_mock_xin_liang_still_hits_heart_cold():
     """既有「心凉了」仍走心凉共情。"""
     reply = MockLLMProvider().generate(
