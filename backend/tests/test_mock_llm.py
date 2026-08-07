@@ -523,6 +523,81 @@ def test_mock_xin_lei_tou_still_hits_xin_lei():
     assert not reply.lstrip().startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "什么都不想干",
+        "我什么都不想干",
+        "啥也不想干",
+        "啥都不想干",
+        "什么也不想干",
+        "整个人空了",
+        "整个人都空了",
+    ],
+)
+def test_mock_nothing_todo_empty_self_short(utterance: str):
+    """短句什么都不想干/整个人空了应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(
+        w in reply
+        for w in (
+            "不想干",
+            "干劲",
+            "待着",
+            "空了",
+            "掏空",
+            "发虚",
+            "陪",
+            "缓",
+            "硬撑",
+        )
+    )
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+    if "不想干" in utterance:
+        assert "不想动" not in reply and "懒得动" not in reply
+        assert "空落落" not in reply
+        assert "整个人空了的感觉" not in reply
+    if "整个人" in utterance and "空了" in utterance:
+        assert "不想干" not in reply and "干劲" not in reply
+        assert "空落落" not in reply
+
+
+def test_mock_bu_xiang_dong_still_hits_exhausted_branch():
+    """既有「不想动」仍走不想动共情，不走不想干专用话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "不想动"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("不想动", "待着", "陪", "缓"))
+    assert "不想干" not in reply
+    assert "干劲" not in reply
+    assert "整个人空了的感觉" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+def test_mock_kong_luo_luo_still_hits_empty_feeling():
+    """既有「空落落的」仍走空落落共情，不走整个人空了专用话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "空落落的"}],
+    )
+    assert reply
+    assert any(w in reply for w in ("空落落", "陪", "难受", "原因"))
+    assert "整个人空了的感觉" not in reply
+    assert "心里像被掏空" not in reply
+    assert "不想干" not in reply
+    assert "好，我收到了" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
 def test_mock_xin_liang_still_hits_heart_cold():
     """既有「心凉了」仍走心凉共情。"""
     reply = MockLLMProvider().generate(

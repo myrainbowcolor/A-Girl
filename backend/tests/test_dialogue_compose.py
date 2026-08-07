@@ -1088,6 +1088,75 @@ def test_compose_ti_bu_qi_jin_not_exhausted_apathetic():
 
 @pytest.mark.parametrize(
     "utterance",
+    [
+        "什么都不想干",
+        "我什么都不想干",
+        "啥也不想干",
+        "啥都不想干",
+        "什么也不想干",
+        "整个人空了",
+        "整个人都空了",
+    ],
+)
+def test_compose_nothing_todo_empty_self_short(utterance: str):
+    """什么都不想干/整个人空了短句应共情接住，非 open 兜底，且按关键词分流。"""
+    out = compose_contextual_reply(utterance, [])
+    assert out
+    assert any(
+        w in out
+        for w in (
+            "不想干",
+            "干劲",
+            "待着",
+            "空了",
+            "掏空",
+            "发虚",
+            "陪着",
+            "陪",
+            "缓",
+            "硬撑",
+        )
+    )
+    assert "你想从哪儿开始说" not in out
+    assert "随便丢几个词" not in out
+    assert "好，我收到了" not in out
+    assert "热线" not in out
+    assert not out.startswith("嗯")
+    if "不想干" in utterance:
+        assert "不想动" not in out and "懒得动" not in out
+        assert "空落落" not in out
+        assert "整个人空了的感觉" not in out
+    if "整个人" in utterance and "空了" in utterance:
+        assert "不想干" not in out and "干劲" not in out
+        assert "空落落" not in out
+
+
+def test_compose_bu_xiang_dong_still_hits_exhausted_branch():
+    """既有「不想动」仍走不想动分支，不走不想干专用话术。"""
+    out = compose_contextual_reply("不想动", [])
+    assert out
+    assert any(w in out for w in ("不想动", "待着", "陪", "缓"))
+    assert "不想干" not in out
+    assert "干劲" not in out
+    assert "整个人空了的感觉" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+def test_compose_kong_luo_luo_still_hits_empty_feeling():
+    """既有「空落落的」仍走空落落路径，不走整个人空了专用话术。"""
+    out = compose_contextual_reply("空落落的", [])
+    assert out
+    assert any(w in out for w in ("空", "陪", "难受", "原因"))
+    assert "整个人空了的感觉" not in out
+    assert "心里像被掏空" not in out
+    assert "不想干" not in out
+    assert "你想从哪儿开始说" not in out
+    assert not out.startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
     ["被裁了", "裁员了", "被裁员了", "被开除了", "失业了", "丢工作了"],
 )
 def test_compose_layoff_short(utterance: str):
