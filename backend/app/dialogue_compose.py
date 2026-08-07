@@ -1268,6 +1268,28 @@ def compose_contextual_reply(
             seed,
         )
 
+    # 短句什么都不想干/整个人空了（须在累透/不想动之后、短句烦躁之前；
+    # 不用裸「空了」，避免无关短句误伤；「不想动」已由更早分支接住）
+    if len(text) <= 12 and (
+        "不想干" in text
+        or ("整个人" in text and "空了" in text)
+    ):
+        if "整个人" in text and "空了" in text:
+            return _pick(
+                (
+                    "整个人空了的感觉真的发虚……先别硬撑，我陪着你。",
+                    "心里像被掏空一样的时候最难受。缓一缓，想说就说，我在这儿。",
+                ),
+                seed,
+            )
+        return _pick(
+            (
+                "什么都不想干的时候就先待着……不用逼自己找事做，我陪着你。",
+                "提不起干劲的感觉我懂。缓一缓，想说就说，不说也行。",
+            ),
+            seed,
+        )
+
     if any(w in text for w in ("有点烦", "挺烦", "好烦", "烦死了")) and len(text) <= 10:
         return _pick(
             (
