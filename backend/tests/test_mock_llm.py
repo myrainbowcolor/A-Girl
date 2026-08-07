@@ -598,6 +598,34 @@ def test_mock_kong_luo_luo_still_hits_empty_feeling():
     assert not reply.lstrip().startswith("嗯")
 
 
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "心好堵",
+        "好心堵",
+        "堵得慌",
+        "心里堵得慌",
+        "心堵得慌",
+        "心里堵",
+        "堵心",
+        "心堵",
+        "好堵",
+        "堵得慌啊",
+    ],
+)
+def test_mock_chest_stuffy_short(utterance: str):
+    """短句心好堵/堵得慌应共情接住，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(w in reply for w in ("堵", "陪", "消化", "缠人", "难受"))
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
 def test_mock_xin_liang_still_hits_heart_cold():
     """既有「心凉了」仍走心凉共情。"""
     reply = MockLLMProvider().generate(

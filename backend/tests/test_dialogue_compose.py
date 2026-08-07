@@ -581,7 +581,7 @@ def test_compose_low_energy_short(utterance: str):
 
 @pytest.mark.parametrize(
     "utterance",
-    ["心里堵", "堵得慌", "堵心"],
+    ["心里堵", "堵得慌", "堵心", "心好堵", "好心堵", "好堵", "心堵", "堵得慌啊"],
 )
 def test_compose_blocked_heart_short(utterance: str):
     """心里堵/堵心短句应先接住情绪，非 open 兜底。"""
