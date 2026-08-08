@@ -568,7 +568,7 @@ def test_compose_single_char_annoyed():
 
 @pytest.mark.parametrize(
     "utterance",
-    ["没劲", "好没劲", "没意思"],
+    ["没劲", "好没劲", "没意思", "没意思了", "好没意思", "真没意思", "感觉没意思"],
 )
 def test_compose_low_energy_short(utterance: str):
     """没劲/没意思短句应先接住低落感，非 open 兜底。"""

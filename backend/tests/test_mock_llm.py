@@ -526,6 +526,31 @@ def test_mock_xin_lei_tou_still_hits_xin_lei():
 @pytest.mark.parametrize(
     "utterance",
     [
+        "没意思",
+        "没意思了",
+        "好没意思",
+        "真没意思",
+        "感觉没意思",
+        "没劲",
+        "好没劲",
+    ],
+)
+def test_mock_boring_no_meaning_short(utterance: str):
+    """短句没意思/没劲应走低落共情，非空串/问卷兜底。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": utterance}],
+    )
+    assert reply
+    assert any(w in reply for w in ("低落", "硬撑", "陪"))
+    assert "好，我收到了" not in reply
+    assert "热线" not in reply
+    assert not reply.lstrip().startswith("嗯")
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    [
         "什么都不想干",
         "我什么都不想干",
         "啥也不想干",
