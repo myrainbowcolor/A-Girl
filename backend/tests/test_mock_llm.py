@@ -533,10 +533,14 @@ def test_mock_xin_lei_tou_still_hits_xin_lei():
         "什么也不想干",
         "整个人空了",
         "整个人都空了",
+        "感觉空了",
+        "掏空了",
+        "感觉掏空了",
+        "被掏空了",
     ],
 )
 def test_mock_nothing_todo_empty_self_short(utterance: str):
-    """短句什么都不想干/整个人空了应共情接住，非空串/问卷兜底。"""
+    """短句什么都不想干/整个人空了/感觉空了/掏空了应共情接住，非空串/问卷兜底。"""
     reply = MockLLMProvider().generate(
         _system("熟悉"),
         [{"role": "user", "content": utterance}],
@@ -563,9 +567,24 @@ def test_mock_nothing_todo_empty_self_short(utterance: str):
         assert "不想动" not in reply and "懒得动" not in reply
         assert "空落落" not in reply
         assert "整个人空了的感觉" not in reply
-    if "整个人" in utterance and "空了" in utterance:
+    if (
+        ("整个人" in utterance and "空了" in utterance)
+        or "感觉空了" in utterance
+        or "掏空了" in utterance
+    ):
         assert "不想干" not in reply and "干劲" not in reply
         assert "空落落" not in reply
+
+
+def test_mock_bare_kong_le_not_forced_hollow_branch():
+    """裸「空了」不得因本分支强制命中发空专用话术。"""
+    reply = MockLLMProvider().generate(
+        _system("熟悉"),
+        [{"role": "user", "content": "空了"}],
+    )
+    if reply:
+        assert "整个人空了的感觉" not in reply
+        assert "心里像被掏空" not in reply
 
 
 def test_mock_bu_xiang_dong_still_hits_exhausted_branch():

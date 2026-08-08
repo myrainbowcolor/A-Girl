@@ -1268,13 +1268,19 @@ def compose_contextual_reply(
             seed,
         )
 
-    # 短句什么都不想干/整个人空了（须在累透/不想动之后、短句烦躁之前；
+    # 短句什么都不想干/整个人空了/感觉空了/掏空了（须在累透/不想动之后、短句烦躁之前；
     # 不用裸「空了」，避免无关短句误伤；「不想动」已由更早分支接住）
     if len(text) <= 12 and (
         "不想干" in text
         or ("整个人" in text and "空了" in text)
+        or "感觉空了" in text
+        or "掏空了" in text
     ):
-        if "整个人" in text and "空了" in text:
+        if (
+            ("整个人" in text and "空了" in text)
+            or "感觉空了" in text
+            or "掏空了" in text
+        ):
             return _pick(
                 (
                     "整个人空了的感觉真的发虚……先别硬撑，我陪着你。",

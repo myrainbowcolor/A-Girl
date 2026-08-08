@@ -1096,10 +1096,14 @@ def test_compose_ti_bu_qi_jin_not_exhausted_apathetic():
         "什么也不想干",
         "整个人空了",
         "整个人都空了",
+        "感觉空了",
+        "掏空了",
+        "感觉掏空了",
+        "被掏空了",
     ],
 )
 def test_compose_nothing_todo_empty_self_short(utterance: str):
-    """什么都不想干/整个人空了短句应共情接住，非 open 兜底，且按关键词分流。"""
+    """什么都不想干/整个人空了/感觉空了/掏空了短句应共情接住，非 open 兜底，且按关键词分流。"""
     out = compose_contextual_reply(utterance, [])
     assert out
     assert any(
@@ -1126,9 +1130,21 @@ def test_compose_nothing_todo_empty_self_short(utterance: str):
         assert "不想动" not in out and "懒得动" not in out
         assert "空落落" not in out
         assert "整个人空了的感觉" not in out
-    if "整个人" in utterance and "空了" in utterance:
+    if (
+        ("整个人" in utterance and "空了" in utterance)
+        or "感觉空了" in utterance
+        or "掏空了" in utterance
+    ):
         assert "不想干" not in out and "干劲" not in out
         assert "空落落" not in out
+
+
+def test_compose_bare_kong_le_not_forced_hollow_branch():
+    """裸「空了」不得因本分支强制命中发空专用话术。"""
+    out = compose_contextual_reply("空了", [])
+    if out:
+        assert "整个人空了的感觉" not in out
+        assert "心里像被掏空" not in out
 
 
 def test_compose_bu_xiang_dong_still_hits_exhausted_branch():
