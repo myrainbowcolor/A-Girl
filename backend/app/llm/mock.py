@@ -38,7 +38,7 @@ _VENT = (
     "不想干", "整个人空了", "整个人都空了", "感觉空了", "掏空了",
     "堵得慌", "心里堵", "堵心", "心堵", "好堵",
 )
-_LOW = ("低落", "没劲", "丧", "emo", "心累")
+_LOW = ("低落", "没劲", "没意思", "丧", "emo", "心累")
 _POSITIVE = (
     "开心", "高兴", "喜欢", "谢谢", "哈哈", "棒", "幸福", "温暖", "想你",
     "offer", "录取", "通过", "中了", "dream",
@@ -99,6 +99,7 @@ def _user_tone(text: str) -> str:
         "累透", "累趴", "不想动", "懒得动", "没盼头", "没啥盼头", "无所谓了",
         "不想干", "整个人空了", "整个人都空了", "感觉空了", "掏空了",
         "堵得慌", "心里堵", "堵心", "心堵", "好堵",
+        "没意思", "没劲", "低落",
     )):
         return "negative"
     if is_positive_utterance(t):
@@ -452,8 +453,12 @@ def _scene_reply(
             f"先别急着复盘，我陪着你。"
         )
 
-    # emo / 丧 — 低落口语
-    if any(w in text.lower() for w in ("emo", "丧")) or "心累" in text:
+    # emo / 丧 / 没劲 / 没意思 / 低落 — 与 dialogue_compose 短句低落对齐
+    if (
+        any(w in text.lower() for w in ("emo", "丧"))
+        or any(w in text for w in ("心累", "心好累"))
+        or (len(text) <= 12 and any(w in text for w in ("没劲", "没意思", "低落")))
+    ):
         return (
             f"{dear}{mood}这种低落的感觉我懂。"
             f"不想硬撑的时候，就陪我随便聊聊也好。"
